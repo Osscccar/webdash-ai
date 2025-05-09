@@ -16,15 +16,29 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/use-toast";
 import { generateRandomSubdomain } from "@/lib/utils";
 import { UserWebsite } from "@/types";
+import { WebsitesList } from "@/components/dashboard/websites-list";
+import { WelcomeMessage } from "@/components/dashboard/welcome-message";
+import useTenWeb from "@/hooks/use-tenweb";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
+import { db } from "@/config/firebase";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, userData } = useAuth();
   const { toast } = useToast();
+  const tenWebHook = useTenWeb();
   const [isLoading, setIsLoading] = useState(true);
+  const [isWpDashboardLoading, setIsWpDashboardLoading] = useState(false);
   const [websites, setWebsites] = useState<UserWebsite[]>([]);
 
-  // Simple auth check and website loading
+  // Auth check and website loading
   useEffect(() => {
     const checkAuth = async () => {
       // Wait for auth to initialize
@@ -39,44 +53,110 @@ export default function DashboardPage() {
 
       // Load website data
       try {
-        // In a real app, fetch from Firebase or your backend
-        // For demo, use localStorage
-        const siteInfo = localStorage.getItem("webdash_site_info");
-        const subdomain =
-          localStorage.getItem("webdash_subdomain") ||
-          generateRandomSubdomain("site");
+        setIsLoading(true);
 
-        if (siteInfo) {
-          const parsedInfo = JSON.parse(siteInfo);
+        // Try to fetch websites from Firestore
+        const websitesRef = collection(db, "websites");
+        const q = query(websitesRef, where("userId", "==", user.uid));
+        const querySnapshot = await getDocs(q);
 
-          // Create a dummy website
-          const dummyWebsite: UserWebsite = {
-            id: "website-1",
-            domainId: 12345,
-            subdomain: subdomain,
-            siteUrl: `https://${subdomain}.10web.site`,
-            title:
-              parsedInfo.websiteTitle ||
-              parsedInfo.businessName ||
-              "My Website",
-            description:
-              parsedInfo.businessDescription || "AI-generated website",
-            createdAt: new Date().toISOString(),
-            lastModified: new Date().toISOString(),
-            status: "active",
-          };
+        const userWebsites: UserWebsite[] = [];
 
-          setWebsites([dummyWebsite]);
+        querySnapshot.forEach((doc) => {
+          userWebsites.push(doc.data() as UserWebsite);
+        });
+
+        // If no websites in Firestore, check localStorage
+        if (userWebsites.length === 0) {
+          const siteInfo = localStorage.getItem("webdash_site_info");
+          const websiteData = localStorage.getItem("webdash_website");
+          const subdomain = localStorage.getItem("webdash_subdomain");
+
+          if (websiteData) {
+            // We have a website created during the current session
+            try {
+              const parsedWebsite = JSON.parse(websiteData);
+              userWebsites.push(parsedWebsite);
+            } catch (error) {
+              console.error("Error parsing website data:", error);
+            }
+          } else if (siteInfo && subdomain) {
+            // We have site info but no complete website - create dummy for display
+            const parsedInfo = JSON.parse(siteInfo);
+
+            // Create a website entry
+            const dummyWebsite: UserWebsite = {
+              id: "website-1",
+              domainId: 12345, // This will be replaced by real data
+              subdomain: subdomain,
+              siteUrl: `https://${subdomain}.10web.site`,
+              title:
+                parsedInfo.websiteTitle ||
+                parsedInfo.businessName ||
+                "My Website",
+              description:
+                parsedInfo.businessDescription || "AI-generated website",
+              createdAt: new Date().toISOString(),
+              lastModified: new Date().toISOString(),
+              status: "active",
+            };
+
+            userWebsites.push(dummyWebsite);
+          }
         }
+
+        setWebsites(userWebsites);
       } catch (error) {
         console.error("Error loading website data:", error);
+        toast({
+          title: "Error loading websites",
+          description: "There was a problem loading your websites",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
     checkAuth();
-  }, [user, router]);
+  }, [user, router, toast]);
+
+  const handleOpenWPDashboard = async (website: UserWebsite) => {
+    setIsWpDashboardLoading(true);
+
+    try {
+      // Get WP admin URL
+      const wpAdminUrl = `${website.siteUrl}/wp-admin`;
+
+      // Get autologin token
+      const token = await tenWebHook.getWPAutologinToken(
+        website.domainId,
+        wpAdminUrl
+      );
+
+      if (!token) {
+        throw new Error("Failed to get WordPress autologin token");
+      }
+
+      // Construct the autologin URL as described in the 10Web API docs
+      const email = user?.email || "";
+      const autologinUrl = `${wpAdminUrl}/?twb_wp_login_token=${token}&email=${encodeURIComponent(
+        email
+      )}`;
+
+      // Open the WordPress admin in a new tab
+      window.open(autologinUrl, "_blank");
+    } catch (error: any) {
+      console.error("Error accessing WordPress dashboard:", error);
+      toast({
+        title: "Error accessing WordPress dashboard",
+        description: error.message || "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setIsWpDashboardLoading(false);
+    }
+  };
 
   // Simple loading state
   if (isLoading) {
@@ -90,20 +170,15 @@ export default function DashboardPage() {
     );
   }
 
+  const userName = userData?.firstName || user?.email?.split("@")[0] || "there";
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <DashboardHeader />
 
       <main className="flex-grow container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
-          <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-100 mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">
-              Welcome to your Dashboard!
-            </h1>
-            <p className="text-gray-500">
-              Here you can manage your AI-generated websites.
-            </p>
-          </div>
+          <WelcomeMessage userName={userName} />
 
           <div className="mt-8">
             <div className="flex justify-between items-center mb-6">
@@ -117,124 +192,11 @@ export default function DashboardPage() {
             </div>
 
             {websites.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {websites.map((website) => (
-                  <Card
-                    key={website.id}
-                    className="bg-white shadow-sm border hover:shadow-md transition-shadow"
-                  >
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-xl">{website.title}</CardTitle>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <span className="inline-block h-2 w-2 rounded-full bg-green-500"></span>
-                        <span className="text-sm text-gray-500 capitalize">
-                          {website.status}
-                        </span>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="aspect-video bg-gray-100 rounded-md overflow-hidden relative">
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-full p-4">
-                              <div className="h-2 bg-gray-200 rounded w-1/2 mb-2"></div>
-                              <div className="h-1 bg-gray-200 rounded mb-1 w-3/4"></div>
-                              <div className="h-1 bg-gray-200 rounded mb-1 w-5/6"></div>
-                              <div className="h-1 bg-gray-200 rounded w-2/3"></div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">URL</span>
-                            <a
-                              href={website.siteUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[#f58327] hover:underline truncate max-w-[200px] flex items-center"
-                            >
-                              {website.siteUrl.replace(/^https?:\/\//, "")}
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="12"
-                                height="12"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="ml-1"
-                              >
-                                <path d="M7 17L17 7"></path>
-                                <path d="M7 7h10v10"></path>
-                              </svg>
-                            </a>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Created</span>
-                            <span>
-                              {new Date(website.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="flex justify-between pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push("/editor")}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-2"
-                        >
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-[#f58327] hover:bg-[#f58327]/90 text-white"
-                        onClick={() => {
-                          window.open(
-                            `https://${website.subdomain}.10web.site/wp-admin`,
-                            "_blank"
-                          );
-                        }}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-2"
-                        >
-                          <path d="M12 20h9"></path>
-                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                        </svg>
-                        WP Dashboard
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
+              <WebsitesList
+                websites={websites}
+                onOpenWPDashboard={handleOpenWPDashboard}
+                isLoading={isWpDashboardLoading}
+              />
             ) : (
               <Card className="bg-white shadow-sm border-dashed border-2 border-gray-200">
                 <CardContent className="p-8 text-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./use-auth";
 import { useToast } from "@/components/ui/use-toast";
@@ -10,19 +10,15 @@ import { GenerationStep, UserWebsite, WebsiteGenerationParams } from "@/types";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
 
-// Option to enable mockMode for testing
-const mockMode =
-  process.env.NEXT_PUBLIC_USE_MOCK_API === "true" ||
-  process.env.NODE_ENV === "development";
-
 export function useTenWeb() {
   const router = useRouter();
-  const { user, userData, updateUserProfile } = useAuth();
+  const { user, userData } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const isGeneratingRef = useRef(false); // Add this to track generation state
   const [generationProgress, setGenerationProgress] = useState({
     step: 0,
-    totalSteps: 7,
+    totalSteps: 3, // Simplified steps to match the API flow
     currentStep: GenerationStep.CREATING_SITE,
     progress: 0,
     status: "pending" as "pending" | "processing" | "complete" | "error",
@@ -39,23 +35,31 @@ export function useTenWeb() {
   ) => {
     setGenerationProgress({
       step,
-      totalSteps: 7,
+      totalSteps: 3, // Simplified to 3 steps: start, create website, generate AI site
       currentStep,
-      progress: progress || (step / 7) * 100,
+      progress: progress,
       status,
     });
   };
 
   /**
    * Generate a website from a prompt
-   * No authentication required for this step
    */
   const generateWebsite = async (
     prompt: string,
     params?: Partial<WebsiteGenerationParams>
   ) => {
+    // Prevent duplicate website creation
+    if (isGeneratingRef.current) {
+      console.log(
+        "Website generation already in progress, skipping duplicate call"
+      );
+      return null;
+    }
+
+    isGeneratingRef.current = true;
     setIsLoading(true);
-    updateGenerationProgress(0, GenerationStep.CREATING_SITE, "processing");
+    updateGenerationProgress(0, GenerationStep.CREATING_SITE, "processing", 0);
 
     try {
       // Generate a random subdomain if not provided
@@ -89,125 +93,30 @@ export function useTenWeb() {
       localStorage.setItem("webdash_site_info", JSON.stringify(siteInfo));
       localStorage.setItem("webdash_subdomain", subdomain);
 
-      updateGenerationProgress(
-        1,
-        GenerationStep.CREATING_SITE,
-        "processing",
-        20
-      );
+      // Using the API docs flow: create website then apply AI
+      const result = await tenwebApi.generateWebsiteFromPrompt({
+        prompt,
+        subdomain,
+        region: "us-central1-c",
+        siteTitle: params?.websiteTitle || businessName,
+        businessType,
+        businessName,
+        businessDescription,
+        adminPassword: "Password1Ab", // Hard-coded password that meets requirements
+        onProgress: updateGenerationProgress,
+      });
 
-      // Call the 10Web API to generate the website
-      let result;
-
-      try {
-        result = await tenwebApi.generateWebsiteFromPrompt({
-          prompt,
-          subdomain,
-          region: "us-central1",
-          siteTitle: params?.websiteTitle || businessName,
-          businessType,
-          businessName,
-          businessDescription,
-          onProgress: (step, message, progress) => {
-            let currentStep = GenerationStep.CREATING_SITE;
-
-            switch (step) {
-              case 1:
-                currentStep = GenerationStep.CREATING_SITE;
-                break;
-              case 2:
-                currentStep = GenerationStep.GENERATING_SITEMAP;
-                break;
-              case 3:
-                currentStep = GenerationStep.DESIGNING_PAGES;
-                break;
-              case 4:
-                currentStep = GenerationStep.FINALIZING;
-                break;
-              default:
-                currentStep = GenerationStep.CREATING_SITE;
-            }
-
-            updateGenerationProgress(step, currentStep, "processing", progress);
-          },
-        });
-      } catch (error) {
-        console.error("Error in API call:", error);
-
-        if (mockMode) {
-          console.log("Using mock data due to API error");
-          // Simulate successful generation with mock data
-          result = {
-            success: true,
-            domainId: 12345,
-            sitemapData: {},
-            uniqueId: `mock_${Math.random().toString(36).substring(2, 10)}`,
-            url: `https://${subdomain}.10web.site`,
-          };
-
-          // Simulate progress
-          for (let i = 2; i <= 7; i++) {
-            const step = i;
-            const progress = (step / 7) * 100;
-            let currentStep = GenerationStep.CREATING_SITE;
-
-            switch (step) {
-              case 2:
-                currentStep = GenerationStep.GENERATING_SITEMAP;
-                break;
-              case 3:
-                currentStep = GenerationStep.DESIGNING_PAGES;
-                break;
-              case 4:
-                currentStep = GenerationStep.SETTING_UP_NAVIGATION;
-                break;
-              case 5:
-                currentStep = GenerationStep.OPTIMIZING_FOR_DEVICES;
-                break;
-              case 6:
-                currentStep = GenerationStep.BOOSTING_SPEED;
-                break;
-              case 7:
-                currentStep = GenerationStep.FINALIZING;
-                break;
-            }
-
-            // Update progress with a slight delay for each step
-            setTimeout(() => {
-              updateGenerationProgress(
-                step,
-                currentStep,
-                "processing",
-                progress
-              );
-
-              if (step === 7) {
-                updateGenerationProgress(
-                  7,
-                  GenerationStep.FINALIZING,
-                  "complete",
-                  100
-                );
-              }
-            }, (i - 1) * 1000);
-          }
-        } else {
-          throw error;
-        }
-      }
-
-      // Create a website object
+      // Create a website object based on the result
       const website: UserWebsite = {
         id: `website-${Date.now()}`,
-        domainId: result.domainId || 12345,
+        domainId: result.domainId,
         subdomain,
-        siteUrl: result.url || `https://${subdomain}.10web.site`,
+        siteUrl: result.url,
         title: businessName,
         description: businessDescription,
         createdAt: new Date().toISOString(),
         lastModified: new Date().toISOString(),
         status: "active",
-        unique_id: result.uniqueId,
       };
 
       // Store the website data in localStorage for later access after auth
@@ -221,19 +130,13 @@ export function useTenWeb() {
             ...website,
             userId: user.uid,
           });
-
-          // Update user's website list
-          const websites = userData.websites || [];
-          await updateUserProfile({
-            websites: [...websites, website],
-          });
         } catch (error) {
           console.error("Failed to update user profile:", error);
         }
       }
 
-      // Update generation progress
-      updateGenerationProgress(6, GenerationStep.FINALIZING, "complete", 100);
+      // Update progress to complete
+      updateGenerationProgress(3, GenerationStep.FINALIZING, "complete", 100);
 
       toast({
         title: "Website generated successfully",
@@ -244,7 +147,7 @@ export function useTenWeb() {
     } catch (error: any) {
       console.error("Error generating website:", error);
 
-      updateGenerationProgress(0, GenerationStep.CREATING_SITE, "error");
+      updateGenerationProgress(0, GenerationStep.CREATING_SITE, "error", 0);
 
       toast({
         title: "Error generating website",
@@ -255,15 +158,16 @@ export function useTenWeb() {
       return null;
     } finally {
       setIsLoading(false);
+      isGeneratingRef.current = false; // Reset the generation flag
     }
   };
 
   /**
    * Get WP autologin token for a website
-   * This does require authentication
+   * This requires authentication
    */
   const getWPAutologinToken = async (domainId: number, adminUrl: string) => {
-    if (!user && !mockMode) {
+    if (!user) {
       toast({
         title: "Authentication required",
         description: "Please sign in to access WordPress dashboard",
@@ -277,26 +181,11 @@ export function useTenWeb() {
     setIsLoading(true);
 
     try {
-      let token;
-
-      try {
-        const result = await tenwebApi.getWPAutologinToken({
-          domainId,
-          adminUrl,
-        });
-        token = result.token;
-      } catch (error) {
-        console.error("Error getting WP autologin token:", error);
-
-        if (mockMode) {
-          // Generate a mock token for testing
-          token = `mock_token_${Math.random().toString(36).substring(2, 15)}`;
-        } else {
-          throw error;
-        }
-      }
-
-      return token;
+      const result = await tenwebApi.getWPAutologinToken({
+        domainId,
+        adminUrl,
+      });
+      return result.token;
     } catch (error: any) {
       console.error("Error getting WP autologin token:", error);
 

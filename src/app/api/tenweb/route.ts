@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { rateLimit } from "@/lib/rate-limit";
 
+// Create a rate limiter instance
 const limiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
-  uniqueTokenPerInterval: 100,
+  intervalInMs: 60000, // 1 minute
+  maxRequests: 100, // 100 requests per minute
 });
 
 // 10Web API configuration
 const TENWEB_API_KEY = process.env.TENWEB_API_KEY;
-const TENWEB_API_BASE_URL = "https://10web.io/api/v1";
+const TENWEB_API_BASE_URL = "https://api.10web.io";
 
 // Create a secure axios instance for 10Web API calls
 const tenwebApi = axios.create({
@@ -25,10 +26,11 @@ const tenwebApi = axios.create({
  */
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting
-    try {
-      await limiter.check(100, "TENWEB_API");
-    } catch (error) {
+    // Apply rate limiting
+    const ip = request.headers.get("x-forwarded-for") || "anonymous";
+    const isAllowed = limiter.check(`${ip}_POST`);
+
+    if (!isAllowed) {
       return NextResponse.json(
         { error: "Rate limit exceeded, please try again later" },
         { status: 429 }
@@ -59,6 +61,7 @@ export async function POST(request: NextRequest) {
           error?.message ||
           "Something went wrong",
         status: error?.response?.status || 500,
+        details: error?.response?.data || {},
       },
       { status: error?.response?.status || 500 }
     );
@@ -67,10 +70,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Rate limiting
-    try {
-      await limiter.check(100, "TENWEB_API");
-    } catch (error) {
+    // Apply rate limiting
+    const ip = request.headers.get("x-forwarded-for") || "anonymous";
+    const isAllowed = limiter.check(`${ip}_GET`);
+
+    if (!isAllowed) {
       return NextResponse.json(
         { error: "Rate limit exceeded, please try again later" },
         { status: 429 }
@@ -98,6 +102,7 @@ export async function GET(request: NextRequest) {
           error?.message ||
           "Something went wrong",
         status: error?.response?.status || 500,
+        details: error?.response?.data || {},
       },
       { status: error?.response?.status || 500 }
     );

@@ -7,12 +7,9 @@ import {
   GenerateSiteParams,
 } from "@/types";
 
-// Use environment variable to determine if we should use the mock API
-const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
-
 // Create a secure axios instance for 10Web API calls through our Next.js API route
 const tenwebApi = axios.create({
-  baseURL: USE_MOCK_API ? "/api/tenweb-mock" : "/api/tenweb",
+  baseURL: "/api/tenweb",
   headers: {
     "Content-Type": "application/json",
   },
@@ -32,6 +29,7 @@ tenwebApi.interceptors.response.use(
 
 /**
  * Create a new website on 10Web
+ * Using endpoint: /hosting/website (POST)
  */
 export const createWebsite = async (params: {
   subdomain: string;
@@ -42,74 +40,77 @@ export const createWebsite = async (params: {
 }) => {
   // Generate secure admin credentials if not provided
   const adminUsername = params.adminUsername || `admin_${params.subdomain}`;
-  const adminPassword = params.adminPassword || generateSecurePassword();
 
+  // Create a hard-coded password that definitely meets the requirements
+  const adminPassword = params.adminPassword || "Password1Ab";
+
+  // Ensure the region is valid for 10Web
+  const region = "us-central1-c";
+
+  // Prepare request body according to API docs
   const websiteParams: WebsiteCreateParams = {
     subdomain: params.subdomain,
-    region: params.region,
+    region: region,
     site_title: params.siteTitle,
     admin_username: adminUsername,
     admin_password: adminPassword,
   };
 
-  console.log("Creating website:", params.subdomain);
-  const response = await tenwebApi.post("/hosting/website", websiteParams);
-  return response.data;
+  console.log("Creating website with params:", {
+    subdomain: params.subdomain,
+    region: region,
+    site_title: params.siteTitle,
+    admin_username: adminUsername,
+  });
+
+  try {
+    // Using the exact endpoint from API docs: /hosting/website
+    const response = await tenwebApi.post("/hosting/website", websiteParams);
+    console.log("Website creation successful:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error creating website:", error);
+    throw error;
+  }
 };
 
 /**
- * Generate sitemap for a website
+ * Generate an AI-powered website
+ * Using endpoint: /ai/generate_site (POST)
  */
-export const generateSitemap = async (params: {
+export const generateAISite = async (params: {
   domainId: number;
   businessType: string;
   businessName: string;
   businessDescription: string;
 }) => {
-  const sitemapParams: SitemapGenerateParams = {
+  console.log(`Generating AI site for domain ID: ${params.domainId}`);
+
+  // Prepare request body according to API docs
+  const requestBody = {
     domain_id: params.domainId,
-    params: {
-      business_type: params.businessType,
-      business_name: params.businessName,
-      business_description: params.businessDescription,
-    },
+    business_type: params.businessType,
+    business_name: params.businessName,
+    business_description: params.businessDescription,
   };
 
-  console.log("Generating sitemap for domain:", params.domainId);
-  const response = await tenwebApi.post("/ai/generate_sitemap", sitemapParams);
-  return response.data;
-};
+  console.log("AI generation request body:", requestBody);
 
-/**
- * Generate a website using a previously created sitemap
- */
-export const generateSiteFromSitemap = async (params: {
-  domainId: number;
-  uniqueId: string;
-  sitemapData: any;
-}) => {
-  const generateParams: GenerateSiteParams = {
-    domain_id: params.domainId,
-    unique_id: params.uniqueId,
-    params: params.sitemapData,
-  };
-
-  console.log("Generating site from sitemap for domain:", params.domainId);
-  const response = await tenwebApi.post(
-    "/ai/generate_site_from_sitemap",
-    generateParams
-  );
+  // Using the exact endpoint from API docs: /ai/generate_site
+  const response = await tenwebApi.post("/ai/generate_site", requestBody);
   return response.data;
 };
 
 /**
  * Get a single-use autologin token for WordPress admin access
+ * Using endpoint: /account/domains/{domain_id}/single?admin_url={wp_admin_url} (GET)
  */
 export const getWPAutologinToken = async (params: {
   domainId: number;
   adminUrl: string;
 }) => {
   console.log("Getting WP autologin token for domain:", params.domainId);
+  // Using the exact endpoint from API docs
   const response = await tenwebApi.get(
     `/account/domains/${params.domainId}/single?admin_url=${encodeURIComponent(
       params.adminUrl
@@ -134,11 +135,10 @@ export const generateWebsiteFromPrompt = async (params: {
   adminPassword?: string;
   onProgress?: (step: number, message: string, progress: number) => void;
 }) => {
-  // Step 1: Create a website
-  params.onProgress?.(1, "Creating website", 10);
-
   try {
     // Step 1: Create a website
+    params.onProgress?.(1, "Creating website", 20);
+
     const websiteResponse = await createWebsite({
       subdomain: params.subdomain,
       region: params.region,
@@ -148,64 +148,35 @@ export const generateWebsiteFromPrompt = async (params: {
     });
 
     const domainId = websiteResponse.data.domain_id;
-    params.onProgress?.(2, "Website created, generating sitemap", 30);
+    console.log(`Website created with domain ID: ${domainId}`);
 
-    // Step 2: Generate sitemap
-    const sitemapResponse = await generateSitemap({
-      domainId,
+    params.onProgress?.(2, "Website created, applying AI", 60);
+
+    // Step 2: Generate AI site
+    const aiResponse = await generateAISite({
+      domainId: domainId,
       businessType: params.businessType,
       businessName: params.businessName,
       businessDescription: params.businessDescription,
     });
 
-    const sitemapData = sitemapResponse.data;
-    const uniqueId = sitemapData.unique_id;
-
-    params.onProgress?.(3, "Generating website", 50);
-
-    // Step 3: Generate website from sitemap
-    const generateResponse = await generateSiteFromSitemap({
-      domainId,
-      uniqueId,
-      sitemapData,
-    });
-
-    params.onProgress?.(4, "Website generated successfully", 100);
+    console.log("AI site generation response:", aiResponse);
+    params.onProgress?.(3, "AI website ready", 100);
 
     return {
       success: true,
-      domainId,
-      sitemapData,
-      uniqueId,
-      url: generateResponse.data.url,
+      domainId: domainId,
+      url: aiResponse?.data?.url || `https://${params.subdomain}.10web.site`,
     };
   } catch (error) {
     console.error("Error in website generation process:", error);
-
-    // If we're in development/testing mode, return a mock success response
-    if (USE_MOCK_API || process.env.NODE_ENV === "development") {
-      console.log("Returning mock success response for development");
-      params.onProgress?.(4, "Website generated successfully (mock)", 100);
-
-      return {
-        success: true,
-        domainId: 12345,
-        sitemapData: {
-          unique_id: `mock_${Math.random().toString(36).substring(2, 10)}`,
-        },
-        uniqueId: `mock_${Math.random().toString(36).substring(2, 10)}`,
-        url: `https://${params.subdomain}.10web.site`,
-      };
-    }
-
     throw error;
   }
 };
 
 export default {
   createWebsite,
-  generateSitemap,
-  generateSiteFromSitemap,
   getWPAutologinToken,
+  generateAISite,
   generateWebsiteFromPrompt,
 };

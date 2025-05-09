@@ -40,8 +40,8 @@ export function WebsitePreview({
     );
   }
 
-  // This is a mock preview - in a real implementation, you would render the actual website
-  // based on the 10Web API response or generate a more sophisticated preview
+  // This is a preview - in a real implementation, you would render the actual website
+  // or use an iframe to show the real 10Web site
   return (
     <div
       className={`mx-auto bg-white shadow-xl overflow-hidden transition-all ${
@@ -57,7 +57,7 @@ export function WebsitePreview({
       >
         <div className="relative">
           {hoveredElement === "header" && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
               <button className="bg-white text-gray-800 rounded-full p-2">
                 <Edit2 className="h-5 w-5" />
               </button>
@@ -104,7 +104,7 @@ export function WebsitePreview({
       >
         <div className="relative">
           {hoveredElement === "hero" && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
               <button className="bg-white text-gray-800 rounded-full p-2">
                 <Edit2 className="h-5 w-5" />
               </button>
@@ -132,7 +132,7 @@ export function WebsitePreview({
       >
         <div className="relative">
           {hoveredElement === "services" && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
               <button className="bg-white text-gray-800 rounded-full p-2">
                 <Edit2 className="h-5 w-5" />
               </button>
@@ -165,7 +165,7 @@ export function WebsitePreview({
       >
         <div className="relative">
           {hoveredElement === "about" && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
               <button className="bg-white text-gray-800 rounded-full p-2">
                 <Edit2 className="h-5 w-5" />
               </button>
@@ -194,7 +194,7 @@ export function WebsitePreview({
       >
         <div className="relative">
           {hoveredElement === "footer" && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
               <button className="bg-white text-gray-800 rounded-full p-2">
                 <Edit2 className="h-5 w-5" />
               </button>

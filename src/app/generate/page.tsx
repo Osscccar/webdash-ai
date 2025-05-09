@@ -49,16 +49,34 @@ export default function GeneratePage() {
 
   const startGeneration = async (prompt: string) => {
     try {
-      // Extract business type, name, and description from the prompt
-      // For a real app, this could be done with AI
-      const defaultBusinessName = "My Website";
+      // Extract business info from the prompt
+      // In a real implementation, you might want to use AI to analyze the prompt
+      // For now, we'll use a simple extraction
+      const businessNameMatch = prompt.match(/for\s+(?:my|a)\s+([a-zA-Z\s]+)/i);
+      const businessName = businessNameMatch?.[1]?.trim() || "Business Website";
+
+      // Try to determine business type from prompt
+      let businessType = "agency";
+      if (
+        prompt.toLowerCase().includes("restaurant") ||
+        prompt.toLowerCase().includes("cafe")
+      ) {
+        businessType = "restaurant";
+      } else if (
+        prompt.toLowerCase().includes("shop") ||
+        prompt.toLowerCase().includes("store")
+      ) {
+        businessType = "e-commerce";
+      } else if (prompt.toLowerCase().includes("blog")) {
+        businessType = "blog";
+      }
 
       // Call the API to generate the website
       await tenWeb.generateWebsite(prompt, {
-        businessName: defaultBusinessName,
-        businessType: "agency",
+        businessName: businessName,
+        businessType: businessType,
         businessDescription: prompt,
-        websiteTitle: defaultBusinessName,
+        websiteTitle: businessName,
       });
     } catch (error) {
       console.error("Error during generation:", error);

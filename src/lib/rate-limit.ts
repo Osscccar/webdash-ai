@@ -1,35 +1,57 @@
-import { LRUCache } from "lru-cache";
+// src/lib/rate-limit.ts
+type RateLimitEntry = {
+  count: number;
+  lastReset: number;
+};
+
+type RateLimitStore = {
+  [key: string]: RateLimitEntry;
+};
 
 type Options = {
-  uniqueTokenPerInterval?: number;
-  interval?: number;
+  intervalInMs?: number;
+  maxRequests?: number;
 };
 
 /**
- * Rate limiting implementation for API routes
+ * A simple in-memory rate limiter that doesn't require external dependencies
  */
 export function rateLimit(options?: Options) {
-  const tokenCache = new LRUCache({
-    max: options?.uniqueTokenPerInterval || 500,
-    ttl: options?.interval || 60000,
-  });
+  const store: RateLimitStore = {};
+  const intervalMs = options?.intervalInMs || 60000; // Default: 1 minute
+  const maxRequests = options?.maxRequests || 100; // Default: 100 requests per interval
+
+  // Cleanup old entries every hour
+  setInterval(() => {
+    const now = Date.now();
+    for (const key in store) {
+      if (now - store[key].lastReset > intervalMs * 10) {
+        delete store[key];
+      }
+    }
+  }, 3600000); // Cleanup every hour
 
   return {
-    check: (limit: number, token: string) =>
-      new Promise<void>((resolve, reject) => {
-        const tokenCount = (tokenCache.get(token) as number[]) || [0];
-        if (tokenCount[0] === 0) {
-          tokenCache.set(token, [1]);
-          resolve();
-        } else {
-          tokenCount[0] += 1;
-          tokenCache.set(token, tokenCount);
-          if (tokenCount[0] > limit) {
-            reject(new Error("Rate limit exceeded"));
-          } else {
-            resolve();
-          }
-        }
-      }),
+    check: (token: string) => {
+      const now = Date.now();
+      const entry = store[token] || { count: 0, lastReset: now };
+
+      // Reset count if interval has passed
+      if (now - entry.lastReset > intervalMs) {
+        entry.count = 0;
+        entry.lastReset = now;
+      }
+
+      // Increment count
+      entry.count += 1;
+      store[token] = entry;
+
+      // Check if rate limit exceeded
+      if (entry.count > maxRequests) {
+        return false;
+      }
+
+      return true;
+    },
   };
 }

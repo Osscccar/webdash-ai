@@ -1,47 +1,78 @@
-// src/app/api/tenweb-mock/[...path]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { generateRandomSubdomain } from "@/lib/utils";
+import axios from "axios";
+import { rateLimit } from "@/lib/rate-limit";
 
-// Mock 10Web API for testing purposes
+// Create a rate limiter instance
+const limiter = rateLimit({
+  intervalInMs: 60000, // 1 minute
+  maxRequests: 100, // 100 requests per minute
+});
+
+// 10Web API configuration
+const TENWEB_API_KEY = process.env.TENWEB_API_KEY;
+const TENWEB_API_BASE_URL = "https://api.10web.io";
+
+// Create a secure axios instance for 10Web API calls
+const tenwebApi = axios.create({
+  baseURL: TENWEB_API_BASE_URL,
+  headers: {
+    "x-api-key": TENWEB_API_KEY,
+    "Content-Type": "application/json",
+  },
+});
+
+/**
+ * Dynamic API handler for all 10Web API endpoints
+ * This handles paths like /api/tenweb/hosting/website
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: { path: string[] } }
 ) {
   try {
+    // Apply rate limiting
+    const ip = request.headers.get("x-forwarded-for") || "anonymous";
+    const isAllowed = limiter.check(`${ip}_POST`);
+
+    if (!isAllowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded, please try again later" },
+        { status: 429 }
+      );
+    }
+
+    // Get the path from the URL (e.g. /hosting/website)
+    // Use string manipulation instead of directly accessing params.path
+    // This avoids the "params should be awaited" error
+    const url = request.nextUrl.pathname;
+    // Extract the part after /api/tenweb/
+    const path = url.replace(/^\/api\/tenweb\//, "");
+
+    console.log(`Forwarding 10Web API request to: ${path}`);
+
     // Parse request body
     const body = await request.json();
 
-    // Determine which endpoint was called based on path
-    const path = params.path.join("/");
-    console.log(`Mock 10Web API called: ${path}`);
-    console.log("Request body:", JSON.stringify(body, null, 2));
+    // Make the request to 10Web API
+    const response = await tenwebApi.post(`/${path}`, body);
 
-    // Handle different mock endpoints
-    if (path === "hosting/website") {
-      return handleCreateWebsite(body);
-    } else if (path === "ai/generate_sitemap") {
-      return handleGenerateSitemap(body);
-    } else if (path === "ai/generate_site_from_sitemap") {
-      return handleGenerateSiteFromSitemap(body);
-    }
-
-    // Default mock response
-    return NextResponse.json({
-      status: "ok",
-      message: "Mock operation successful",
-      data: {
-        id: Math.floor(Math.random() * 10000),
-      },
-    });
+    return NextResponse.json(response.data);
   } catch (error: any) {
-    console.error("Mock API error:", error);
+    console.error(
+      "10Web API Error:",
+      error?.response?.data || error?.message || error
+    );
 
     return NextResponse.json(
       {
-        error: error.message || "Mock API error",
-        status: 500,
+        error:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Something went wrong",
+        status: error?.response?.status || 500,
+        details: error?.response?.data || {},
       },
-      { status: 500 }
+      { status: error?.response?.status || 500 }
     );
   }
 }
@@ -51,163 +82,46 @@ export async function GET(
   { params }: { params: { path: string[] } }
 ) {
   try {
-    // Determine which endpoint was called based on path
-    const path = params.path.join("/");
-    const queryString = new URL(request.url).search;
-    console.log(`Mock 10Web API GET called: ${path}${queryString}`);
+    // Apply rate limiting
+    const ip = request.headers.get("x-forwarded-for") || "anonymous";
+    const isAllowed = limiter.check(`${ip}_GET`);
 
-    // Handle different GET endpoints
-    if (path.includes("/single")) {
-      return handleGetWPAutologinToken();
+    if (!isAllowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded, please try again later" },
+        { status: 429 }
+      );
     }
 
-    // Default mock response
-    return NextResponse.json({
-      status: "ok",
-      message: "Mock GET operation successful",
-      data: {
-        id: Math.floor(Math.random() * 10000),
-      },
-    });
+    // Get the path from the URL
+    // Use string manipulation instead of directly accessing params.path
+    const url = request.nextUrl.pathname;
+    // Extract the part after /api/tenweb/
+    const path = url.replace(/^\/api\/tenweb\//, "");
+
+    const queryString = request.nextUrl.search || "";
+    console.log(`Forwarding 10Web API GET request to: ${path}${queryString}`);
+
+    // Make the request to 10Web API
+    const response = await tenwebApi.get(`/${path}${queryString}`);
+
+    return NextResponse.json(response.data);
   } catch (error: any) {
-    console.error("Mock API GET error:", error);
+    console.error(
+      "10Web API GET Error:",
+      error?.response?.data || error?.message || error
+    );
 
     return NextResponse.json(
       {
-        error: error.message || "Mock API GET error",
-        status: 500,
+        error:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Something went wrong",
+        status: error?.response?.status || 500,
+        details: error?.response?.data || {},
       },
-      { status: 500 }
+      { status: error?.response?.status || 500 }
     );
   }
-}
-
-// Mock handlers for specific endpoints
-
-function handleCreateWebsite(body: any) {
-  // Simulate website creation
-  const { subdomain, region, site_title } = body;
-
-  // Validate required fields
-  if (!subdomain || !region || !site_title) {
-    return NextResponse.json(
-      {
-        error: "Missing required fields",
-        status: 400,
-      },
-      { status: 400 }
-    );
-  }
-
-  return NextResponse.json({
-    status: "ok",
-    data: {
-      domain_id: Math.floor(Math.random() * 10000) + 10000,
-      subdomain,
-      site_url: `https://${subdomain}.10web.site`,
-    },
-  });
-}
-
-function handleGenerateSitemap(body: any) {
-  // Simulate sitemap generation
-  const { domain_id, params } = body;
-
-  if (!domain_id || !params) {
-    return NextResponse.json(
-      {
-        error: "Missing required fields",
-        status: 400,
-      },
-      { status: 400 }
-    );
-  }
-
-  // Create a mock sitemap based on the business description
-  const { business_type, business_name, business_description } = params;
-
-  return NextResponse.json({
-    status: "ok",
-    data: {
-      business_description,
-      business_name,
-      business_type,
-      colors: {
-        background_dark: "#212121",
-        primary_color: "#ff69b4",
-        secondary_color: "#ffd700",
-      },
-      domain_id,
-      fonts: {
-        primary_font: "Montserrat",
-      },
-      pages_meta: [
-        {
-          description:
-            "The home page is the primary landing page for the website.",
-          sections: [
-            {
-              section_description: "Header section with logo and navigation.",
-              section_title: "Header",
-            },
-            {
-              section_description: "Hero section with main value proposition.",
-              section_title: "Hero",
-            },
-          ],
-          title: "Home",
-        },
-        {
-          description: "About page with company details.",
-          sections: [
-            {
-              section_description: "Our story and mission.",
-              section_title: "About Us",
-            },
-          ],
-          title: "About",
-        },
-      ],
-      unique_id: `mock_unique_${Math.random().toString(36).substring(2, 15)}`,
-      website_description: `${business_name} - ${business_description}`,
-      website_keyphrase: business_name.toLowerCase(),
-      website_title: business_name,
-      website_type: "basic",
-    },
-  });
-}
-
-function handleGenerateSiteFromSitemap(body: any) {
-  // Simulate website generation from sitemap
-  const { domain_id, unique_id } = body;
-
-  if (!domain_id || !unique_id) {
-    return NextResponse.json(
-      {
-        error: "Missing required fields",
-        status: 400,
-      },
-      { status: 400 }
-    );
-  }
-
-  // Simulate a delay for more realistic behavior
-  // In a real implementation, we'd use await new Promise(resolve => setTimeout(resolve, 2000));
-
-  return NextResponse.json({
-    status: "ok",
-    data: {
-      url: `https://${generateRandomSubdomain("site")}.10web.site`,
-      domain_id,
-      unique_id,
-    },
-  });
-}
-
-function handleGetWPAutologinToken() {
-  // Simulate generating a WordPress autologin token
-  return NextResponse.json({
-    status: "ok",
-    token: `mock_wp_token_${Math.random().toString(36).substring(2, 15)}`,
-  });
 }
