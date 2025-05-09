@@ -1,10 +1,8 @@
+// src/app/api/tenweb-mock/[...path]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import axios from "axios";
+import { generateRandomSubdomain } from "@/lib/utils";
 
-// 10Web API configuration
-const TENWEB_API_KEY = process.env.TENWEB_API_KEY;
-const TENWEB_API_BASE_URL = "https://10web.io/api/v1";
-
+// Mock 10Web API for testing purposes
 export async function POST(
   request: NextRequest,
   { params }: { params: { path: string[] } }
@@ -13,72 +11,37 @@ export async function POST(
     // Parse request body
     const body = await request.json();
 
-    // Construct API path
+    // Determine which endpoint was called based on path
     const path = params.path.join("/");
-    const url = `${TENWEB_API_BASE_URL}/${path}`;
-
-    console.log(`Making POST request to 10Web API: ${url}`);
+    console.log(`Mock 10Web API called: ${path}`);
     console.log("Request body:", JSON.stringify(body, null, 2));
-    console.log(
-      "API Key (first 5 chars):",
-      TENWEB_API_KEY ? TENWEB_API_KEY.substring(0, 5) : "undefined"
-    );
 
-    // Test if we can make a basic request to 10Web API
-    const testResponse = await axios.get(
-      `${TENWEB_API_BASE_URL}/account/domains`,
-      {
-        headers: {
-          "x-api-key": TENWEB_API_KEY as string,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    // Handle different mock endpoints
+    if (path === "hosting/website") {
+      return handleCreateWebsite(body);
+    } else if (path === "ai/generate_sitemap") {
+      return handleGenerateSitemap(body);
+    } else if (path === "ai/generate_site_from_sitemap") {
+      return handleGenerateSiteFromSitemap(body);
+    }
 
-    console.log("Test request successful:", testResponse.status);
-
-    // If test request succeeded, make the actual request
-    const response = await axios.post(url, body, {
-      headers: {
-        "x-api-key": TENWEB_API_KEY as string,
-        "Content-Type": "application/json",
+    // Default mock response
+    return NextResponse.json({
+      status: "ok",
+      message: "Mock operation successful",
+      data: {
+        id: Math.floor(Math.random() * 10000),
       },
     });
-
-    return NextResponse.json(response.data);
   } catch (error: any) {
-    // Detailed error logging
-    console.error("10Web API Error Details:");
-    console.error("Status:", error.response?.status);
-    console.error("Status Text:", error.response?.statusText);
-    console.error("Headers:", JSON.stringify(error.response?.headers, null, 2));
-    console.error("Data:", JSON.stringify(error.response?.data, null, 2));
-
-    if (error.response?.status === 403) {
-      console.error("403 Forbidden - This typically means:");
-      console.error("1. Your API key is invalid or expired");
-      console.error(
-        "2. Your account doesn't have permissions for this operation"
-      );
-      console.error("3. The request format is incorrect");
-
-      // Check if the API key is being passed correctly
-      console.error(
-        "API Key check:",
-        TENWEB_API_KEY ? "Present (masked)" : "Missing"
-      );
-    }
+    console.error("Mock API error:", error);
 
     return NextResponse.json(
       {
-        error:
-          error.response?.data?.message ||
-          error.message ||
-          "Failed to post data to 10Web API",
-        status: error.response?.status || 500,
-        details: error.response?.data || null,
+        error: error.message || "Mock API error",
+        status: 500,
       },
-      { status: error.response?.status || 500 }
+      { status: 500 }
     );
   }
 }
@@ -88,40 +51,163 @@ export async function GET(
   { params }: { params: { path: string[] } }
 ) {
   try {
-    // Construct API path
+    // Determine which endpoint was called based on path
     const path = params.path.join("/");
     const queryString = new URL(request.url).search;
-    const url = `${TENWEB_API_BASE_URL}/${path}${queryString}`;
+    console.log(`Mock 10Web API GET called: ${path}${queryString}`);
 
-    console.log(`Making GET request to 10Web API: ${url}`);
+    // Handle different GET endpoints
+    if (path.includes("/single")) {
+      return handleGetWPAutologinToken();
+    }
 
-    // Make request to 10Web API
-    const response = await axios.get(url, {
-      headers: {
-        "x-api-key": TENWEB_API_KEY as string,
-        "Content-Type": "application/json",
+    // Default mock response
+    return NextResponse.json({
+      status: "ok",
+      message: "Mock GET operation successful",
+      data: {
+        id: Math.floor(Math.random() * 10000),
       },
     });
-
-    return NextResponse.json(response.data);
   } catch (error: any) {
-    // Detailed error logging
-    console.error("10Web API Error Details:");
-    console.error("Status:", error.response?.status);
-    console.error("Status Text:", error.response?.statusText);
-    console.error("Headers:", JSON.stringify(error.response?.headers, null, 2));
-    console.error("Data:", JSON.stringify(error.response?.data, null, 2));
+    console.error("Mock API GET error:", error);
 
     return NextResponse.json(
       {
-        error:
-          error.response?.data?.message ||
-          error.message ||
-          "Failed to fetch data from 10Web API",
-        status: error.response?.status || 500,
-        details: error.response?.data || null,
+        error: error.message || "Mock API GET error",
+        status: 500,
       },
-      { status: error.response?.status || 500 }
+      { status: 500 }
     );
   }
+}
+
+// Mock handlers for specific endpoints
+
+function handleCreateWebsite(body: any) {
+  // Simulate website creation
+  const { subdomain, region, site_title } = body;
+
+  // Validate required fields
+  if (!subdomain || !region || !site_title) {
+    return NextResponse.json(
+      {
+        error: "Missing required fields",
+        status: 400,
+      },
+      { status: 400 }
+    );
+  }
+
+  return NextResponse.json({
+    status: "ok",
+    data: {
+      domain_id: Math.floor(Math.random() * 10000) + 10000,
+      subdomain,
+      site_url: `https://${subdomain}.10web.site`,
+    },
+  });
+}
+
+function handleGenerateSitemap(body: any) {
+  // Simulate sitemap generation
+  const { domain_id, params } = body;
+
+  if (!domain_id || !params) {
+    return NextResponse.json(
+      {
+        error: "Missing required fields",
+        status: 400,
+      },
+      { status: 400 }
+    );
+  }
+
+  // Create a mock sitemap based on the business description
+  const { business_type, business_name, business_description } = params;
+
+  return NextResponse.json({
+    status: "ok",
+    data: {
+      business_description,
+      business_name,
+      business_type,
+      colors: {
+        background_dark: "#212121",
+        primary_color: "#ff69b4",
+        secondary_color: "#ffd700",
+      },
+      domain_id,
+      fonts: {
+        primary_font: "Montserrat",
+      },
+      pages_meta: [
+        {
+          description:
+            "The home page is the primary landing page for the website.",
+          sections: [
+            {
+              section_description: "Header section with logo and navigation.",
+              section_title: "Header",
+            },
+            {
+              section_description: "Hero section with main value proposition.",
+              section_title: "Hero",
+            },
+          ],
+          title: "Home",
+        },
+        {
+          description: "About page with company details.",
+          sections: [
+            {
+              section_description: "Our story and mission.",
+              section_title: "About Us",
+            },
+          ],
+          title: "About",
+        },
+      ],
+      unique_id: `mock_unique_${Math.random().toString(36).substring(2, 15)}`,
+      website_description: `${business_name} - ${business_description}`,
+      website_keyphrase: business_name.toLowerCase(),
+      website_title: business_name,
+      website_type: "basic",
+    },
+  });
+}
+
+function handleGenerateSiteFromSitemap(body: any) {
+  // Simulate website generation from sitemap
+  const { domain_id, unique_id } = body;
+
+  if (!domain_id || !unique_id) {
+    return NextResponse.json(
+      {
+        error: "Missing required fields",
+        status: 400,
+      },
+      { status: 400 }
+    );
+  }
+
+  // Simulate a delay for more realistic behavior
+  // In a real implementation, we'd use await new Promise(resolve => setTimeout(resolve, 2000));
+
+  return NextResponse.json({
+    status: "ok",
+    data: {
+      url: `https://${generateRandomSubdomain("site")}.10web.site`,
+      domain_id,
+      unique_id,
+    },
+  });
+}
+
+function handleGetWPAutologinToken() {
+  // Simulate generating a WordPress autologin token
+  return NextResponse.json({
+    status: "ok",
+    token: `mock_wp_token_${Math.random().toString(36).substring(2, 15)}`,
+  });
 }

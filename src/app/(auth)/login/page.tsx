@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 export default function LoginPage() {
   const { user, signInWithEmail, signInWithGoogle, error, loading } = useAuth();
@@ -25,6 +26,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Get the redirect URL from the query string
   const redirect = searchParams.get("redirect") || "/dashboard";
@@ -32,7 +34,28 @@ export default function LoginPage() {
   // Redirect authenticated users
   useEffect(() => {
     if (user) {
-      router.push(redirect);
+      setIsRedirecting(true);
+
+      // Before redirecting, check if the redirect URL exists
+      const checkPageExists = async () => {
+        try {
+          const response = await fetch(redirect, { method: "HEAD" });
+          if (response.status === 404) {
+            console.error(
+              `Page not found: ${redirect}, redirecting to dashboard instead`
+            );
+            router.push("/dashboard");
+          } else {
+            router.push(redirect);
+          }
+        } catch (error) {
+          console.error("Error checking page:", error);
+          // On error, redirect to dashboard as fallback
+          router.push("/dashboard");
+        }
+      };
+
+      checkPageExists();
     }
   }, [user, router, redirect]);
 
@@ -69,6 +92,14 @@ export default function LoginPage() {
   // Render website preview in background if coming from editor
   const isFromEditor =
     redirect.includes("/preview") || redirect.includes("/editor");
+
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" message="Signing you in..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">

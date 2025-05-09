@@ -13,7 +13,7 @@ import { useToast } from "@/components/ui/use-toast";
 
 export default function PreviewPage() {
   const router = useRouter();
-  const { userData } = useAuth();
+  const { user, userData } = useAuth();
   const { toast } = useToast();
 
   const [deviceView, setDeviceView] = useState<"desktop" | "mobile">("desktop");
@@ -22,12 +22,13 @@ export default function PreviewPage() {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">(
     "monthly"
   );
+  const [isLoading, setIsLoading] = useState(true);
 
   // Check if the user has an active subscription
   const hasActiveSubscription = userData?.webdashSubscription?.active || false;
 
   useEffect(() => {
-    // Redirect user if they don't have a generated website in progress
+    // Check if there's a website in progress
     const siteInfo = localStorage.getItem("webdash_site_info");
     if (!siteInfo) {
       toast({
@@ -35,8 +36,19 @@ export default function PreviewPage() {
         description: "Please generate a website first",
       });
       router.push("/");
+      return;
     }
-  }, [router, toast]);
+
+    // If user is not logged in, redirect to login
+    if (!user) {
+      console.log("User not authenticated, redirecting to login...");
+      const currentPath = window.location.pathname;
+      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+      return;
+    }
+
+    setIsLoading(false);
+  }, [user, router, toast]);
 
   const handleEditClick = () => {
     if (hasActiveSubscription || hasTrialStarted) {
@@ -72,31 +84,41 @@ export default function PreviewPage() {
     }, 1500);
   };
 
-  return (
-    <AuthRequired>
-      <div className="flex min-h-screen flex-col bg-gray-50">
-        <PreviewHeader
-          deviceView={deviceView}
-          setDeviceView={setDeviceView}
-          onEditClick={handleEditClick}
-          hasActiveSubscription={hasActiveSubscription || hasTrialStarted}
-        />
-
-        <main className="flex-grow container mx-auto px-4 py-6">
-          <WebsitePreview
-            deviceView={deviceView}
-            onElementClick={handleElementClick}
-          />
-        </main>
-
-        <TrialModal
-          isOpen={isTrialModalOpen}
-          onClose={() => setIsTrialModalOpen(false)}
-          onStartTrial={handleStartTrial}
-          selectedPlan={selectedPlan}
-          setSelectedPlan={setSelectedPlan}
-        />
+  // Use a loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f58327]"></div>
+          <p className="text-lg text-gray-600">Loading preview...</p>
+        </div>
       </div>
-    </AuthRequired>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col bg-gray-50">
+      <PreviewHeader
+        deviceView={deviceView}
+        setDeviceView={setDeviceView}
+        onEditClick={handleEditClick}
+        hasActiveSubscription={hasActiveSubscription || hasTrialStarted}
+      />
+
+      <main className="flex-grow container mx-auto px-4 py-6">
+        <WebsitePreview
+          deviceView={deviceView}
+          onElementClick={handleElementClick}
+        />
+      </main>
+
+      <TrialModal
+        isOpen={isTrialModalOpen}
+        onClose={() => setIsTrialModalOpen(false)}
+        onStartTrial={handleStartTrial}
+        selectedPlan={selectedPlan}
+        setSelectedPlan={setSelectedPlan}
+      />
+    </div>
   );
 }

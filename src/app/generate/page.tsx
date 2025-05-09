@@ -13,7 +13,6 @@ export default function GeneratePage() {
   const { toast } = useToast();
   const tenWeb = useTenWeb();
   const [prompt, setPrompt] = useState<string>("");
-  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     // Get the prompt from localStorage
@@ -31,7 +30,7 @@ export default function GeneratePage() {
     setPrompt(savedPrompt);
 
     // Start generation process if not already started
-    if (!isGenerating) {
+    if (tenWeb.generationProgress.step === 0) {
       startGeneration(savedPrompt);
     }
   }, [router]);
@@ -49,8 +48,6 @@ export default function GeneratePage() {
   }, [tenWeb.generationProgress, router]);
 
   const startGeneration = async (prompt: string) => {
-    setIsGenerating(true);
-
     try {
       // Extract business type, name, and description from the prompt
       // For a real app, this could be done with AI

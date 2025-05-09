@@ -6,7 +6,7 @@ import { UserData } from "@/types";
 
 // Define the shape of our auth context
 interface AuthContextType {
-  user: User | null;
+  user: User | null | undefined; // undefined means not initialized
   userData: UserData | null;
   loading: boolean;
   error: string | null;
@@ -20,7 +20,6 @@ interface AuthContextType {
   ) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  updateUserProfile: (data: Partial<UserData>) => Promise<void>;
   clearError: () => void;
 }
 

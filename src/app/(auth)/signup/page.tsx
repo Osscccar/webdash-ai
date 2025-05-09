@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 export default function SignUpPage() {
   const { user, signUpWithEmail, signInWithGoogle, error, loading } = useAuth();
@@ -28,6 +29,7 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Get the redirect URL from the query string
   const redirect = searchParams.get("redirect") || "/dashboard";
@@ -35,7 +37,28 @@ export default function SignUpPage() {
   // Redirect authenticated users
   useEffect(() => {
     if (user) {
-      router.push(redirect);
+      setIsRedirecting(true);
+
+      // Before redirecting, check if the redirect URL exists
+      const checkPageExists = async () => {
+        try {
+          const response = await fetch(redirect, { method: "HEAD" });
+          if (response.status === 404) {
+            console.error(
+              `Page not found: ${redirect}, redirecting to dashboard instead`
+            );
+            router.push("/dashboard");
+          } else {
+            router.push(redirect);
+          }
+        } catch (error) {
+          console.error("Error checking page:", error);
+          // On error, redirect to dashboard as fallback
+          router.push("/dashboard");
+        }
+      };
+
+      checkPageExists();
     }
   }, [user, router, redirect]);
 
@@ -91,6 +114,14 @@ export default function SignUpPage() {
   // Render website preview in background if coming from editor
   const isFromEditor =
     redirect.includes("/preview") || redirect.includes("/editor");
+
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" message="Creating your account..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
@@ -255,7 +286,7 @@ export default function SignUpPage() {
             <p className="text-sm text-gray-600">
               Already have an account?{" "}
               <Link
-                href={`/auth/login${
+                href={`/login${
                   redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""
                 }`}
                 className="text-[#f58327] hover:underline"

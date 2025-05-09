@@ -12,8 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
-import { Plus, GripVertical, Edit2, Trash2 } from "lucide-react";
+import { Plus, Edit2, Trash2 } from "lucide-react";
 
 // This is a mock implementation as we don't have access to the actual API yet
 // In a real implementation, this would be fetched from the API based on the sitemap generation
@@ -129,32 +128,6 @@ export function PagesEditor() {
     section: Section;
   } | null>(null);
 
-  const handleDragEnd = (result: any) => {
-    if (!result.destination) return;
-
-    const sourceIndex = result.source.index;
-    const destinationIndex = result.destination.index;
-
-    if (result.type === "page") {
-      const reorderedPages = [...pages];
-      const [removed] = reorderedPages.splice(sourceIndex, 1);
-      reorderedPages.splice(destinationIndex, 0, removed);
-      setPages(reorderedPages);
-    } else if (result.type === "section") {
-      const pageId = result.source.droppableId.replace("sections-", "");
-      const pageIndex = pages.findIndex((p) => p.id === pageId);
-
-      if (pageIndex !== -1) {
-        const newPages = [...pages];
-        const pageSections = [...newPages[pageIndex].sections];
-        const [removed] = pageSections.splice(sourceIndex, 1);
-        pageSections.splice(destinationIndex, 0, removed);
-        newPages[pageIndex].sections = pageSections;
-        setPages(newPages);
-      }
-    }
-  };
-
   const handleEditPage = (page: Page) => {
     setEditingPage({ ...page });
   };
@@ -192,6 +165,54 @@ export function PagesEditor() {
     }
 
     setEditingSection(null);
+  };
+
+  const handleMovePageUp = (index: number) => {
+    if (index === 0) return;
+    const newPages = [...pages];
+    const temp = newPages[index];
+    newPages[index] = newPages[index - 1];
+    newPages[index - 1] = temp;
+    setPages(newPages);
+  };
+
+  const handleMovePageDown = (index: number) => {
+    if (index === pages.length - 1) return;
+    const newPages = [...pages];
+    const temp = newPages[index];
+    newPages[index] = newPages[index + 1];
+    newPages[index + 1] = temp;
+    setPages(newPages);
+  };
+
+  const handleMoveSectionUp = (pageId: string, sectionIndex: number) => {
+    if (sectionIndex === 0) return;
+    const pageIndex = pages.findIndex((p) => p.id === pageId);
+    if (pageIndex === -1) return;
+
+    const newPages = [...pages];
+    const sections = [...newPages[pageIndex].sections];
+    const temp = sections[sectionIndex];
+    sections[sectionIndex] = sections[sectionIndex - 1];
+    sections[sectionIndex - 1] = temp;
+    newPages[pageIndex].sections = sections;
+    setPages(newPages);
+  };
+
+  const handleMoveSectionDown = (pageId: string, sectionIndex: number) => {
+    const pageIndex = pages.findIndex((p) => p.id === pageId);
+    if (pageIndex === -1) return;
+
+    const sections = pages[pageIndex].sections;
+    if (sectionIndex === sections.length - 1) return;
+
+    const newPages = [...pages];
+    const newSections = [...newPages[pageIndex].sections];
+    const temp = newSections[sectionIndex];
+    newSections[sectionIndex] = newSections[sectionIndex + 1];
+    newSections[sectionIndex + 1] = temp;
+    newPages[pageIndex].sections = newSections;
+    setPages(newPages);
   };
 
   return (
@@ -335,125 +356,112 @@ export function PagesEditor() {
           </CardFooter>
         </Card>
       ) : (
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Droppable droppableId="pages" type="page">
-            {(provided) => (
-              <div
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                className="space-y-4"
-              >
-                {pages.map((page, index) => (
-                  <Draggable key={page.id} draggableId={page.id} index={index}>
-                    {(provided) => (
-                      <Card
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
+        <div className="space-y-4">
+          {pages.map((page, index) => (
+            <Card key={page.id}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center">
+                  <div className="flex-grow">
+                    <CardTitle>{page.title}</CardTitle>
+                    <CardDescription>{page.description}</CardDescription>
+                  </div>
+                  <div className="flex space-x-2">
+                    {index > 0 && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleMovePageUp(index)}
+                        title="Move Up"
                       >
-                        <CardHeader className="pb-2">
-                          <div className="flex items-center">
-                            <div
-                              {...provided.dragHandleProps}
-                              className="mr-2 cursor-grab"
-                            >
-                              <GripVertical className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <div className="flex-grow">
-                              <CardTitle>{page.title}</CardTitle>
-                              <CardDescription>
-                                {page.description}
-                              </CardDescription>
-                            </div>
-                            <div className="flex space-x-2">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handleEditPage(page)}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button size="icon" variant="ghost">
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <h4 className="text-sm font-medium mb-2">
-                            Page Sections
-                          </h4>
-                          <Droppable
-                            droppableId={`sections-${page.id}`}
-                            type="section"
-                          >
-                            {(provided) => (
-                              <div
-                                {...provided.droppableProps}
-                                ref={provided.innerRef}
-                                className="space-y-2"
-                              >
-                                {page.sections.map((section, sectionIndex) => (
-                                  <Draggable
-                                    key={section.id}
-                                    draggableId={section.id}
-                                    index={sectionIndex}
-                                  >
-                                    {(provided) => (
-                                      <div
-                                        ref={provided.innerRef}
-                                        {...provided.draggableProps}
-                                        className="flex items-center p-2 bg-gray-50 rounded-md"
-                                      >
-                                        <div
-                                          {...provided.dragHandleProps}
-                                          className="mr-2 cursor-grab"
-                                        >
-                                          <GripVertical className="h-4 w-4 text-gray-400" />
-                                        </div>
-                                        <div className="flex-grow">
-                                          <div className="font-medium text-sm">
-                                            {section.title}
-                                          </div>
-                                          <div className="text-xs text-gray-500">
-                                            {section.description}
-                                          </div>
-                                        </div>
-                                        <Button
-                                          size="icon"
-                                          variant="ghost"
-                                          className="h-7 w-7"
-                                          onClick={() =>
-                                            handleEditSection(page.id, section)
-                                          }
-                                        >
-                                          <Edit2 className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </Draggable>
-                                ))}
-                                {provided.placeholder}
-                              </div>
-                            )}
-                          </Droppable>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="mt-4 text-xs"
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Add Section
-                          </Button>
-                        </CardContent>
-                      </Card>
+                        ↑
+                      </Button>
                     )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
+                    {index < pages.length - 1 && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleMovePageDown(index)}
+                        title="Move Down"
+                      >
+                        ↓
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleEditPage(page)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost">
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <h4 className="text-sm font-medium mb-2">Page Sections</h4>
+                <div className="space-y-2">
+                  {page.sections.map((section, sectionIndex) => (
+                    <div
+                      key={section.id}
+                      className="flex items-center p-2 bg-gray-50 rounded-md"
+                    >
+                      <div className="flex items-center mr-2">
+                        {sectionIndex > 0 && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() =>
+                              handleMoveSectionUp(page.id, sectionIndex)
+                            }
+                            title="Move Up"
+                          >
+                            ↑
+                          </Button>
+                        )}
+                        {sectionIndex < page.sections.length - 1 && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() =>
+                              handleMoveSectionDown(page.id, sectionIndex)
+                            }
+                            title="Move Down"
+                          >
+                            ↓
+                          </Button>
+                        )}
+                      </div>
+                      <div className="flex-grow">
+                        <div className="font-medium text-sm">
+                          {section.title}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {section.description}
+                        </div>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => handleEditSection(page.id, section)}
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button size="sm" variant="outline" className="mt-4 text-xs">
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Section
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
       <Button className="bg-[#f58327] hover:bg-[#f58327]/90 text-white">
