@@ -14,6 +14,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { getUserInitials } from "@/lib/utils";
+import { Bell, HelpCircle, Menu, X, Search } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export function DashboardHeader() {
   const router = useRouter();
@@ -37,39 +41,57 @@ export function DashboardHeader() {
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-      <div className="container mx-auto px-4 py-3">
+    <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
+      <div className="px-4 py-3">
         <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center space-x-2">
-            <span className="font-bold text-xl tracking-tight">
-              <span className="text-[#f58327]">Web</span>
-              <span className="text-black">Dash</span>
-            </span>
-          </Link>
+          <div className="flex items-center space-x-4">
+            <SidebarTrigger className="text-gray-500" />
+
+            <div className="hidden md:flex items-center space-x-4">
+              <Link
+                href="/dashboard"
+                className="text-gray-700 hover:text-[#f58327] text-sm font-medium transition-colors"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/dashboard/settings"
+                className="text-gray-500 hover:text-[#f58327] text-sm font-medium transition-colors"
+              >
+                Settings
+              </Link>
+            </div>
+          </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-6">
-            <Link
-              href="/dashboard"
-              className="text-gray-600 hover:text-[#f58327] text-sm font-medium transition-colors"
+          <div className="hidden md:flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-gray-500 cursor-pointer"
             >
-              Dashboard
-            </Link>
-            <Link
-              href="/dashboard/settings"
-              className="text-gray-600 hover:text-[#f58327] text-sm font-medium transition-colors"
+              <HelpCircle className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-gray-500 relative cursor-pointer"
             >
-              Settings
-            </Link>
+              <Bell className="h-5 w-5" />
+              <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
+            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="relative h-8 w-8 rounded-full bg-gray-200 text-sm font-medium"
+                  className="relative h-8 w-8 rounded-full cursor-pointer"
                 >
-                  <span className="sr-only">Open user menu</span>
-                  <span>{userInitials}</span>
+                  <Avatar className="h-8 w-8 border border-gray-200">
+                    <AvatarFallback className="bg-gray-100 text-gray-800">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end">
@@ -82,50 +104,39 @@ export function DashboardHeader() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push("/dashboard")}>
+                <DropdownMenuItem
+                  onClick={() => router.push("/dashboard")}
+                  className="cursor-pointer"
+                >
                   Dashboard
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => router.push("/dashboard/settings")}
+                  className="cursor-pointer"
                 >
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  className="cursor-pointer"
+                >
                   Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </nav>
+          </div>
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden text-gray-600"
+            className="md:hidden text-gray-600 cursor-pointer"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              className="h-6 w-6"
-            >
-              {isMobileMenuOpen ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              )}
-            </svg>
+            {isMobileMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
           </button>
         </div>
 
@@ -148,9 +159,11 @@ export function DashboardHeader() {
             </Link>
             <div className="pt-2 border-t border-gray-200">
               <div className="flex items-center pb-2">
-                <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-                  <span className="text-sm font-medium">{userInitials}</span>
-                </div>
+                <Avatar className="h-8 w-8 mr-3">
+                  <AvatarFallback className="bg-gray-100 text-gray-800">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
                 <div>
                   <p className="text-sm font-medium">{userFullName}</p>
                   <p className="text-xs text-gray-500 truncate">
@@ -160,7 +173,7 @@ export function DashboardHeader() {
               </div>
               <Button
                 variant="ghost"
-                className="w-full justify-start text-gray-600 hover:text-[#f58327]"
+                className="w-full justify-start text-gray-600 hover:text-[#f58327] cursor-pointer"
                 onClick={() => {
                   handleSignOut();
                   setIsMobileMenuOpen(false);

@@ -1,5 +1,4 @@
 // src/components/preview/auth-popup.tsx
-
 "use client";
 
 import { useState } from "react";
@@ -19,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/use-toast";
 import { PrimaryButton } from "@/components/ui/custom-button";
+import { useDataSync } from "@/hooks/use-data-sync";
 
 interface AuthPopupProps {
   onSuccess: () => void;
@@ -29,6 +29,7 @@ export function AuthPopup({ onSuccess }: AuthPopupProps) {
   const { signInWithEmail, signInWithGoogle, signUpWithEmail, error } =
     useAuth();
   const { toast } = useToast();
+  const { syncToFirestore } = useDataSync();
 
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -45,6 +46,10 @@ export function AuthPopup({ onSuccess }: AuthPopupProps) {
     try {
       if (mode === "login") {
         await signInWithEmail(email, password);
+
+        // Transfer any localStorage data to Firestore here
+        await syncToFirestore();
+
         onSuccess();
       } else {
         // Validate fields for signup
@@ -59,6 +64,10 @@ export function AuthPopup({ onSuccess }: AuthPopupProps) {
         }
 
         await signUpWithEmail(email, password, firstName, lastName);
+
+        // Transfer any localStorage data to Firestore here
+        await syncToFirestore();
+
         onSuccess();
       }
     } catch (error: any) {
@@ -75,6 +84,10 @@ export function AuthPopup({ onSuccess }: AuthPopupProps) {
     setIsLoading(true);
     try {
       await signInWithGoogle();
+
+      // Transfer any localStorage data to Firestore here
+      await syncToFirestore();
+
       onSuccess();
     } catch (error: any) {
       toast({

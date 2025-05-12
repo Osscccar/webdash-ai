@@ -1,5 +1,4 @@
 // src/components/preview/generation-popup.tsx
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -9,8 +8,7 @@ import { GenerationProgress } from "@/components/generate/generation-progress";
 import { GenerationStep } from "@/types";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/use-toast";
-import { doc, setDoc } from "firebase/firestore";
-import { db } from "@/config/firebase";
+import FirestoreService from "@/lib/firestore-service";
 import useTenWeb from "@/hooks/use-tenweb";
 
 interface GenerationPopupProps {
@@ -27,6 +25,7 @@ export function GenerationPopup({ siteInfo, onSuccess }: GenerationPopupProps) {
 
   // Countdown timer for estimated time
   useEffect(() => {
+    // Remove the isReady check, as it's not defined
     if (tenWeb.generationProgress.step > 0 && estimatedTime > 0) {
       const timer = setTimeout(() => {
         setEstimatedTime((prev) => prev - 1);
@@ -94,6 +93,15 @@ export function GenerationPopup({ siteInfo, onSuccess }: GenerationPopupProps) {
         const website = await tenWeb.generateWebsite(prompt, generationParams);
 
         if (website) {
+          // If user is authenticated, save to Firestore
+          if (user && user.uid && website) {
+            // Make sure the website has userId
+            website.userId = user.uid;
+
+            // Save to Firestore
+            await FirestoreService.createWebsite(website);
+          }
+
           onSuccess(); // Call the success callback
         } else {
           throw new Error("Website generation failed");

@@ -9,8 +9,13 @@ import { useToast } from "@/components/ui/use-toast";
 import axios from "axios";
 import { generateRandomSubdomain } from "@/lib/utils";
 import { GenerationStep, UserWebsite } from "@/types";
-import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
+import {
+  doc,
+  updateDoc,
+  arrayUnion,
+  serverTimestamp,
+} from "firebase/firestore";
 
 export function useTenWeb() {
   const router = useRouter();
@@ -264,6 +269,7 @@ export function useTenWeb() {
       // Create website object
       const website: UserWebsite = {
         id: `website-${Date.now()}`,
+        userId: user?.uid || "", // Ensure userId is set
         domainId: domainId,
         subdomain,
         siteUrl: siteUrl,
@@ -272,22 +278,43 @@ export function useTenWeb() {
         createdAt: new Date().toISOString(),
         lastModified: new Date().toISOString(),
         status: "active",
+        generationParams: {
+          prompt,
+          businessType,
+          businessName,
+          businessDescription,
+          colors: params.colors,
+          fonts: params.fonts,
+          websiteTitle,
+          websiteDescription,
+          websiteKeyphrase,
+        },
       };
 
       // Store the website data in localStorage for later access
       localStorage.setItem("webdash_website", JSON.stringify(website));
 
       // Only update Firestore if user is logged in
-      if (user && userData) {
+      if (user && user.uid) {
         try {
-          const websiteDocRef = doc(db, "websites", website.id);
-          await setDoc(websiteDocRef, {
-            ...website,
-            userId: user.uid,
+          console.log("Saving website to Firestore for user:", user.uid);
+          console.log("Website data:", website);
+
+          // Update user document to add this website
+          const userRef = doc(db, "users", user.uid);
+
+          // Use arrayUnion to add the website to the array without duplicates
+          await updateDoc(userRef, {
+            websites: arrayUnion(website),
+            updatedAt: serverTimestamp(),
           });
-          console.log("Website saved to Firestore");
+
+          console.log(
+            "Successfully saved website to user document in Firestore"
+          );
         } catch (error) {
           console.error("Failed to save website to Firestore:", error);
+          // Continue anyway to show the site to the user from localStorage
         }
       }
 

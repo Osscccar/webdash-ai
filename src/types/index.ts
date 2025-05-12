@@ -35,8 +35,10 @@ export interface WebsiteGenerationParams {
   websiteKeyphrase?: string;
 }
 
+// src/types/index.ts (modification for UserWebsite)
 export interface UserWebsite {
   id: string;
+  userId: string; // Make sure this is required
   domainId: number;
   subdomain: string;
   siteUrl: string;
