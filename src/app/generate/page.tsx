@@ -251,7 +251,7 @@ export default function GeneratePage() {
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
                     <div className="flex items-center gap-2 mb-1">
                       <Bug className="h-4 w-4 text-gray-500" />
-                      <h3 className="font-medium text-gray-700">Debug Mode</h3>
+                      <h3 className="font-normal text-gray-700">Debug Mode</h3>
                     </div>
                     <p className="text-gray-600 text-sm">
                       Use the buttons below to test specific API endpoints and
@@ -288,7 +288,7 @@ export default function GeneratePage() {
                           : "bg-red-50 border border-red-100"
                       }`}
                     >
-                      <h3 className="font-medium mb-3">
+                      <h3 className="font-normal mb-3">
                         {apiTestResult.success
                           ? "API Test Succeeded"
                           : "API Test Failed"}
@@ -301,7 +301,7 @@ export default function GeneratePage() {
 
                   {failedApiStep === "generate_ai_site" && (
                     <div className="bg-yellow-50 p-5 rounded-lg text-left text-sm border border-yellow-100">
-                      <h3 className="font-medium mb-2">Possible Solution:</h3>
+                      <h3 className="font-normal mb-2">Possible Solution:</h3>
                       <p className="mb-3">
                         The AI generate site API is failing. Try with these
                         simpler parameters:

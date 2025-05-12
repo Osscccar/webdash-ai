@@ -165,7 +165,7 @@ export function PageTree({
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-medium">Website Structure</h3>
+        <h3 className="font-normal">Website Structure</h3>
         <Button
           variant="outline"
           size="sm"

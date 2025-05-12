@@ -645,7 +645,7 @@ export default function EditorPage() {
           >
             <div className="flex items-center mb-2">
               <Bot className="text-blue-500 mr-2 h-5 w-5" />
-              <h3 className="text-blue-700 font-medium">
+              <h3 className="text-blue-700 font-normal">
                 AI Generation in Progress
               </h3>
             </div>
@@ -689,7 +689,7 @@ export default function EditorPage() {
         <div className="pb-4" ref={infoFormRef}>
           {editingSection === "business-info" ? (
             <>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
+              <h3 className="text-sm font-normal text-gray-500 uppercase tracking-wider mb-4">
                 Site Brief
               </h3>
               <SiteInfoForm
@@ -731,7 +731,7 @@ export default function EditorPage() {
         <div className="py-4" ref={colorFormRef}>
           {editingSection === "design" ? (
             <>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
+              <h3 className="text-sm font-normal text-gray-500 uppercase tracking-wider mb-4">
                 Design Preferences
               </h3>
               <ColorsAndFonts
@@ -778,7 +778,7 @@ export default function EditorPage() {
           {editingSection === "page-details" && selectedNode ? (
             <>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                <h3 className="text-sm font-normal text-gray-500 uppercase tracking-wider">
                   {selectedNode.type === "page"
                     ? "Page Details"
                     : "Section Details"}
@@ -796,7 +796,7 @@ export default function EditorPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-normal text-gray-700 mb-1">
                     Title
                   </label>
                   <input
@@ -830,7 +830,7 @@ export default function EditorPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-normal text-gray-700 mb-1">
                     Content
                   </label>
                   <textarea
@@ -864,7 +864,7 @@ export default function EditorPage() {
                 </div>
                 {selectedNode.type === "section" && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-normal text-gray-700 mb-1">
                       Section Type
                     </label>
                     <select
@@ -889,7 +889,7 @@ export default function EditorPage() {
           ) : (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                <h3 className="text-sm font-normal text-gray-500 uppercase tracking-wider">
                   Page Structure
                 </h3>
                 <div className="text-xs text-gray-500">

@@ -147,7 +147,7 @@ export default function LoginPage() {
           <CardHeader className="space-y-1">
             <div className="flex justify-center mb-4">
               <Link href="/" className="flex items-center space-x-2">
-                <span className="font-bold text-xl tracking-tight">
+                <span className="font-medium text-xl tracking-tight">
                   <span className="text-[#f58327]">Web</span>
                   <span className="text-black">Dash</span>
                 </span>

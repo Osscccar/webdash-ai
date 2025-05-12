@@ -45,13 +45,11 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
+import WebDashLogo from "../../../public/WebDash.webp";
 
 // Mock workspaces data
-const WORKSPACES = [
-  { id: "1", name: "WebDash's Workspace", role: "Owner" },
-  { id: "2", name: "Marketing Team", role: "Admin" },
-  { id: "3", name: "Personal Projects", role: "Owner" },
-];
+const WORKSPACES = [{ id: "1", name: "WebDash's Workspace", role: "Owner" }];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -348,12 +346,12 @@ export default function DashboardPage() {
         {/* Sidebar Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 rounded-md bg-[#f58327] flex items-center justify-center text-white font-bold">
-              WD
-            </div>
-            {!sidebarCollapsed && (
-              <span className="font-bold text-lg">WebDash</span>
-            )}
+            <Image
+              src={WebDashLogo}
+              alt="WebDash Logo"
+              width={40}
+              height={40}
+            />
           </div>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -369,18 +367,17 @@ export default function DashboardPage() {
 
         {/* Workspace Selector */}
         {!sidebarCollapsed && (
-          <div className="p-4 border-b border-gray-100">
+          <div className="p-4 border-b border-gray-100 hover:bg-neutral-100 cursor-pointer">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium">
-                  {activeWorkspace.name.charAt(0)}
+              <button className="">
+                <div className="flex items-center space-x-2">
+                  <div className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                    <Settings className="h-4 w-4" />
+                  </div>
+                  <div className="text-sm font-normal truncate">
+                    Workspace Settings
+                  </div>
                 </div>
-                <div className="text-sm font-medium truncate">
-                  {activeWorkspace.name}
-                </div>
-              </div>
-              <button className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                <Settings className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -388,47 +385,11 @@ export default function DashboardPage() {
 
         {/* Sidebar Navigation */}
         <div className="p-2 overflow-y-auto h-[calc(100vh-8rem)]">
-          {/* Main Navigation */}
-          <div className="mb-6">
-            {!sidebarCollapsed && (
-              <p className="text-xs font-medium text-gray-400 px-3 mb-2">
-                NAVIGATION
-              </p>
-            )}
-            <ul className="space-y-1">
-              <li>
-                <Link
-                  href="/dashboard"
-                  className={cn(
-                    "flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition-colors",
-                    "bg-gray-100 text-[#f58327]",
-                    sidebarCollapsed ? "justify-center" : ""
-                  )}
-                >
-                  <LayoutDashboard className="h-5 w-5" />
-                  {!sidebarCollapsed && <span>Dashboard</span>}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/dashboard/settings"
-                  className={cn(
-                    "flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition-colors",
-                    sidebarCollapsed ? "justify-center" : ""
-                  )}
-                >
-                  <Settings className="h-5 w-5" />
-                  {!sidebarCollapsed && <span>Settings</span>}
-                </Link>
-              </li>
-            </ul>
-          </div>
-
           {/* Workspaces */}
           {!sidebarCollapsed && (
             <div className="mb-6">
               <div className="flex items-center justify-between px-3 mb-2">
-                <p className="text-xs font-medium text-gray-400">WORKSPACES</p>
+                <p className="text-xs font-normal text-gray-400">WORKSPACES</p>
                 <button className="text-gray-400 hover:text-gray-600 cursor-pointer">
                   <Plus className="h-4 w-4" />
                 </button>
@@ -439,11 +400,11 @@ export default function DashboardPage() {
                     <button
                       onClick={() => setActiveWorkspace(workspace)}
                       className={cn(
-                        "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition-colors text-left",
+                        "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
                         activeWorkspace.id === workspace.id ? "bg-gray-100" : ""
                       )}
                     >
-                      <div className="h-6 w-6 rounded-md bg-gray-200 flex items-center justify-center text-xs font-medium">
+                      <div className="h-6 w-6 rounded-md bg-gray-200 flex items-center justify-center text-xs font-normal">
                         {workspace.name.charAt(0)}
                         {workspace.name.split(" ")[1]?.charAt(0) || ""}
                       </div>
@@ -461,7 +422,7 @@ export default function DashboardPage() {
           <button
             onClick={handleSignOut}
             className={cn(
-              "flex items-center space-x-3 w-full px-3 py-2 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition-colors cursor-pointer",
+              "flex items-center space-x-3 w-full px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors cursor-pointer",
               sidebarCollapsed ? "justify-center" : ""
             )}
           >
@@ -481,13 +442,13 @@ export default function DashboardPage() {
               className="flex items-center space-x-2 text-gray-700 hover:text-[#f58327] transition-colors cursor-pointer"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span className="font-medium">Back</span>
+              <span className="font-normal">Back</span>
             </button>
           </div>
 
           {/* Website Info */}
           <div className="p-4 border-b border-gray-100">
-            <h2 className="font-bold text-lg truncate">
+            <h2 className="font-medium text-lg truncate">
               {selectedWebsite.title}
             </h2>
             <div className="flex items-center mt-1">
@@ -500,7 +461,7 @@ export default function DashboardPage() {
 
           {/* Website Navigation */}
           <div className="p-2">
-            <p className="text-xs font-medium text-gray-400 px-3 mb-2">
+            <p className="text-xs font-normal text-gray-400 px-3 mb-2">
               WEBSITE
             </p>
             <ul className="space-y-1">
@@ -508,7 +469,7 @@ export default function DashboardPage() {
                 <button
                   onClick={() => setActiveTab("main")}
                   className={cn(
-                    "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition-colors text-left",
+                    "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
                     activeTab === "main" ? "bg-gray-100 text-[#f58327]" : ""
                   )}
                 >
@@ -520,7 +481,7 @@ export default function DashboardPage() {
                 <button
                   onClick={() => setActiveTab("analytics")}
                   className={cn(
-                    "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition-colors text-left",
+                    "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
                     activeTab === "analytics"
                       ? "bg-gray-100 text-[#f58327]"
                       : ""
@@ -534,7 +495,7 @@ export default function DashboardPage() {
                 <button
                   onClick={() => setActiveTab("domain")}
                   className={cn(
-                    "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition-colors text-left",
+                    "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
                     activeTab === "domain" ? "bg-gray-100 text-[#f58327]" : ""
                   )}
                 >
@@ -543,28 +504,10 @@ export default function DashboardPage() {
                 </button>
               </li>
               <li>
-                <button className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition-colors text-left">
+                <button className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left">
                   <ShoppingCart className="h-5 w-5" />
                   <span>Ecommerce</span>
                   <ExternalLink className="h-3 w-3 ml-auto" />
-                </button>
-              </li>
-            </ul>
-
-            <p className="text-xs font-medium text-gray-400 px-3 mb-2 mt-6">
-              MANAGEMENT
-            </p>
-            <ul className="space-y-1">
-              <li>
-                <button className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition-colors text-left">
-                  <Users className="h-5 w-5" />
-                  <span>Collaborators</span>
-                </button>
-              </li>
-              <li>
-                <button className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-medium hover:bg-gray-100 transition-colors text-left">
-                  <Settings className="h-5 w-5" />
-                  <span>Settings</span>
                 </button>
               </li>
             </ul>
@@ -591,27 +534,6 @@ export default function DashboardPage() {
                 >
                   <Menu className="h-6 w-6" />
                 </button>
-
-                {selectedWebsite ? (
-                  <h1 className="text-xl font-bold hidden md:block">
-                    {selectedWebsite.title}
-                  </h1>
-                ) : (
-                  <div className="hidden md:flex items-center space-x-4">
-                    <Link
-                      href="/dashboard"
-                      className="text-gray-700 hover:text-[#f58327] text-sm font-medium transition-colors"
-                    >
-                      Dashboard
-                    </Link>
-                    <Link
-                      href="/dashboard/settings"
-                      className="text-gray-500 hover:text-[#f58327] text-sm font-medium transition-colors"
-                    >
-                      Settings
-                    </Link>
-                  </div>
-                )}
               </div>
 
               {/* Desktop Navigation */}
@@ -626,13 +548,13 @@ export default function DashboardPage() {
 
                 <div className="relative group">
                   <button className="flex items-center space-x-2 cursor-pointer">
-                    <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium">
+                    <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-normal">
                       {userInitials}
                     </div>
                   </button>
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                     <div className="p-3 border-b border-gray-100">
-                      <p className="text-sm font-medium">{userFullName}</p>
+                      <p className="text-sm font-normal">{userFullName}</p>
                       <p className="text-xs text-gray-500 truncate">
                         {user?.email}
                       </p>
@@ -679,14 +601,14 @@ export default function DashboardPage() {
               <div className="md:hidden mt-4 pb-4 space-y-4">
                 <Link
                   href="/dashboard"
-                  className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-medium transition-colors"
+                  className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Dashboard
                 </Link>
                 <Link
                   href="/dashboard/settings"
-                  className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-medium transition-colors"
+                  className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Settings
@@ -694,12 +616,12 @@ export default function DashboardPage() {
                 <div className="pt-2 border-t border-gray-200">
                   <div className="flex items-center pb-2">
                     <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-                      <span className="text-sm font-medium">
+                      <span className="text-sm font-normal">
                         {userInitials}
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">{userFullName}</p>
+                      <p className="text-sm font-normal">{userFullName}</p>
                       <p className="text-xs text-gray-500 truncate">
                         {user?.email}
                       </p>
@@ -733,7 +655,7 @@ export default function DashboardPage() {
               >
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between">
                   <div className="space-y-2 mb-4 md:mb-0">
-                    <h1 className="text-2xl md:text-3xl font-bold">
+                    <h1 className="text-2xl md:text-3xl font-medium">
                       {greeting}, {userName}!
                     </h1>
                     <p className="text-gray-500">
@@ -750,52 +672,18 @@ export default function DashboardPage() {
                 </div>
               </motion.section>
 
-              {/* Upgrade Card */}
-              <div className="mt-6 relative overflow-hidden rounded-lg">
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/90 to-indigo-600/90 opacity-90"></div>
-                <div className="absolute top-0 left-0 w-64 h-64 bg-white rounded-full -translate-x-1/2 -translate-y-1/2 opacity-10"></div>
-                <div className="absolute bottom-0 right-0 w-64 h-64 bg-white rounded-full translate-x-1/2 translate-y-1/2 opacity-10"></div>
-
-                <div className="relative p-6 flex items-start justify-between">
-                  <div className="text-white">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Star className="h-5 w-5 text-yellow-300" />
-                      <h3 className="font-bold text-lg">Upgrade to Pro</h3>
-                    </div>
-                    <p className="text-white/80 max-w-xl">
-                      Get unlimited websites, premium templates, and advanced
-                      analytics with our Pro plan.
-                    </p>
-                  </div>
-                  <button className="bg-white text-purple-700 hover:bg-white/90 px-4 py-2 rounded-md font-medium cursor-pointer">
-                    Upgrade Now
-                  </button>
-                </div>
-              </div>
-
               {/* Websites Section */}
               <div className="mt-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
                   <div>
-                    <h2 className="text-2xl font-bold">Your Websites</h2>
                     <p className="text-gray-500 text-sm">
                       {activeWorkspace.name} • {websites.length} websites
                     </p>
                   </div>
                   <div className="flex items-center space-x-3 w-full md:w-auto">
-                    <div className="relative flex-grow md:flex-grow-0 md:w-64">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Search websites..."
-                        className="w-full pl-9 pr-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f58327]/20 focus:border-[#f58327] bg-white cursor-pointer"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    </div>
                     <button
                       onClick={() => router.push("/")}
-                      className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-4 py-2 rounded-md font-medium flex items-center space-x-2 cursor-pointer"
+                      className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-4 py-2 rounded-md font-normal flex items-center space-x-2 cursor-pointer"
                     >
                       <Plus className="h-4 w-4" />
                       <span>New Website</span>
@@ -815,7 +703,7 @@ export default function DashboardPage() {
                         {/* Card Header */}
                         <div className="p-4 border-b border-gray-100 flex justify-between items-start">
                           <div>
-                            <h3 className="font-bold text-lg truncate">
+                            <h3 className="font-medium text-lg truncate">
                               {website.title || "My Website"}
                             </h3>
                             <div className="flex items-center mt-1">
@@ -857,7 +745,7 @@ export default function DashboardPage() {
                                   e.stopPropagation();
                                   window.open(website.siteUrl, "_blank");
                                 }}
-                                className="bg-white text-gray-800 hover:bg-white/90 px-3 py-1 rounded text-sm font-medium flex items-center space-x-1 cursor-pointer"
+                                className="bg-white text-gray-800 hover:bg-white/90 px-3 py-1 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
                               >
                                 <ExternalLink className="h-3 w-3" />
                                 <span>Visit</span>
@@ -867,7 +755,7 @@ export default function DashboardPage() {
                                   e.stopPropagation();
                                   router.push("/editor");
                                 }}
-                                className="bg-white text-gray-800 hover:bg-white/90 px-3 py-1 rounded text-sm font-medium flex items-center space-x-1 cursor-pointer"
+                                className="bg-white text-gray-800 hover:bg-white/90 px-3 py-1 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
                               >
                                 <Edit className="h-3 w-3" />
                                 <span>Edit</span>
@@ -892,90 +780,6 @@ export default function DashboardPage() {
                               <ExternalLink className="h-3 w-3 ml-1" />
                             </a>
                           </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500 flex items-center">
-                              <Clock className="h-3 w-3 mr-1 text-gray-400" />
-                              Created
-                            </span>
-                            <span>
-                              {website.createdAt
-                                ? new Date(
-                                    website.createdAt
-                                  ).toLocaleDateString()
-                                : "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500 flex items-center">
-                              <BarChart3 className="h-3 w-3 mr-1 text-gray-400" />
-                              Analytics
-                            </span>
-                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
-                              0 visitors
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Card Footer */}
-                        <div className="p-4 border-t border-gray-100 flex justify-between items-center">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Add collaborator functionality
-                              toast({
-                                title: "Add collaborators",
-                                description: "This feature is coming soon!",
-                              });
-                            }}
-                            className="text-gray-500 hover:text-[#f58327] text-sm flex items-center space-x-1 cursor-pointer"
-                          >
-                            <Users className="h-4 w-4" />
-                            <span>Collaborators</span>
-                          </button>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenWPDashboard(website);
-                            }}
-                            className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-3 py-1 rounded text-sm font-medium flex items-center space-x-1 cursor-pointer"
-                            disabled={
-                              isWpDashboardLoading &&
-                              activeWebsiteId === website.id
-                            }
-                          >
-                            {isWpDashboardLoading &&
-                            activeWebsiteId === website.id ? (
-                              <span className="flex items-center">
-                                <svg
-                                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                  ></circle>
-                                  <path
-                                    className="opacity-75"
-                                    fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                  ></path>
-                                </svg>
-                                Opening...
-                              </span>
-                            ) : (
-                              <>
-                                <Settings className="h-4 w-4" />
-                                <span>Manage</span>
-                              </>
-                            )}
-                          </button>
                         </div>
                       </div>
                     ))}
@@ -983,7 +787,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center">
                     <div className="space-y-4">
-                      <h3 className="text-xl font-medium">No websites found</h3>
+                      <h3 className="text-xl font-normal">No websites found</h3>
                       {searchQuery ? (
                         <p className="text-gray-500">
                           No websites match your search criteria. Try a
@@ -997,7 +801,7 @@ export default function DashboardPage() {
                       )}
                       <button
                         onClick={() => router.push("/")}
-                        className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-4 py-2 rounded-md font-medium mt-2 cursor-pointer"
+                        className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-4 py-2 rounded-md font-normal mt-2 cursor-pointer"
                       >
                         Create Your First Website
                       </button>
@@ -1019,12 +823,12 @@ export default function DashboardPage() {
                     className="flex items-center space-x-2 text-gray-700 hover:text-[#f58327] transition-colors cursor-pointer"
                   >
                     <ArrowLeft className="h-4 w-4" />
-                    <span className="font-medium">Back</span>
+                    <span className="font-normal">Back</span>
                   </button>
                 </div>
                 <div className="flex items-center space-x-2 ml-auto">
                   <button
-                    className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-medium flex items-center space-x-1 cursor-pointer"
+                    className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
                     onClick={() =>
                       window.open(selectedWebsite.siteUrl, "_blank")
                     }
@@ -1033,14 +837,14 @@ export default function DashboardPage() {
                     <span>Visit Site</span>
                   </button>
                   <button
-                    className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-medium flex items-center space-x-1 cursor-pointer"
+                    className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
                     onClick={() => router.push("/editor")}
                   >
                     <Edit className="h-4 w-4" />
                     <span>Edit Site</span>
                   </button>
                   <button
-                    className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center space-x-1 cursor-pointer"
+                    className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-3 py-1.5 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
                     onClick={() => handleOpenWPDashboard(selectedWebsite)}
                     disabled={isWpDashboardLoading}
                   >
@@ -1083,7 +887,7 @@ export default function DashboardPage() {
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-white rounded-lg border border-gray-200 p-4">
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">
+                      <h3 className="text-sm font-normal text-gray-500 mb-2">
                         Website URL
                       </h3>
                       <div className="flex items-center justify-between">
@@ -1103,7 +907,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="bg-white rounded-lg border border-gray-200 p-4">
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">
+                      <h3 className="text-sm font-normal text-gray-500 mb-2">
                         Created
                       </h3>
                       <div className="flex items-center">
@@ -1123,7 +927,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="bg-white rounded-lg border border-gray-200 p-4">
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">
+                      <h3 className="text-sm font-normal text-gray-500 mb-2">
                         Last Modified
                       </h3>
                       <div className="flex items-center">
@@ -1146,7 +950,7 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                       <div className="p-4 border-b border-gray-100">
-                        <h3 className="font-medium flex items-center">
+                        <h3 className="font-normal flex items-center">
                           <BarChart3 className="h-5 w-5 mr-2 text-gray-500" />
                           Analytics Overview
                         </h3>
@@ -1158,7 +962,7 @@ export default function DashboardPage() {
                               <p className="text-sm text-gray-500">
                                 Page Views
                               </p>
-                              <p className="text-2xl font-bold">
+                              <p className="text-2xl font-medium">
                                 {mockAnalytics.pageViews}
                               </p>
                             </div>
@@ -1166,7 +970,7 @@ export default function DashboardPage() {
                               <p className="text-sm text-gray-500">
                                 Unique Visitors
                               </p>
-                              <p className="text-2xl font-bold">
+                              <p className="text-2xl font-medium">
                                 {mockAnalytics.uniqueVisitors}
                               </p>
                             </div>
@@ -1179,7 +983,7 @@ export default function DashboardPage() {
                               <p className="text-sm text-gray-500">
                                 Performance Score
                               </p>
-                              <p className="text-sm font-medium">Excellent</p>
+                              <p className="text-sm font-normal">Excellent</p>
                             </div>
                             <div className="space-y-2">
                               <div className="flex justify-between text-xs">
@@ -1219,7 +1023,7 @@ export default function DashboardPage() {
 
                     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                       <div className="p-4 border-b border-gray-100">
-                        <h3 className="font-medium flex items-center">
+                        <h3 className="font-normal flex items-center">
                           <HardDrive className="h-5 w-5 mr-2 text-gray-500" />
                           Storage Usage
                         </h3>
@@ -1231,7 +1035,7 @@ export default function DashboardPage() {
                               <p className="text-sm text-gray-500">
                                 Total Storage
                               </p>
-                              <p className="text-2xl font-bold">
+                              <p className="text-2xl font-medium">
                                 {(
                                   mockAnalytics.storageUsed.total / 1024
                                 ).toFixed(2)}{" "}
@@ -1271,7 +1075,7 @@ export default function DashboardPage() {
                                   Database
                                 </p>
                               </div>
-                              <p className="text-sm font-medium">
+                              <p className="text-sm font-normal">
                                 {(
                                   mockAnalytics.storageUsed.database / 1024
                                 ).toFixed(2)}{" "}
@@ -1283,7 +1087,7 @@ export default function DashboardPage() {
                                 <div className="h-3 w-3 rounded-sm bg-green-500 mr-2"></div>
                                 <p className="text-sm text-gray-500">Files</p>
                               </div>
-                              <p className="text-sm font-medium">
+                              <p className="text-sm font-normal">
                                 {(
                                   mockAnalytics.storageUsed.files / 1024
                                 ).toFixed(2)}{" "}
@@ -1298,7 +1102,7 @@ export default function DashboardPage() {
 
                   <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                     <div className="p-4 border-b border-gray-100">
-                      <h3 className="font-medium flex items-center">
+                      <h3 className="font-normal flex items-center">
                         <FileText className="h-5 w-5 mr-2 text-gray-500" />
                         Website Information
                       </h3>
@@ -1311,7 +1115,7 @@ export default function DashboardPage() {
                               <p className="text-sm text-gray-500 mb-1">
                                 Title
                               </p>
-                              <p className="font-medium">
+                              <p className="font-normal">
                                 {selectedWebsite.title}
                               </p>
                             </div>
@@ -1330,7 +1134,7 @@ export default function DashboardPage() {
                               <p className="text-sm text-gray-500 mb-1">
                                 Subdomain
                               </p>
-                              <p className="font-medium">
+                              <p className="font-normal">
                                 {selectedWebsite.subdomain}.webdash.site
                               </p>
                             </div>
@@ -1338,7 +1142,7 @@ export default function DashboardPage() {
                               <p className="text-sm text-gray-500 mb-1">
                                 Status
                               </p>
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-green-100 text-green-800">
                                 Active
                               </span>
                             </div>
@@ -1355,12 +1159,12 @@ export default function DashboardPage() {
                 <div className="space-y-6">
                   <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                     <div className="p-4 border-b border-gray-100">
-                      <h3 className="font-medium">Website Analytics</h3>
+                      <h3 className="font-normal">Website Analytics</h3>
                     </div>
                     <div className="p-4">
                       <div className="flex flex-col items-center justify-center py-12 text-center">
                         <BarChart3 className="h-16 w-16 text-gray-300 mb-4" />
-                        <h3 className="text-xl font-medium mb-2">
+                        <h3 className="text-xl font-normal mb-2">
                           No analytics data yet
                         </h3>
                         <p className="text-gray-500 max-w-md">
@@ -1378,7 +1182,7 @@ export default function DashboardPage() {
                 <div className="space-y-6">
                   <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                     <div className="p-4 border-b border-gray-100">
-                      <h3 className="font-medium flex items-center">
+                      <h3 className="font-normal flex items-center">
                         <Globe className="h-5 w-5 mr-2 text-gray-500" />
                         Domain Settings
                       </h3>
@@ -1386,45 +1190,45 @@ export default function DashboardPage() {
                     <div className="p-4">
                       <div className="space-y-6">
                         <div>
-                          <h3 className="text-lg font-medium mb-2">
+                          <h3 className="text-lg font-normal mb-2">
                             Current Domain
                           </h3>
                           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border">
                             <div>
-                              <p className="font-medium">
+                              <p className="font-normal">
                                 {selectedWebsite.subdomain}.webdash.site
                               </p>
                               <p className="text-sm text-gray-500">
                                 Default subdomain
                               </p>
                             </div>
-                            <button className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-medium cursor-pointer">
+                            <button className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-normal cursor-pointer">
                               Edit Subdomain
                             </button>
                           </div>
                         </div>
 
                         <div>
-                          <h3 className="text-lg font-medium mb-2">
+                          <h3 className="text-lg font-normal mb-2">
                             Custom Domain
                           </h3>
                           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-dashed">
                             <div>
-                              <p className="font-medium">
+                              <p className="font-normal">
                                 No custom domain connected
                               </p>
                               <p className="text-sm text-gray-500">
                                 Connect your own domain to this website
                               </p>
                             </div>
-                            <button className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-3 py-1.5 rounded text-sm font-medium cursor-pointer">
+                            <button className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-3 py-1.5 rounded text-sm font-normal cursor-pointer">
                               Connect Domain
                             </button>
                           </div>
                         </div>
 
                         <div>
-                          <h3 className="text-lg font-medium mb-4">
+                          <h3 className="text-lg font-normal mb-4">
                             DNS Records
                           </h3>
                           <div className="border rounded-md overflow-hidden overflow-x-auto">
@@ -1433,25 +1237,25 @@ export default function DashboardPage() {
                                 <tr>
                                   <th
                                     scope="col"
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
                                   >
                                     Type
                                   </th>
                                   <th
                                     scope="col"
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
                                   >
                                     Name
                                   </th>
                                   <th
                                     scope="col"
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
                                   >
                                     Value
                                   </th>
                                   <th
                                     scope="col"
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
                                   >
                                     TTL
                                   </th>
@@ -1460,7 +1264,7 @@ export default function DashboardPage() {
                                   ) && (
                                     <th
                                       scope="col"
-                                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                      className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
                                     >
                                       Priority
                                     </th>
@@ -1470,7 +1274,7 @@ export default function DashboardPage() {
                               <tbody className="bg-white divide-y divide-gray-200">
                                 {mockDnsRecords.map((record, index) => (
                                   <tr key={index}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-normal text-gray-900">
                                       {record.type}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

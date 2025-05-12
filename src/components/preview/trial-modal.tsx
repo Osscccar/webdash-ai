@@ -90,7 +90,7 @@ export function TrialModal({
               )}
 
               <div className="pt-4">
-                <h3 className="font-medium mb-3">Included in your plan:</h3>
+                <h3 className="font-normal mb-3">Included in your plan:</h3>
                 <ul className="space-y-2">
                   {PLANS[selectedPlan].features.map((feature, index) => (
                     <li key={index} className="flex items-center gap-2">
@@ -200,7 +200,7 @@ function PaymentForm({ onStartTrial, planType, price }: PaymentFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium mb-4">Payment Information</h3>
+        <h3 className="text-lg font-normal mb-4">Payment Information</h3>
         <p className="text-sm text-gray-500 mb-6">
           Your card won't be charged until your free trial ends on{" "}
           <strong>

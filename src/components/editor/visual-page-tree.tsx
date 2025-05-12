@@ -227,7 +227,7 @@ export function VisualPageTree({
       <div className="relative w-full h-full overflow-hidden bg-gray-50 rounded-lg p-6">
         <div className="text-center mb-8">
           <motion.div
-            className="text-xl font-medium text-gray-500 mb-2"
+            className="text-xl font-normal text-gray-500 mb-2"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}

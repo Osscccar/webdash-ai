@@ -54,7 +54,7 @@ export function GenerationProgress({
   return (
     <div className="space-y-8">
       <div className="space-y-3">
-        <div className="flex justify-between text-sm font-medium mb-1">
+        <div className="flex justify-between text-sm font-normal mb-1">
           <span className="text-gray-700">Generation Progress</span>
           <span className="text-gray-900 font-semibold">
             {Math.round(progress)}%
@@ -102,7 +102,7 @@ export function GenerationProgress({
               </div>
               <div className="flex-1">
                 <p
-                  className={`font-medium ${
+                  className={`font-normal ${
                     isActive
                       ? "text-gray-900"
                       : isCompleted

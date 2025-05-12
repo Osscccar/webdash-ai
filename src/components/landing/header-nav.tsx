@@ -30,7 +30,7 @@ export function HeaderNav() {
       <div className="container mx-auto px-4 md:px-6 py-4">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
-            <span className="font-bold text-xl tracking-tight">
+            <span className="font-medium text-xl tracking-tight">
               <span className="text-[#f58327]">Web</span>
               <span className="text-black">Dash</span>
             </span>
@@ -40,13 +40,13 @@ export function HeaderNav() {
           <nav className="hidden md:flex items-center space-x-6">
             <Link
               href="/#features"
-              className="text-gray-600 hover:text-[#f58327] text-sm font-medium transition-colors"
+              className="text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
             >
               Features
             </Link>
             <Link
               href="/#pricing"
-              className="text-gray-600 hover:text-[#f58327] text-sm font-medium transition-colors"
+              className="text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
             >
               Pricing
             </Link>
@@ -122,14 +122,14 @@ export function HeaderNav() {
           <div className="md:hidden mt-4 pb-4 space-y-4">
             <Link
               href="/#features"
-              className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-medium transition-colors"
+              className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Features
             </Link>
             <Link
               href="/#pricing"
-              className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-medium transition-colors"
+              className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Pricing

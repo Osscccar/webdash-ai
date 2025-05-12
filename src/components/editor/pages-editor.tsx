@@ -241,7 +241,7 @@ export function PagesEditor() {
               <div>
                 <label
                   htmlFor="page-title"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
                   Page Title
                 </label>
@@ -257,7 +257,7 @@ export function PagesEditor() {
               <div>
                 <label
                   htmlFor="page-description"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
                   Page Description
                 </label>
@@ -300,7 +300,7 @@ export function PagesEditor() {
               <div>
                 <label
                   htmlFor="section-title"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
                   Section Title
                 </label>
@@ -322,7 +322,7 @@ export function PagesEditor() {
               <div>
                 <label
                   htmlFor="section-description"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
                   Section Description
                 </label>
@@ -400,7 +400,7 @@ export function PagesEditor() {
                 </div>
               </CardHeader>
               <CardContent>
-                <h4 className="text-sm font-medium mb-2">Page Sections</h4>
+                <h4 className="text-sm font-normal mb-2">Page Sections</h4>
                 <div className="space-y-2">
                   {page.sections.map((section, sectionIndex) => (
                     <div
@@ -436,7 +436,7 @@ export function PagesEditor() {
                         )}
                       </div>
                       <div className="flex-grow">
-                        <div className="font-medium text-sm">
+                        <div className="font-normal text-sm">
                           {section.title}
                         </div>
                         <div className="text-xs text-gray-500">

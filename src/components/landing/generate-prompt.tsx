@@ -33,7 +33,7 @@ export function GeneratePrompt({
       <div className="flex flex-col space-y-1.5 ">
         <label
           htmlFor="hero-prompt"
-          className={`text-lg flex flex-row font-medium transition-colors ${
+          className={`text-lg flex flex-row font-normal transition-colors ${
             isFocused ? "text-[#f58327]" : "text-white"
           }`}
         >

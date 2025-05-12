@@ -105,7 +105,7 @@ export function WebsitePreview({
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f58327] mb-4"></div>
-          <h2 className="text-2xl font-bold mb-2">Loading Preview...</h2>
+          <h2 className="text-2xl font-medium mb-2">Loading Preview...</h2>
           <p className="text-gray-500">
             Your website preview is being prepared.
           </p>
@@ -118,7 +118,7 @@ export function WebsitePreview({
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">No Website Found</h2>
+          <h2 className="text-2xl font-medium mb-2">No Website Found</h2>
           <p className="text-gray-500">
             Please wait for your website to be generated.
           </p>
@@ -131,7 +131,7 @@ export function WebsitePreview({
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center opacity-50">
-          <h2 className="text-2xl font-bold mb-2">Website Preview</h2>
+          <h2 className="text-2xl font-medium mb-2">Website Preview</h2>
           <p className="text-gray-500">
             Please sign in to view your website preview.
           </p>

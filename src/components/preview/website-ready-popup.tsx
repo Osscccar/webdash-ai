@@ -73,7 +73,7 @@ export function WebsiteReadyPopup() {
                     <Sparkles className="h-8 w-8 text-yellow-500" />
                   </div>
                 </div>
-                <h2 className="text-2xl font-bold mb-3">
+                <h2 className="text-2xl font-medium mb-3">
                   Your website is ready! 🎉
                 </h2>
                 <p className="text-gray-600 mb-6">

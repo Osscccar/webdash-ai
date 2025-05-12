@@ -82,7 +82,7 @@ export function ColorsAndFonts({
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-base font-medium mb-4">Brand Colors</h3>
+        <h3 className="text-base font-normal mb-4">Brand Colors</h3>
         <div className="space-y-6">
           <div className="space-y-3">
             <Label htmlFor="primaryColor">Primary Color</Label>
@@ -174,7 +174,7 @@ export function ColorsAndFonts({
       </div>
 
       <div>
-        <h3 className="text-base font-medium mb-4">Typography</h3>
+        <h3 className="text-base font-normal mb-4">Typography</h3>
         <div className="space-y-3">
           <Label htmlFor="primaryFont">Primary Font</Label>
           <Select

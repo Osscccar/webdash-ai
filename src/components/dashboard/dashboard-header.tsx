@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,9 +18,12 @@ import { getUserInitials } from "@/lib/utils";
 import { Bell, HelpCircle, Menu, X, Search } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 
-export function DashboardHeader() {
+interface DashboardHeaderProps {
+  onToggleSidebar?: () => void;
+}
+
+export function DashboardHeader({ onToggleSidebar }: DashboardHeaderProps) {
   const router = useRouter();
   const { user, userData, signOut } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -45,40 +49,42 @@ export function DashboardHeader() {
       <div className="px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <SidebarTrigger className="text-gray-500" />
-
-            <div className="hidden md:flex items-center space-x-4">
-              <Link
-                href="/dashboard"
-                className="text-gray-700 hover:text-[#f58327] text-sm font-medium transition-colors"
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/dashboard/settings"
-                className="text-gray-500 hover:text-[#f58327] text-sm font-medium transition-colors"
-              >
-                Settings
-              </Link>
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleSidebar}
+              className="text-gray-500 md:hidden cursor-pointer"
+            >
+              <Menu className="h-6 w-6" />
+            </Button>
           </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search..."
+                className="pl-9 pr-4 py-2 w-64 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f58327]/20 focus:border-[#f58327]"
+              />
+            </div>
+
             <Button
               variant="ghost"
               size="icon"
-              className="text-gray-500 cursor-pointer"
+              className="text-gray-500 hover:text-gray-700 cursor-pointer"
             >
               <HelpCircle className="h-5 w-5" />
             </Button>
+
             <Button
               variant="ghost"
               size="icon"
-              className="text-gray-500 relative cursor-pointer"
+              className="text-gray-500 hover:text-gray-700 relative cursor-pointer"
             >
               <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
+              <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
             </Button>
 
             <DropdownMenu>
@@ -97,7 +103,7 @@ export function DashboardHeader() {
               <DropdownMenuContent className="w-56" align="end">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium">{userFullName}</p>
+                    <p className="text-sm font-normal">{userFullName}</p>
                     <p className="text-xs text-gray-500 truncate">
                       {user?.email}
                     </p>
@@ -128,7 +134,9 @@ export function DashboardHeader() {
           </div>
 
           {/* Mobile Menu Button */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             className="md:hidden text-gray-600 cursor-pointer"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
@@ -137,7 +145,7 @@ export function DashboardHeader() {
             ) : (
               <Menu className="h-6 w-6" />
             )}
-          </button>
+          </Button>
         </div>
 
         {/* Mobile Menu */}
@@ -145,14 +153,14 @@ export function DashboardHeader() {
           <div className="md:hidden mt-4 pb-4 space-y-4">
             <Link
               href="/dashboard"
-              className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-medium transition-colors"
+              className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Dashboard
             </Link>
             <Link
               href="/dashboard/settings"
-              className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-medium transition-colors"
+              className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Settings
@@ -165,7 +173,7 @@ export function DashboardHeader() {
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-sm font-medium">{userFullName}</p>
+                  <p className="text-sm font-normal">{userFullName}</p>
                   <p className="text-xs text-gray-500 truncate">
                     {user?.email}
                   </p>

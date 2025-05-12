@@ -31,14 +31,14 @@ export function DesignSummary({
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+        <h3 className="text-sm font-normal text-gray-500 uppercase tracking-wider">
           Design Preferences
         </h3>
         <Button
           variant="ghost"
           size="sm"
           onClick={onEdit}
-          className="text-[#FF7300] hover:text-[#E56A00] font-medium cursor-pointer"
+          className="text-[#FF7300] hover:text-[#E56A00] font-normal cursor-pointer"
           disabled={disabled}
         >
           Edit
@@ -48,7 +48,7 @@ export function DesignSummary({
       <div className="space-y-4">
         <div>
           <span className="text-gray-500 block mb-2">Primary font</span>
-          <span className="font-medium">
+          <span className="font-normal">
             {colorAndFontData.fonts.primaryFont}
           </span>
         </div>
@@ -63,7 +63,7 @@ export function DesignSummary({
                   backgroundColor: colorAndFontData.colors.primaryColor,
                 }}
               ></div>
-              <span className="font-medium">
+              <span className="font-normal">
                 {colorAndFontData.colors.primaryColor}
               </span>
             </div>
@@ -82,7 +82,7 @@ export function DesignSummary({
                       backgroundColor: colorAndFontData.colors.secondaryColor,
                     }}
                   ></div>
-                  <span className="font-medium">
+                  <span className="font-normal">
                     {colorAndFontData.colors.secondaryColor}
                   </span>
                 </div>
@@ -99,7 +99,7 @@ export function DesignSummary({
                       backgroundColor: colorAndFontData.colors.backgroundDark,
                     }}
                   ></div>
-                  <span className="font-medium">
+                  <span className="font-normal">
                     {colorAndFontData.colors.backgroundDark}
                   </span>
                 </div>
@@ -113,7 +113,7 @@ export function DesignSummary({
         variant="ghost"
         size="sm"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="text-gray-700 hover:text-gray-900 px-0 font-medium cursor-pointer"
+        className="text-gray-700 hover:text-gray-900 px-0 font-normal cursor-pointer"
         disabled={disabled}
       >
         {isExpanded ? (

@@ -29,14 +29,14 @@ export function SiteInfoSummary({
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+        <h3 className="text-sm font-normal text-gray-500 uppercase tracking-wider">
           Site Brief
         </h3>
         <Button
           variant="ghost"
           size="sm"
           onClick={onEdit}
-          className="text-[#FF7300] hover:text-[#E56A00] font-medium cursor-pointer"
+          className="text-[#FF7300] hover:text-[#E56A00] font-normal cursor-pointer"
           disabled={disabled}
         >
           Edit
@@ -46,14 +46,14 @@ export function SiteInfoSummary({
       <div className="space-y-3">
         <div className="flex justify-between">
           <span className="text-gray-500">Business name</span>
-          <span className="font-medium">
+          <span className="font-normal">
             {siteInfo.businessName || "Not set"}
           </span>
         </div>
 
         <div className="flex justify-between">
           <span className="text-gray-500">Business type</span>
-          <span className="font-medium">
+          <span className="font-normal">
             {siteInfo.businessType || "Not set"}
           </span>
         </div>
@@ -62,7 +62,7 @@ export function SiteInfoSummary({
           <>
             <div className="flex justify-between">
               <span className="text-gray-500">Website title</span>
-              <span className="font-medium">
+              <span className="font-normal">
                 {siteInfo.websiteTitle || "Not set"}
               </span>
             </div>
@@ -92,7 +92,7 @@ export function SiteInfoSummary({
         variant="ghost"
         size="sm"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="text-gray-700 hover:text-gray-900 px-0 font-medium cursor-pointer"
+        className="text-gray-700 hover:text-gray-900 px-0 font-normal cursor-pointer"
         disabled={disabled}
       >
         {isExpanded ? (
