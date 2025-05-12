@@ -5,7 +5,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-poppins);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -114,8 +114,37 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    font-family: var(--font-poppins), sans-serif;
   }
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Additional styling for consistent WebDash branding */
+.webdash-primary {
+  color: #f58327;
+}
+
+.bg-webdash-primary {
+  background-color: #f58327;
+}
+
+.border-webdash-primary {
+  border-color: #f58327;
+}
+
+.hover\:bg-webdash-primary:hover {
+  background-color: #f58327;
+}
+
+.hover\:text-webdash-primary:hover {
+  color: #f58327;
+}
+
+.text-webdash-gradient {
+  background: linear-gradient(90deg, #f58327, #ffb880);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
