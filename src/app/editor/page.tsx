@@ -15,7 +15,7 @@ import { ArrowLeft, Sparkles, Info, AlertCircle, Bot } from "lucide-react";
 import { PrimaryButton } from "@/components/ui/custom-button";
 import { Separator } from "@/components/ui/separator";
 import { PageMeta, Section } from "@/types";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Define the stages of the wizard
 type Stage = "business-info" | "design" | "pages";
@@ -32,6 +32,8 @@ export default function EditorPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiGenerationStep, setAiGenerationStep] = useState(0);
+  const [animatingField, setAnimatingField] = useState<string | null>(null);
+  const [showTreeAnimation, setShowTreeAnimation] = useState(false);
 
   const infoFormRef = useRef<HTMLDivElement>(null);
   const colorFormRef = useRef<HTMLDivElement>(null);
@@ -172,6 +174,8 @@ export default function EditorPage() {
   ]);
 
   const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [animatedPages, setAnimatedPages] = useState<string[]>([]);
+  const [animatedSections, setAnimatedSections] = useState<string[]>([]);
 
   // Function to convert AI-generated pages to our page/section format
   const convertAIPages = (aiPages: any[]) => {
@@ -203,6 +207,9 @@ export default function EditorPage() {
     try {
       setIsGeneratingAI(true);
       setAiGenerationStep(1);
+      setAnimatedPages([]);
+      setAnimatedSections([]);
+      setShowTreeAnimation(true);
 
       const response = await fetch("/api/generate-content", {
         method: "POST",
@@ -228,6 +235,7 @@ export default function EditorPage() {
       }
 
       // Simulate typing for business name
+      setAnimatingField("businessName");
       let tempSiteInfo = { ...siteInfo };
 
       const typeBusinessName = async () => {
@@ -242,6 +250,7 @@ export default function EditorPage() {
 
       await typeBusinessName();
       setAiGenerationStep(3);
+      setAnimatingField("businessType");
 
       // Simulate typing for business type
       const typeBusinessType = async () => {
@@ -256,6 +265,7 @@ export default function EditorPage() {
 
       await typeBusinessType();
       setAiGenerationStep(4);
+      setAnimatingField("businessDescription");
 
       // Simulate typing for business description
       const typeBusinessDescription = async () => {
@@ -270,6 +280,7 @@ export default function EditorPage() {
 
       await typeBusinessDescription();
       setAiGenerationStep(5);
+      setAnimatingField(null);
 
       // Update the rest of the business info
       setSiteInfo({
@@ -293,7 +304,8 @@ export default function EditorPage() {
         colorFormRef.current.scrollIntoView({ behavior: "smooth" });
       }
 
-      // Simulate color updates
+      // Simulate color updates with animation
+      setAnimatingField("colors");
       setColorAndFontData((prev) => ({
         ...prev,
         colors: {
@@ -305,6 +317,7 @@ export default function EditorPage() {
 
       await new Promise((resolve) => setTimeout(resolve, 500));
       setAiGenerationStep(7);
+      setAnimatingField("fonts");
 
       // Update font
       setColorAndFontData((prev) => ({
@@ -321,19 +334,33 @@ export default function EditorPage() {
 
       // Update page structure
       setAiGenerationStep(8);
+      setAnimatingField(null);
 
       // Process pages and sections
       const { pages: aiPages, sections: aiSections } = convertAIPages(
         content.pages
       );
 
+      // Animate page creation - add pages one by one with delays
+      for (let i = 0; i < aiPages.length; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        setAnimatedPages((prev) => [...prev, aiPages[i].id]);
+      }
+
       // Update pages with a delay
       await new Promise((resolve) => setTimeout(resolve, 500));
       setPages(aiPages);
 
+      // Animate section creation - add sections one by one with delays
+      for (let i = 0; i < aiSections.length; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        setAnimatedSections((prev) => [...prev, aiSections[i].id]);
+      }
+
       // Update sections with a delay
       await new Promise((resolve) => setTimeout(resolve, 500));
       setSections(aiSections);
+      setShowTreeAnimation(false);
 
       // Save generated data to localStorage
       localStorage.setItem(
@@ -393,6 +420,8 @@ export default function EditorPage() {
       });
     } finally {
       setIsGeneratingAI(false);
+      setAnimatingField(null);
+      setShowTreeAnimation(false);
     }
   };
 
@@ -493,6 +522,12 @@ export default function EditorPage() {
     };
 
     setPages([...pages, newPage]);
+    setAnimatedPages((prev) => [...prev, newPageId]);
+
+    // Remove animation after a delay
+    setTimeout(() => {
+      setAnimatedPages((prev) => prev.filter((id) => id !== newPageId));
+    }, 1000);
 
     toast({
       title: "Page Added",
@@ -510,6 +545,12 @@ export default function EditorPage() {
     };
 
     setSections([...sections, newSection]);
+    setAnimatedSections((prev) => [...prev, newSectionId]);
+
+    // Remove animation after a delay
+    setTimeout(() => {
+      setAnimatedSections((prev) => prev.filter((id) => id !== newSectionId));
+    }, 1000);
 
     toast({
       title: "Section Added",
@@ -597,7 +638,7 @@ export default function EditorPage() {
 
         {isGeneratingAI && (
           <motion.div
-            className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6"
+            className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 overflow-hidden"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
@@ -608,12 +649,38 @@ export default function EditorPage() {
                 AI Generation in Progress
               </h3>
             </div>
-            <p className="text-blue-600 text-sm mb-2">{getAIStepText()}</p>
+            <p className="text-blue-600 text-sm mb-2 relative">
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={aiGenerationStep}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="block"
+                >
+                  {getAIStepText()}
+                </motion.span>
+              </AnimatePresence>
+              <motion.span
+                className="absolute inset-0 w-full bg-gradient-to-r from-transparent via-blue-200 to-transparent"
+                animate={{
+                  x: ["0%", "100%"],
+                }}
+                transition={{
+                  repeat: Infinity,
+                  duration: 1.5,
+                  ease: "linear",
+                }}
+                style={{ opacity: 0.5 }}
+              />
+            </p>
             <div className="w-full bg-blue-200 rounded-full h-1.5">
-              <div
-                className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
-                style={{ width: `${(aiGenerationStep / 9) * 100}%` }}
-              ></div>
+              <motion.div
+                className="bg-blue-600 h-1.5 rounded-full"
+                initial={{ width: `${(aiGenerationStep / 9) * 100}%` }}
+                animate={{ width: `${(aiGenerationStep / 9) * 100}%` }}
+                transition={{ duration: 0.5 }}
+              />
             </div>
           </motion.div>
         )}
@@ -629,6 +696,7 @@ export default function EditorPage() {
                 siteInfo={siteInfo}
                 setSiteInfo={setSiteInfo}
                 disabled={isGeneratingAI && aiGenerationStep <= 5}
+                animatingField={animatingField}
               />
               <div className="mt-6 flex gap-2">
                 <Button
@@ -674,6 +742,7 @@ export default function EditorPage() {
                   aiGenerationStep >= 6 &&
                   aiGenerationStep <= 7
                 }
+                animatingField={animatingField}
               />
               <div className="mt-6 flex gap-2">
                 <Button
@@ -944,6 +1013,11 @@ export default function EditorPage() {
               onAddPage={handleAddPage}
               onAddSection={handleAddSection}
               disabled={isGeneratingAI && aiGenerationStep >= 8}
+              animatedPages={animatedPages}
+              animatedSections={animatedSections}
+              showAnimation={showTreeAnimation}
+              isGeneratingAI={isGeneratingAI}
+              aiGenerationStep={aiGenerationStep}
             />
           </div>
         </div>

@@ -82,24 +82,53 @@ export async function POST(request: NextRequest) {
 
       const domainId = createResponse.data.data.domain_id;
 
-      // Now prepare the AI generation params with the domain_id from the created website
+      // STEP 2: Generate a sitemap first to get a unique_id
+      const sitemapParams = {
+        domain_id: domainId,
+        params: {
+          business_type: body.business_type,
+          business_name: body.business_name,
+          business_description: body.business_description,
+        },
+      };
+
+      console.log("Step 2: Generating sitemap with params:", sitemapParams);
+
+      const sitemapResponse = await axios.post(
+        `${TENWEB_API_BASE_URL}/ai/generate_sitemap`,
+        sitemapParams,
+        {
+          headers: {
+            "x-api-key": TENWEB_API_KEY,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Sitemap response:", sitemapResponse.data);
+
+      const unique_id = sitemapResponse.data.data.unique_id;
+
+      // STEP 3: Now properly structure the params for generate_site_from_sitemap
       const aiGenerationParams = {
         domain_id: domainId,
-        unique_id: body.unique_id,
-        business_type: body.business_type,
-        business_name: body.business_name,
-        business_description: body.business_description,
-        colors: body.colors,
-        fonts: body.fonts,
-        pages_meta: body.pages_meta,
-        website_title: body.website_title,
-        website_description: body.website_description,
-        website_keyphrase: body.website_keyphrase,
-        website_type: body.website_type,
+        unique_id: unique_id,
+        params: {
+          business_type: body.business_type,
+          business_name: body.business_name,
+          business_description: body.business_description,
+          colors: body.colors,
+          fonts: body.fonts,
+          pages_meta: body.pages_meta,
+          website_title: body.website_title,
+          website_description: body.website_description,
+          website_keyphrase: body.website_keyphrase,
+          website_type: body.business_type || "agency", // Use business_type as website_type
+        },
       };
 
       console.log(
-        "Step 2: Generating AI content with params:",
+        "Step 3: Generating AI site with params:",
         aiGenerationParams
       );
 

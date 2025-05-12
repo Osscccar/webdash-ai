@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface PageNode {
   id: string;
@@ -29,6 +30,7 @@ interface VisualPageTreeProps {
   onEditPage: (page: PageNode) => void;
   onAddPage: () => void;
   onAddSection: (pageId: string) => void;
+  disabled?: boolean;
 }
 
 export function VisualPageTree({
@@ -37,6 +39,7 @@ export function VisualPageTree({
   onEditPage,
   onAddPage,
   onAddSection,
+  disabled = false,
 }: VisualPageTreeProps) {
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -45,6 +48,32 @@ export function VisualPageTree({
   const [scale, setScale] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // New state for animations
+  const [isAnimating, setIsAnimating] = useState(disabled);
+  const [animationProgress, setAnimationProgress] = useState(0);
+  const [showPlaceholder, setShowPlaceholder] = useState(false);
+
+  // Effect to show placeholder during initial load or when disabled
+  useEffect(() => {
+    if (disabled) {
+      setShowPlaceholder(true);
+      setIsAnimating(true);
+
+      // Animate progress
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 1;
+        setAnimationProgress(Math.min(progress, 100));
+        if (progress >= 100) clearInterval(interval);
+      }, 50);
+
+      return () => clearInterval(interval);
+    } else {
+      setShowPlaceholder(false);
+      setIsAnimating(false);
+    }
+  }, [disabled]);
 
   const handlePageClick = (page: PageNode) => {
     setSelectedPageId(page.id);
@@ -61,7 +90,7 @@ export function VisualPageTree({
     return sections.filter((section) => section.parentId === pageId);
   };
 
-  const homePageSections = getSectionsForPage(homePage.id);
+  const homePageSections = getSectionsForPage(homePage?.id || "");
 
   // Handle mouse down for dragging
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -186,78 +215,84 @@ export function VisualPageTree({
     };
   }, [scale, position]);
 
-  // Handle pinch zoom for touch devices
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let initialDistance = 0;
-    let initialScale = 1;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 2) return;
-
-      initialDistance = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-
-      initialScale = scale;
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length !== 2) return;
-
-      const currentDistance = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-
-      // Calculate center point between the two touches
-      const center = {
-        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
-      };
-
-      const rect = container.getBoundingClientRect();
-      const x = center.x - rect.left;
-      const y = center.y - rect.top;
-
-      // Calculate new scale
-      const newScale = Math.max(
-        0.5,
-        Math.min(2, initialScale * (currentDistance / initialDistance))
-      );
-
-      // Calculate new position
-      const scaleChange = newScale / scale;
-      const newPosition = {
-        x: x - (x - position.x) * scaleChange,
-        y: y - (y - position.y) * scaleChange,
-      };
-
-      setScale(newScale);
-      setPosition(newPosition);
-    };
-
-    container.addEventListener("touchstart", handleTouchStart, {
-      passive: false,
-    });
-    container.addEventListener("touchmove", handleTouchMove, {
-      passive: false,
-    });
-
-    return () => {
-      container.removeEventListener("touchstart", handleTouchStart);
-      container.removeEventListener("touchmove", handleTouchMove);
-    };
-  }, [scale, position]);
-
   // Reset position and scale
   const resetView = () => {
     setPosition({ x: 0, y: 0 });
     setScale(1);
   };
+
+  // Render a placeholder during animation or loading
+  if (showPlaceholder) {
+    return (
+      <div className="relative w-full h-full overflow-hidden bg-gray-50 rounded-lg p-6">
+        <div className="text-center mb-8">
+          <motion.div
+            className="text-xl font-medium text-gray-500 mb-2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <span className="bg-gradient-to-r from-[#FF7300] to-[#FFB880] text-transparent bg-clip-text">
+              AI is designing your website structure
+            </span>
+          </motion.div>
+
+          <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden mt-2">
+            <motion.div
+              className="h-full bg-gradient-to-r from-[#FF7300] to-[#FFB880]"
+              initial={{ width: 0 }}
+              animate={{ width: `${animationProgress}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
+
+          <p className="text-gray-400 text-sm mt-2">
+            Creating pages and sections based on your input
+          </p>
+        </div>
+
+        <div className="flex flex-col items-center">
+          {/* Animated placeholder for home page */}
+          <motion.div
+            className="w-56 h-14 bg-gray-200 rounded-md mb-4"
+            animate={{
+              opacity: [0.6, 1, 0.6],
+              backgroundColor: ["#e5e7eb", "#f3f4f6", "#e5e7eb"],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              repeatType: "reverse",
+            }}
+          />
+
+          <div className="h-8 w-0.5 bg-gray-200" />
+
+          {/* Grid of placeholder pages */}
+          <div className="grid grid-cols-3 gap-4 mt-4">
+            {[...Array(6)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="w-40 h-12 bg-gray-200 rounded-md"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  backgroundColor: ["#e5e7eb", "#f3f4f6", "#e5e7eb"],
+                }}
+                transition={{
+                  delay: i * 0.15,
+                  duration: 2,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -284,93 +319,139 @@ export function VisualPageTree({
       >
         {/* Home page at the top */}
         <div className="flex flex-col items-center mb-6">
-          <div
-            className={cn(
-              "bg-black text-white px-4 py-2 rounded-md flex items-center justify-between w-56 cursor-pointer",
-              selectedPageId === homePage.id ? "ring-2 ring-[#FF7300]" : ""
-            )}
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePageClick(homePage);
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                <polyline points="9 22 9 12 15 12 15 22"></polyline>
-              </svg>
-              <span>{homePage.title}</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-white hover:bg-white/20 cursor-pointer"
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={homePage?.id || "home-placeholder"}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.3 }}
+              className={cn(
+                "bg-black text-white px-4 py-2 rounded-md flex items-center justify-between w-56 cursor-pointer hover:shadow-lg transition-shadow",
+                selectedPageId === homePage?.id ? "ring-2 ring-[#FF7300]" : ""
+              )}
               onClick={(e) => {
                 e.stopPropagation();
-                onAddSection(homePage.id);
+                if (homePage) handlePageClick(homePage);
               }}
             >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Home page sections */}
-          <div className="mt-2 grid grid-cols-3 gap-2 w-[500px]">
-            {homePageSections.map((section) => (
-              <div
-                key={section.id}
-                className={cn(
-                  "bg-white border px-4 py-2 rounded-md cursor-pointer",
-                  selectedPageId === section.id ? "ring-2 ring-[#FF7300]" : ""
-                )}
+              <div className="flex items-center gap-2">
+                <motion.svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  animate={{ rotate: [0, 10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </motion.svg>
+                <span>{homePage?.title || "Home"}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-white hover:bg-white/20 cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handlePageClick(section);
+                  if (homePage) onAddSection(homePage.id);
                 }}
               >
-                {section.title}
-              </div>
-            ))}
-          </div>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Home page sections */}
+          <AnimatePresence>
+            {homePageSections.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mt-2 grid grid-cols-3 gap-2 w-[500px]"
+              >
+                {homePageSections.map((section, index) => (
+                  <motion.div
+                    key={section.id}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={cn(
+                      "bg-white border px-4 py-2 rounded-md cursor-pointer hover:shadow-md transition-shadow",
+                      selectedPageId === section.id
+                        ? "ring-2 ring-[#FF7300]"
+                        : ""
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePageClick(section);
+                    }}
+                  >
+                    {section.title}
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Vertical line connecting to subpages */}
-          <div className="h-10 w-0.5 bg-gray-300 my-2"></div>
+          <motion.div
+            className="h-10 w-0.5 bg-gray-300 my-2"
+            initial={{ height: 0 }}
+            animate={{ height: "40px" }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+          />
         </div>
 
         {/* Add Page button */}
         <div className="flex justify-center mb-6">
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddPage();
-            }}
-            className="bg-white text-black outline-black/60 outline-1 hover:bg-neutral-100 cursor-pointer"
-          >
-            <Plus className="h-4 w-4 mr-2" /> Add Page
-          </Button>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddPage();
+              }}
+              className="bg-white text-black outline-black/60 outline-1 hover:bg-neutral-100 cursor-pointer shadow-md hover:shadow-lg transition-all"
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add Page
+            </Button>
+          </motion.div>
         </div>
 
         {/* Sub pages */}
         <div className="grid grid-cols-4 gap-8">
-          {subPages.map((page) => (
-            <div key={page.id} className="flex flex-col items-center">
+          {subPages.map((page, index) => (
+            <motion.div
+              key={page.id}
+              className="flex flex-col items-center"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1, duration: 0.4 }}
+            >
               {/* Vertical line connecting from top */}
-              <div className="h-6 w-0.5 bg-gray-300 mb-2"></div>
+              <motion.div
+                className="h-6 w-0.5 bg-gray-300 mb-2"
+                initial={{ height: 0 }}
+                animate={{ height: "24px" }}
+                transition={{ duration: 0.3 }}
+              />
 
               {/* Page card */}
-              <div
+              <motion.div
+                whileHover={{
+                  y: -3,
+                  boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
+                }}
                 className={cn(
-                  "bg-black text-white px-4 py-2 rounded-md flex items-center justify-between w-full cursor-pointer",
+                  "bg-black text-white px-4 py-2 rounded-md flex items-center justify-between w-full cursor-pointer transition-all",
                   selectedPageId === page.id ? "ring-2 ring-[#FF7300]" : ""
                 )}
                 onClick={(e) => {
@@ -379,7 +460,7 @@ export function VisualPageTree({
                 }}
               >
                 <div className="flex items-center gap-2">
-                  <svg
+                  <motion.svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="16"
                     height="16"
@@ -389,10 +470,16 @@ export function VisualPageTree({
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    animate={{ y: [0, 2, 0] }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      delay: index * 0.2,
+                    }}
                   >
                     <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
                     <polyline points="14 2 14 8 20 8"></polyline>
-                  </svg>
+                  </motion.svg>
                   <span className="truncate">{page.title}</span>
                 </div>
                 <DropdownMenu>
@@ -427,29 +514,35 @@ export function VisualPageTree({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
+              </motion.div>
 
               {/* Page sections - display in a grid for better spacing */}
               <div className="mt-2 grid grid-cols-1 gap-2 w-full">
-                {getSectionsForPage(page.id).map((section) => (
-                  <div
-                    key={section.id}
-                    className={cn(
-                      "bg-white border px-4 py-2 rounded-md cursor-pointer",
-                      selectedPageId === section.id
-                        ? "ring-2 ring-[#FF7300]"
-                        : ""
-                    )}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePageClick(section);
-                    }}
-                  >
-                    {section.title}
-                  </div>
-                ))}
+                <AnimatePresence>
+                  {getSectionsForPage(page.id).map((section, sectionIndex) => (
+                    <motion.div
+                      key={section.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      transition={{ delay: sectionIndex * 0.05 }}
+                      className={cn(
+                        "bg-white border px-4 py-2 rounded-md cursor-pointer hover:shadow-md transition-all",
+                        selectedPageId === section.id
+                          ? "ring-2 ring-[#FF7300]"
+                          : ""
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePageClick(section);
+                      }}
+                    >
+                      {section.title}
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

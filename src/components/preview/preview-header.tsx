@@ -1,10 +1,11 @@
-// src/components/preview/preview-header.tsx
-
 "use client";
 
 import Link from "next/link";
 import { PrimaryButton } from "@/components/ui/custom-button";
 import { Button } from "@/components/ui/button";
+// Fix the import statement
+import WebDashLogo from "../../../public/WebDash.webp";
+import Image from "next/image";
 
 interface PreviewHeaderProps {
   deviceView: "desktop" | "mobile";
@@ -24,10 +25,13 @@ export function PreviewHeader({
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
-            <span className="font-bold text-xl tracking-tight">
-              <span className="text-[#f58327]">Web</span>
-              <span className="text-black">Dash</span>
-            </span>
+            {/* Use the Next.js Image component correctly */}
+            <Image
+              src={WebDashLogo}
+              alt="WebDash Logo"
+              width={40}
+              height={40}
+            />
           </Link>
 
           <div className="flex items-center space-x-4">
