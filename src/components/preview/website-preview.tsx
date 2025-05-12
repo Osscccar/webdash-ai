@@ -1,23 +1,45 @@
+// src/components/preview/website-preview.tsx
+
 "use client";
 
-import { useState, useEffect } from "react";
-import { Edit2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import {
+  ExternalLink,
+  Maximize,
+  Minimize,
+  ArrowLeft,
+  ArrowRight,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PrimaryButton } from "@/components/ui/custom-button";
 
 interface WebsitePreviewProps {
   deviceView: "desktop" | "mobile";
   onElementClick: () => void;
+  websiteGenerated?: boolean;
 }
 
 export function WebsitePreview({
   deviceView,
   onElementClick,
+  websiteGenerated = false,
 }: WebsitePreviewProps) {
   const [siteInfo, setSiteInfo] = useState<any>(null);
-  const [hoveredElement, setHoveredElement] = useState<string | null>(null);
+  const [websiteUrl, setWebsiteUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Get the site info from localStorage
+    // Get the site info and website data from localStorage
     const savedInfo = localStorage.getItem("webdash_site_info");
+    const savedWebsite = localStorage.getItem("webdash_website");
+    const savedSubdomain = localStorage.getItem("webdash_subdomain");
+
+    setIsLoading(true);
+
     if (savedInfo) {
       try {
         setSiteInfo(JSON.parse(savedInfo));
@@ -25,12 +47,64 @@ export function WebsitePreview({
         console.error("Error parsing site info:", e);
       }
     }
+
+    // Try to get the website URL from various sources
+    if (savedWebsite) {
+      try {
+        const websiteData = JSON.parse(savedWebsite);
+        setWebsiteUrl(websiteData.siteUrl);
+        setIsLoading(false);
+      } catch (e) {
+        console.error("Error parsing website data:", e);
+      }
+    } else if (savedSubdomain) {
+      // Construct URL from subdomain if website object not available
+      // Using correct webdash.site domain
+      setWebsiteUrl(`https://${savedSubdomain}.webdash.site`);
+      setIsLoading(false);
+    } else {
+      setIsLoading(false);
+    }
+  }, [websiteGenerated]);
+
+  // Toggle fullscreen mode for the preview
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      setIsFullscreen(true);
+      containerRef.current.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      setIsFullscreen(false);
+      document.exitFullscreen();
+    }
+  };
+
+  // Listen for fullscreen change events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
   }, []);
 
-  if (!siteInfo) {
+  const openInNewTab = () => {
+    if (websiteUrl) {
+      window.open(websiteUrl, "_blank");
+    }
+  };
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f58327] mb-4"></div>
           <h2 className="text-2xl font-bold mb-2">Loading Preview...</h2>
           <p className="text-gray-500">
             Your website preview is being prepared.
@@ -40,201 +114,141 @@ export function WebsitePreview({
     );
   }
 
-  // This is a preview - in a real implementation, you would render the actual website
-  // or use an iframe to show the real 10Web site
-  return (
-    <div
-      className={`mx-auto bg-white shadow-xl overflow-hidden transition-all ${
-        deviceView === "mobile" ? "max-w-sm" : "w-full"
-      }`}
-    >
-      {/* Website Header */}
-      <header
-        className="bg-gray-800 text-white p-4"
-        onMouseEnter={() => setHoveredElement("header")}
-        onMouseLeave={() => setHoveredElement(null)}
-        onClick={onElementClick}
-      >
-        <div className="relative">
-          {hoveredElement === "header" && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
-              <button className="bg-white text-gray-800 rounded-full p-2">
-                <Edit2 className="h-5 w-5" />
-              </button>
-            </div>
-          )}
-          <div className="flex justify-between items-center">
-            <h1 className="text-xl font-bold">
-              {siteInfo.businessName || "Company Name"}
-            </h1>
-            <nav className="hidden md:block">
-              <ul className="flex space-x-4">
-                <li>Home</li>
-                <li>About</li>
-                <li>Services</li>
-                <li>Contact</li>
-              </ul>
-            </nav>
-            <div className="md:hidden">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <section
-        className="relative bg-gray-900 text-white py-16 px-6 text-center"
-        onMouseEnter={() => setHoveredElement("hero")}
-        onMouseLeave={() => setHoveredElement(null)}
-        onClick={onElementClick}
-      >
-        <div className="relative">
-          {hoveredElement === "hero" && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
-              <button className="bg-white text-gray-800 rounded-full p-2">
-                <Edit2 className="h-5 w-5" />
-              </button>
-            </div>
-          )}
-          <h2 className="text-3xl font-bold mb-4">
-            {siteInfo.websiteTitle || "Welcome to Our Website"}
-          </h2>
-          <p className="mb-6 max-w-2xl mx-auto">
-            {siteInfo.businessDescription ||
-              "We provide top-quality services to meet all your needs."}
+  if (!websiteUrl) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">No Website Found</h2>
+          <p className="text-gray-500">
+            Please wait for your website to be generated.
           </p>
-          <button className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-6 py-2 rounded">
-            Get Started
-          </button>
         </div>
-      </section>
+      </div>
+    );
+  }
 
-      {/* Services Section */}
-      <section
-        className="py-12 px-6"
-        onMouseEnter={() => setHoveredElement("services")}
-        onMouseLeave={() => setHoveredElement(null)}
-        onClick={onElementClick}
-      >
-        <div className="relative">
-          {hoveredElement === "services" && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
-              <button className="bg-white text-gray-800 rounded-full p-2">
-                <Edit2 className="h-5 w-5" />
-              </button>
-            </div>
-          )}
-          <h2 className="text-2xl font-bold mb-8 text-center">Our Services</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-gray-100 p-6 rounded-lg">
-              <h3 className="text-xl font-semibold mb-2">Service 1</h3>
-              <p>Detailed description of the first service we offer.</p>
-            </div>
-            <div className="bg-gray-100 p-6 rounded-lg">
-              <h3 className="text-xl font-semibold mb-2">Service 2</h3>
-              <p>Detailed description of the second service we offer.</p>
-            </div>
-            <div className="bg-gray-100 p-6 rounded-lg">
-              <h3 className="text-xl font-semibold mb-2">Service 3</h3>
-              <p>Detailed description of the third service we offer.</p>
-            </div>
-          </div>
+  if (!websiteGenerated) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center opacity-50">
+          <h2 className="text-2xl font-bold mb-2">Website Preview</h2>
+          <p className="text-gray-500">
+            Please sign in to view your website preview.
+          </p>
         </div>
-      </section>
+      </div>
+    );
+  }
 
-      {/* About Section */}
-      <section
-        className="py-12 px-6 bg-gray-100"
-        onMouseEnter={() => setHoveredElement("about")}
-        onMouseLeave={() => setHoveredElement(null)}
-        onClick={onElementClick}
-      >
-        <div className="relative">
-          {hoveredElement === "about" && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
-              <button className="bg-white text-gray-800 rounded-full p-2">
-                <Edit2 className="h-5 w-5" />
-              </button>
-            </div>
-          )}
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-2xl font-bold mb-4 text-center">About Us</h2>
-            <p className="mb-4">
-              {siteInfo.websiteDescription ||
-                "We are a dedicated team committed to providing exceptional services to our clients."}
-            </p>
-            <p>
-              Our mission is to deliver high-quality solutions that meet the
-              unique needs of each client.
-            </p>
-          </div>
-        </div>
-      </section>
+  return (
+    <div className="space-y-4" ref={containerRef}>
+      <div className="flex justify-between items-center">
+        <div className="flex items-center">
+          <h2 className="text-xl font-semibold mr-4">Website Preview</h2>
 
-      {/* Footer */}
-      <footer
-        className="bg-gray-800 text-white py-8 px-6"
-        onMouseEnter={() => setHoveredElement("footer")}
-        onMouseLeave={() => setHoveredElement(null)}
-        onClick={onElementClick}
+          {/* Responsiveness Tabs */}
+          <Tabs defaultValue={deviceView} className="w-auto">
+            <TabsList className="grid w-auto grid-cols-2 h-9 bg-gray-100">
+              <TabsTrigger
+                value="desktop"
+                onClick={() =>
+                  deviceView !== "desktop" && setDeviceView("desktop")
+                }
+                className="data-[state=active]:bg-white data-[state=active]:text-black rounded-md"
+              >
+                Desktop
+              </TabsTrigger>
+              <TabsTrigger
+                value="mobile"
+                onClick={() =>
+                  deviceView !== "mobile" && setDeviceView("mobile")
+                }
+                className="data-[state=active]:bg-white data-[state=active]:text-black rounded-md"
+              >
+                Mobile
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        <div className="flex space-x-2">
+          {/* Fullscreen Button */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleFullscreen}
+            className="text-gray-500 hover:text-gray-700 focus:ring-2 focus:ring-gray-300"
+            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          >
+            {isFullscreen ? (
+              <Minimize className="h-4 w-4" />
+            ) : (
+              <Maximize className="h-4 w-4" />
+            )}
+          </Button>
+
+          {/* Open in New Tab Button */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={openInNewTab}
+            className="text-gray-500 hover:text-gray-700 focus:ring-2 focus:ring-gray-300"
+            title="Open in New Tab"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div
+        className={`mx-auto bg-white shadow-xl overflow-hidden transition-all ${
+          deviceView === "mobile" ? "max-w-sm" : "w-full"
+        } ${isFullscreen ? "h-[calc(100vh-8rem)]" : ""}`}
       >
-        <div className="relative">
-          {hoveredElement === "footer" && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
-              <button className="bg-white text-gray-800 rounded-full p-2">
-                <Edit2 className="h-5 w-5" />
-              </button>
-            </div>
-          )}
-          <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8">
-            <div>
-              <h3 className="text-lg font-semibold mb-4">
-                {siteInfo.businessName || "Company Name"}
-              </h3>
-              <p>Providing quality services since 2023.</p>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Contact</h3>
-              <p>Email: info@example.com</p>
-              <p>Phone: (123) 456-7890</p>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Follow Us</h3>
-              <div className="flex space-x-4">
-                <a href="#" className="hover:text-gray-300">
-                  Facebook
-                </a>
-                <a href="#" className="hover:text-gray-300">
-                  Twitter
-                </a>
-                <a href="#" className="hover:text-gray-300">
-                  Instagram
-                </a>
-              </div>
-            </div>
+        <div className="w-full h-10 bg-gray-100 flex items-center px-4 border-b">
+          <div className="flex items-center space-x-1.5">
+            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
           </div>
-          <div className="border-t border-gray-700 mt-8 pt-6 text-center">
-            <p>
-              &copy; 2023 {siteInfo.businessName || "Company Name"}. All rights
-              reserved.
-            </p>
+          <div className="flex items-center space-x-2 mx-auto">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-gray-400"
+            >
+              <ArrowLeft className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-gray-400"
+            >
+              <ArrowRight className="h-3 w-3" />
+            </Button>
+            <div className="bg-white rounded-full h-6 px-3 text-xs text-gray-500 border flex-1 max-w-md truncate">
+              {websiteUrl}
+            </div>
           </div>
         </div>
-      </footer>
+
+        <div className="w-full bg-white">
+          <iframe
+            ref={iframeRef}
+            src={websiteUrl}
+            className={`w-full border-0 ${
+              isFullscreen
+                ? "h-[calc(100vh-12rem)]"
+                : deviceView === "mobile"
+                ? "h-[600px]"
+                : "h-[700px]"
+            }`}
+            title="Website Preview"
+            sandbox="allow-same-origin allow-scripts"
+            loading="lazy"
+          />
+        </div>
+      </div>
     </div>
   );
 }

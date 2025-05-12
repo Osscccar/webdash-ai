@@ -1,3 +1,5 @@
+// src/components/editor/site-info-form.tsx
+
 "use client";
 
 import type React from "react";
@@ -23,9 +25,14 @@ interface SiteInfoFormProps {
       websiteKeyphrase: string;
     }>
   >;
+  disabled?: boolean;
 }
 
-export function SiteInfoForm({ siteInfo, setSiteInfo }: SiteInfoFormProps) {
+export function SiteInfoForm({
+  siteInfo,
+  setSiteInfo,
+  disabled = false,
+}: SiteInfoFormProps) {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -46,6 +53,8 @@ export function SiteInfoForm({ siteInfo, setSiteInfo }: SiteInfoFormProps) {
           name="businessName"
           value={siteInfo.businessName}
           onChange={handleChange}
+          disabled={disabled}
+          className={disabled ? "bg-gray-50 animate-pulse" : ""}
         />
       </div>
       <div>
@@ -56,6 +65,8 @@ export function SiteInfoForm({ siteInfo, setSiteInfo }: SiteInfoFormProps) {
           name="businessType"
           value={siteInfo.businessType}
           onChange={handleChange}
+          disabled={disabled}
+          className={disabled ? "bg-gray-50 animate-pulse" : ""}
         />
       </div>
       <div>
@@ -65,6 +76,8 @@ export function SiteInfoForm({ siteInfo, setSiteInfo }: SiteInfoFormProps) {
           name="businessDescription"
           value={siteInfo.businessDescription}
           onChange={handleChange}
+          disabled={disabled}
+          className={disabled ? "bg-gray-50 animate-pulse" : ""}
         />
       </div>
       <div>
@@ -75,6 +88,8 @@ export function SiteInfoForm({ siteInfo, setSiteInfo }: SiteInfoFormProps) {
           name="websiteTitle"
           value={siteInfo.websiteTitle}
           onChange={handleChange}
+          disabled={disabled}
+          className={disabled ? "bg-gray-50 animate-pulse" : ""}
         />
       </div>
       <div>
@@ -84,6 +99,8 @@ export function SiteInfoForm({ siteInfo, setSiteInfo }: SiteInfoFormProps) {
           name="websiteDescription"
           value={siteInfo.websiteDescription}
           onChange={handleChange}
+          disabled={disabled}
+          className={disabled ? "bg-gray-50 animate-pulse" : ""}
         />
       </div>
       <div>
@@ -94,6 +111,8 @@ export function SiteInfoForm({ siteInfo, setSiteInfo }: SiteInfoFormProps) {
           name="websiteKeyphrase"
           value={siteInfo.websiteKeyphrase}
           onChange={handleChange}
+          disabled={disabled}
+          className={disabled ? "bg-gray-50 animate-pulse" : ""}
         />
       </div>
     </div>

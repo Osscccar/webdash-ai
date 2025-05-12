@@ -1,8 +1,10 @@
+// src/components/preview/preview-header.tsx
+
 "use client";
 
 import Link from "next/link";
+import { PrimaryButton } from "@/components/ui/custom-button";
 import { Button } from "@/components/ui/button";
-import { Laptop, Smartphone } from "lucide-react";
 
 interface PreviewHeaderProps {
   deviceView: "desktop" | "mobile";
@@ -29,35 +31,11 @@ export function PreviewHeader({
           </Link>
 
           <div className="flex items-center space-x-4">
-            <div className="hidden md:flex items-center bg-gray-100 rounded-md p-1">
-              <Button
-                variant={deviceView === "desktop" ? "default" : "ghost"}
-                size="sm"
-                className={deviceView === "desktop" ? "bg-white" : ""}
-                onClick={() => setDeviceView("desktop")}
-              >
-                <Laptop className="h-4 w-4 mr-2" />
-                Desktop
-              </Button>
-              <Button
-                variant={deviceView === "mobile" ? "default" : "ghost"}
-                size="sm"
-                className={deviceView === "mobile" ? "bg-white" : ""}
-                onClick={() => setDeviceView("mobile")}
-              >
-                <Smartphone className="h-4 w-4 mr-2" />
-                Mobile
-              </Button>
-            </div>
-
-            <Button
-              className="bg-[#f58327] hover:bg-[#f58327]/90 text-white"
-              onClick={onEditClick}
-            >
+            <PrimaryButton onClick={onEditClick}>
               {hasActiveSubscription
                 ? "Edit Website"
-                : "Try 10Web Pro Free for 7 Days"}
-            </Button>
+                : "Try WebDash Pro Free for 7 Days"}
+            </PrimaryButton>
           </div>
         </div>
       </div>

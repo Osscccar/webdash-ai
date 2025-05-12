@@ -1,3 +1,5 @@
+// src/app/page.tsx
+
 "use client";
 
 import { useState } from "react";
@@ -6,9 +8,11 @@ import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { GeneratePrompt } from "@/components/landing/generate-prompt";
 import { Sparkles, Wand2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -18,13 +22,35 @@ export default function OnboardingPage() {
     try {
       setIsLoading(true);
 
+      // Clear all localStorage items related to website generation
+      const keysToRemove = [
+        "webdash_prompt",
+        "webdash_site_info",
+        "webdash_colors_fonts",
+        "webdash_subdomain",
+        "webdash_website",
+        "webdash_domain_id",
+        "webdash_pages_meta",
+        "webdash_generate_ai_content",
+      ];
+
+      keysToRemove.forEach((key) => localStorage.removeItem(key));
+
       // Save prompt to local storage to pass to the editor page
       localStorage.setItem("webdash_prompt", prompt);
 
-      // Redirect to the editor page, not directly to generate page
+      // Set a flag to indicate we should run AI generation on the editor page
+      localStorage.setItem("webdash_generate_ai_content", "true");
+
+      // Redirect to the editor page
       router.push("/editor");
     } catch (error) {
       console.error("Error preparing website generation:", error);
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
       setIsLoading(false);
     }
   };

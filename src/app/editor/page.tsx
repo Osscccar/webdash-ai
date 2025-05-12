@@ -1,6 +1,8 @@
+// src/app/editor/page.tsx
+
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { SiteInfoForm } from "@/components/editor/site-info-form";
 import { ColorsAndFonts } from "@/components/editor/colors-and-fonts";
@@ -9,9 +11,11 @@ import { SiteInfoSummary } from "@/components/editor/site-info-summary";
 import { DesignSummary } from "@/components/editor/design-summary";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Info, AlertCircle } from "lucide-react";
+import { ArrowLeft, Sparkles, Info, AlertCircle, Bot } from "lucide-react";
 import { PrimaryButton } from "@/components/ui/custom-button";
 import { Separator } from "@/components/ui/separator";
+import { PageMeta, Section } from "@/types";
+import { motion } from "framer-motion";
 
 // Define the stages of the wizard
 type Stage = "business-info" | "design" | "pages";
@@ -26,7 +30,13 @@ export default function EditorPage() {
     useState<EditingSection>("business-info");
   const [completedStages, setCompletedStages] = useState<Stage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiGenerationStep, setAiGenerationStep] = useState(0);
 
+  const infoFormRef = useRef<HTMLDivElement>(null);
+  const colorFormRef = useRef<HTMLDivElement>(null);
+
+  // Default site info state
   const [siteInfo, setSiteInfo] = useState({
     businessType: "",
     businessName: "",
@@ -36,6 +46,7 @@ export default function EditorPage() {
     websiteKeyphrase: "",
   });
 
+  // Default colors and fonts state
   const [colorAndFontData, setColorAndFontData] = useState({
     colors: {
       primaryColor: "#f58327",
@@ -48,7 +59,7 @@ export default function EditorPage() {
   });
 
   // Initial pages for the visual page tree
-  const initialPages = [
+  const [pages, setPages] = useState([
     {
       id: "home",
       title: "Home page",
@@ -65,21 +76,27 @@ export default function EditorPage() {
       type: "page" as const,
     },
     {
-      id: "blog",
-      title: "Blog",
+      id: "contact",
+      title: "Contact",
       type: "page" as const,
     },
-  ];
+  ]);
 
   // Initial sections for the visual page tree
-  const initialSections = [
+  const [sections, setSections] = useState([
+    // Home page sections
     {
       id: "header",
       title: "Header",
       type: "section" as const,
       parentId: "home",
     },
-    { id: "hero", title: "Hero", type: "section" as const, parentId: "home" },
+    {
+      id: "hero",
+      title: "Hero",
+      type: "section" as const,
+      parentId: "home",
+    },
     {
       id: "features",
       title: "Features",
@@ -92,19 +109,8 @@ export default function EditorPage() {
       type: "section" as const,
       parentId: "home",
     },
-    {
-      id: "cta",
-      title: "Call to Action",
-      type: "section" as const,
-      parentId: "home",
-    },
-    {
-      id: "footer",
-      title: "Footer",
-      type: "section" as const,
-      parentId: "home",
-    },
 
+    // About page sections
     {
       id: "about-header",
       title: "Header",
@@ -123,13 +129,8 @@ export default function EditorPage() {
       type: "section" as const,
       parentId: "about",
     },
-    {
-      id: "mission",
-      title: "Our Mission",
-      type: "section" as const,
-      parentId: "about",
-    },
 
+    // Services page sections
     {
       id: "services-header",
       title: "Header",
@@ -148,36 +149,252 @@ export default function EditorPage() {
       type: "section" as const,
       parentId: "services",
     },
-    {
-      id: "service-3",
-      title: "Service 3",
-      type: "section" as const,
-      parentId: "services",
-    },
 
+    // Contact page sections
     {
-      id: "blog-header",
+      id: "contact-header",
       title: "Header",
       type: "section" as const,
-      parentId: "blog",
+      parentId: "contact",
     },
     {
-      id: "blog-posts",
-      title: "Blog Posts",
+      id: "contact-form",
+      title: "Contact Form",
       type: "section" as const,
-      parentId: "blog",
+      parentId: "contact",
     },
     {
-      id: "categories",
-      title: "Categories",
+      id: "contact-info",
+      title: "Contact Information",
       type: "section" as const,
-      parentId: "blog",
+      parentId: "contact",
     },
-  ];
+  ]);
 
-  const [pages, setPages] = useState(initialPages);
-  const [sections, setSections] = useState(initialSections);
-  const [selectedNode, setSelectedNode] = useState<any>(initialPages[0]);
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+
+  // Function to convert AI-generated pages to our page/section format
+  const convertAIPages = (aiPages: any[]) => {
+    const newPages = aiPages.map((page, index) => ({
+      id: `page-${index}`,
+      title: page.title,
+      type: "page" as const,
+    }));
+
+    const newSections: any[] = [];
+
+    aiPages.forEach((page, pageIndex) => {
+      page.sections.forEach((section: any, sectionIndex: number) => {
+        newSections.push({
+          id: `section-${pageIndex}-${sectionIndex}`,
+          title: section.section_title,
+          type: "section" as const,
+          parentId: `page-${pageIndex}`,
+          description: section.section_description,
+        });
+      });
+    });
+
+    return { pages: newPages, sections: newSections };
+  };
+
+  // AI content generation
+  const generateAIContent = async (prompt: string) => {
+    try {
+      setIsGeneratingAI(true);
+      setAiGenerationStep(1);
+
+      const response = await fetch("/api/generate-content", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate content");
+      }
+
+      const data = await response.json();
+      const { content } = data;
+
+      // Animated generation of content
+      setAiGenerationStep(2);
+
+      // Update business info with simulated typing effect
+      if (infoFormRef.current) {
+        infoFormRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+
+      // Simulate typing for business name
+      let tempSiteInfo = { ...siteInfo };
+
+      const typeBusinessName = async () => {
+        for (let i = 0; i <= content.businessName.length; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          setSiteInfo((prev) => ({
+            ...prev,
+            businessName: content.businessName.substring(0, i),
+          }));
+        }
+      };
+
+      await typeBusinessName();
+      setAiGenerationStep(3);
+
+      // Simulate typing for business type
+      const typeBusinessType = async () => {
+        for (let i = 0; i <= content.businessType.length; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          setSiteInfo((prev) => ({
+            ...prev,
+            businessType: content.businessType.substring(0, i),
+          }));
+        }
+      };
+
+      await typeBusinessType();
+      setAiGenerationStep(4);
+
+      // Simulate typing for business description
+      const typeBusinessDescription = async () => {
+        for (let i = 0; i <= content.businessDescription.length; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          setSiteInfo((prev) => ({
+            ...prev,
+            businessDescription: content.businessDescription.substring(0, i),
+          }));
+        }
+      };
+
+      await typeBusinessDescription();
+      setAiGenerationStep(5);
+
+      // Update the rest of the business info
+      setSiteInfo({
+        businessType: content.businessType,
+        businessName: content.businessName,
+        businessDescription: content.businessDescription,
+        websiteTitle: content.websiteTitle,
+        websiteDescription: content.websiteDescription,
+        websiteKeyphrase: content.websiteKeyphrase,
+      });
+
+      // Mark business info as completed
+      if (!completedStages.includes("business-info")) {
+        setCompletedStages((prev) => [...prev, "business-info"]);
+      }
+
+      // Update colors and fonts
+      setAiGenerationStep(6);
+
+      if (colorFormRef.current) {
+        colorFormRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+
+      // Simulate color updates
+      setColorAndFontData((prev) => ({
+        ...prev,
+        colors: {
+          primaryColor: content.suggestedColors.primaryColor,
+          secondaryColor: content.suggestedColors.secondaryColor,
+          backgroundDark: content.suggestedColors.backgroundDark,
+        },
+      }));
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setAiGenerationStep(7);
+
+      // Update font
+      setColorAndFontData((prev) => ({
+        ...prev,
+        fonts: {
+          primaryFont: content.suggestedFont,
+        },
+      }));
+
+      // Mark design as completed
+      if (!completedStages.includes("design")) {
+        setCompletedStages((prev) => [...prev, "design"]);
+      }
+
+      // Update page structure
+      setAiGenerationStep(8);
+
+      // Process pages and sections
+      const { pages: aiPages, sections: aiSections } = convertAIPages(
+        content.pages
+      );
+
+      // Update pages with a delay
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setPages(aiPages);
+
+      // Update sections with a delay
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setSections(aiSections);
+
+      // Save generated data to localStorage
+      localStorage.setItem(
+        "webdash_site_info",
+        JSON.stringify({
+          businessType: content.businessType,
+          businessName: content.businessName,
+          businessDescription: content.businessDescription,
+          websiteTitle: content.websiteTitle,
+          websiteDescription: content.websiteDescription,
+          websiteKeyphrase: content.websiteKeyphrase,
+        })
+      );
+
+      localStorage.setItem(
+        "webdash_colors_fonts",
+        JSON.stringify({
+          colors: {
+            primaryColor: content.suggestedColors.primaryColor,
+            secondaryColor: content.suggestedColors.secondaryColor,
+            backgroundDark: content.suggestedColors.backgroundDark,
+          },
+          fonts: {
+            primaryFont: content.suggestedFont,
+          },
+        })
+      );
+
+      // Convert pages to the format expected by the API
+      const pagesMeta = content.pages.map((page: any) => ({
+        title: page.title,
+        description: page.description,
+        sections: page.sections.map((section: any) => ({
+          section_title: section.section_title,
+          section_description: section.section_description,
+        })),
+      }));
+
+      // Store pages meta for the API
+      localStorage.setItem("webdash_pages_meta", JSON.stringify(pagesMeta));
+
+      setAiGenerationStep(9);
+      toast({
+        title: "AI generation complete",
+        description: "Your website details have been generated.",
+      });
+
+      // Set editing section to none after generation
+      setEditingSection("none");
+    } catch (error) {
+      console.error("Error generating AI content:", error);
+      toast({
+        title: "AI generation failed",
+        description:
+          "An error occurred while generating content. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
 
   useEffect(() => {
     // Get the prompt from localStorage
@@ -202,20 +419,6 @@ export default function EditorPage() {
       } catch (error) {
         console.error("Error parsing site info:", error);
       }
-    } else {
-      // Use the prompt to suggest initial site info
-      const simulatedAiSuggestion = {
-        businessType: "agency",
-        businessName: "Creative Solutions",
-        businessDescription:
-          "A cutting-edge digital agency focused on delivering innovative solutions for modern businesses.",
-        websiteTitle: "Creative Solutions | Digital Agency",
-        websiteDescription:
-          "Creative Solutions is a premier digital agency helping businesses transform their digital presence with innovative design and development.",
-        websiteKeyphrase: "digital agency creative solutions",
-      };
-
-      setSiteInfo(simulatedAiSuggestion);
     }
 
     // Get the colors and fonts if they exist
@@ -230,6 +433,21 @@ export default function EditorPage() {
       } catch (error) {
         console.error("Error parsing colors and fonts:", error);
       }
+    }
+
+    // Check if we should generate AI content
+    const shouldGenerateAI = localStorage.getItem(
+      "webdash_generate_ai_content"
+    );
+    if (shouldGenerateAI === "true" && savedPrompt) {
+      // Remove the flag
+      localStorage.removeItem("webdash_generate_ai_content");
+
+      // Generate AI content after a short delay
+      setTimeout(() => {
+        // Use the function defined in this component
+        generateAIContent(savedPrompt);
+      }, 1000);
     }
   }, [router, completedStages]);
 
@@ -265,6 +483,7 @@ export default function EditorPage() {
     setEditingSection("page-details");
   };
 
+  // src/app/editor/page.tsx (continued)
   const handleAddPage = () => {
     const newPageId = `page-${Date.now()}`;
     const newPage = {
@@ -308,15 +527,60 @@ export default function EditorPage() {
       JSON.stringify(colorAndFontData)
     );
 
-    // Navigate to the generation page
+    // Prepare pages meta for API
+    const pagesMeta = pages.map((page) => {
+      const pageSections = sections.filter(
+        (section) => section.parentId === page.id
+      );
+      return {
+        title: page.title,
+        description: page.title,
+        sections: pageSections.map((section) => ({
+          section_title: section.title,
+          section_description:
+            section.description || `${section.title} content`,
+        })),
+      };
+    });
+
+    // Save pages meta for API
+    localStorage.setItem("webdash_pages_meta", JSON.stringify(pagesMeta));
+
+    // Navigate to the preview page
     toast({
-      title: "Starting website generation",
-      description: "We're preparing to generate your custom website.",
+      title: "Starting website preview",
+      description: "We're preparing your website preview.",
     });
 
     setTimeout(() => {
-      router.push("/generate");
+      router.push("/preview");
     }, 1000);
+  };
+
+  // AI Loading Step Information
+  const getAIStepText = () => {
+    switch (aiGenerationStep) {
+      case 1:
+        return "Analyzing your prompt...";
+      case 2:
+        return "Generating business information...";
+      case 3:
+        return "Determining business type...";
+      case 4:
+        return "Creating business description...";
+      case 5:
+        return "Finalizing business details...";
+      case 6:
+        return "Selecting color palette...";
+      case 7:
+        return "Choosing typography...";
+      case 8:
+        return "Designing page structure...";
+      case 9:
+        return "Completing AI generation...";
+      default:
+        return "Generating website content...";
+    }
   };
 
   const renderSidebarContent = () => {
@@ -331,25 +595,54 @@ export default function EditorPage() {
           </p>
         </div>
 
+        {isGeneratingAI && (
+          <motion.div
+            className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="flex items-center mb-2">
+              <Bot className="text-blue-500 mr-2 h-5 w-5" />
+              <h3 className="text-blue-700 font-medium">
+                AI Generation in Progress
+              </h3>
+            </div>
+            <p className="text-blue-600 text-sm mb-2">{getAIStepText()}</p>
+            <div className="w-full bg-blue-200 rounded-full h-1.5">
+              <div
+                className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                style={{ width: `${(aiGenerationStep / 9) * 100}%` }}
+              ></div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Business Info Section */}
-        <div className="pb-4">
+        <div className="pb-4" ref={infoFormRef}>
           {editingSection === "business-info" ? (
             <>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
                 Site Brief
               </h3>
-              <SiteInfoForm siteInfo={siteInfo} setSiteInfo={setSiteInfo} />
+              <SiteInfoForm
+                siteInfo={siteInfo}
+                setSiteInfo={setSiteInfo}
+                disabled={isGeneratingAI && aiGenerationStep <= 5}
+              />
               <div className="mt-6 flex gap-2">
                 <Button
                   variant="outline"
                   className="flex-1 cursor-pointer"
                   onClick={() => setEditingSection("none")}
+                  disabled={isGeneratingAI}
                 >
                   Cancel
                 </Button>
                 <PrimaryButton
                   className="flex-1 cursor-pointer"
                   onClick={handleSaveSiteInfo}
+                  disabled={isGeneratingAI}
                 >
                   Save
                 </PrimaryButton>
@@ -359,6 +652,7 @@ export default function EditorPage() {
             <SiteInfoSummary
               siteInfo={siteInfo}
               onEdit={() => setEditingSection("business-info")}
+              disabled={isGeneratingAI}
             />
           )}
         </div>
@@ -366,7 +660,7 @@ export default function EditorPage() {
         <Separator />
 
         {/* Design Section */}
-        <div className="py-4">
+        <div className="py-4" ref={colorFormRef}>
           {editingSection === "design" ? (
             <>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
@@ -375,18 +669,25 @@ export default function EditorPage() {
               <ColorsAndFonts
                 colorAndFontData={colorAndFontData}
                 setColorAndFontData={setColorAndFontData}
+                disabled={
+                  isGeneratingAI &&
+                  aiGenerationStep >= 6 &&
+                  aiGenerationStep <= 7
+                }
               />
               <div className="mt-6 flex gap-2">
                 <Button
                   variant="outline"
                   className="flex-1 cursor-pointer"
                   onClick={() => setEditingSection("none")}
+                  disabled={isGeneratingAI}
                 >
                   Cancel
                 </Button>
                 <PrimaryButton
                   className="flex-1 cursor-pointer"
                   onClick={handleSaveColorAndFonts}
+                  disabled={isGeneratingAI}
                 >
                   Save
                 </PrimaryButton>
@@ -396,6 +697,7 @@ export default function EditorPage() {
             <DesignSummary
               colorAndFontData={colorAndFontData}
               onEdit={() => setEditingSection("design")}
+              disabled={isGeneratingAI}
             />
           )}
         </div>
@@ -417,6 +719,7 @@ export default function EditorPage() {
                   size="sm"
                   onClick={() => setEditingSection("none")}
                   className="text-gray-500 cursor-pointer"
+                  disabled={isGeneratingAI}
                 >
                   Close
                 </Button>
@@ -454,6 +757,7 @@ export default function EditorPage() {
                         title: e.target.value,
                       });
                     }}
+                    disabled={isGeneratingAI}
                   />
                 </div>
                 <div>
@@ -465,6 +769,28 @@ export default function EditorPage() {
                     placeholder={`Enter ${
                       selectedNode.type === "page" ? "page" : "section"
                     } content here...`}
+                    value={selectedNode.description || ""}
+                    onChange={(e) => {
+                      const description = e.target.value;
+                      if (selectedNode.type === "page") {
+                        setPages(
+                          pages.map((p) =>
+                            p.id === selectedNode.id ? { ...p, description } : p
+                          )
+                        );
+                      } else {
+                        setSections(
+                          sections.map((s) =>
+                            s.id === selectedNode.id ? { ...s, description } : s
+                          )
+                        );
+                      }
+                      setSelectedNode({
+                        ...selectedNode,
+                        description,
+                      });
+                    }}
+                    disabled={isGeneratingAI}
                   />
                 </div>
                 {selectedNode.type === "section" && (
@@ -472,7 +798,10 @@ export default function EditorPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Section Type
                     </label>
-                    <select className="w-full px-3 py-2 border rounded-md">
+                    <select
+                      className="w-full px-3 py-2 border rounded-md"
+                      disabled={isGeneratingAI}
+                    >
                       <option value="text">Text</option>
                       <option value="image">Image</option>
                       <option value="gallery">Gallery</option>
@@ -483,7 +812,7 @@ export default function EditorPage() {
                 )}
               </div>
               <div className="mt-6">
-                <PrimaryButton className="w-full">
+                <PrimaryButton className="w-full" disabled={isGeneratingAI}>
                   Save {selectedNode.type === "page" ? "Page" : "Section"}
                 </PrimaryButton>
               </div>
@@ -516,7 +845,7 @@ export default function EditorPage() {
             <div className="pt-4 mt-4 border-t">
               <PrimaryButton
                 onClick={handleGenerateWebsite}
-                disabled={isLoading}
+                disabled={isLoading || isGeneratingAI}
                 className="w-full cursor-pointer"
               >
                 {isLoading ? (
@@ -545,7 +874,7 @@ export default function EditorPage() {
                   </>
                 ) : (
                   <>
-                    Generate Website
+                    Preview Website
                     <Sparkles className="h-4 w-4 ml-2" />
                   </>
                 )}
@@ -554,7 +883,7 @@ export default function EditorPage() {
               <div className="flex items-center justify-center mt-3">
                 <Info className="h-4 w-4 text-gray-400 mr-1" />
                 <p className="text-xs text-gray-500">
-                  You can always customize it later
+                  You can customize your website after previewing
                 </p>
               </div>
             </div>
@@ -614,6 +943,7 @@ export default function EditorPage() {
               onEditPage={handleEditPage}
               onAddPage={handleAddPage}
               onAddSection={handleAddSection}
+              disabled={isGeneratingAI && aiGenerationStep >= 8}
             />
           </div>
         </div>

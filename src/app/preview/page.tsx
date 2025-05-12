@@ -1,19 +1,23 @@
+// src/app/preview/page.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AuthRequired } from "@/components/auth/auth-required";
 import { PreviewHeader } from "@/components/preview/preview-header";
 import { WebsitePreview } from "@/components/preview/website-preview";
 import { TrialModal } from "@/components/preview/trial-modal";
+import { AuthPopup } from "@/components/preview/auth-popup";
+import { GenerationPopup } from "@/components/preview/generation-popup";
+import { WebsiteReadyPopup } from "@/components/preview/website-ready-popup";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/use-toast";
+import { PrimaryButton } from "@/components/ui/custom-button";
 
 export default function PreviewPage() {
   const router = useRouter();
-  const { user, userData } = useAuth();
+  const { user, userData, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const [deviceView, setDeviceView] = useState<"desktop" | "mobile">("desktop");
@@ -24,13 +28,26 @@ export default function PreviewPage() {
   );
   const [isLoading, setIsLoading] = useState(true);
 
+  // New states for the updated flow
+  const [showAuthPopup, setShowAuthPopup] = useState(false);
+  const [showGenerationPopup, setShowGenerationPopup] = useState(false);
+  const [showWebsiteReadyPopup, setShowWebsiteReadyPopup] = useState(false);
+  const [websiteGenerated, setWebsiteGenerated] = useState(false);
+  const [siteInfo, setSiteInfo] = useState<any>(null);
+
   // Check if the user has an active subscription
   const hasActiveSubscription = userData?.webdashSubscription?.active || false;
 
   useEffect(() => {
-    // Check if there's a website in progress
-    const siteInfo = localStorage.getItem("webdash_site_info");
-    if (!siteInfo) {
+    // Check if there's a website information in progress
+    const savedSiteInfo = localStorage.getItem("webdash_site_info");
+    if (savedSiteInfo) {
+      try {
+        setSiteInfo(JSON.parse(savedSiteInfo));
+      } catch (e) {
+        console.error("Error parsing site info:", e);
+      }
+    } else {
       toast({
         title: "No website in progress",
         description: "Please generate a website first",
@@ -39,16 +56,49 @@ export default function PreviewPage() {
       return;
     }
 
-    // If user is not logged in, redirect to login
-    if (!user) {
-      console.log("User not authenticated, redirecting to login...");
-      const currentPath = window.location.pathname;
-      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
-      return;
+    // Check if website is already generated
+    const savedWebsite = localStorage.getItem("webdash_website");
+    if (savedWebsite) {
+      try {
+        const websiteData = JSON.parse(savedWebsite);
+        if (websiteData.siteUrl) {
+          setWebsiteGenerated(true);
+        }
+      } catch (e) {
+        console.error("Error parsing website data:", e);
+      }
+    }
+
+    // Set auth popup state after checking for user
+    if (!authLoading) {
+      if (!user) {
+        setShowAuthPopup(true);
+      } else if (!websiteGenerated) {
+        // If user is authenticated but website is not generated yet, show generation popup
+        setShowGenerationPopup(true);
+      }
     }
 
     setIsLoading(false);
-  }, [user, router, toast]);
+  }, [user, authLoading, router, toast, websiteGenerated]);
+
+  // Function to handle successful authentication
+  const handleAuthSuccess = () => {
+    setShowAuthPopup(false);
+    setShowGenerationPopup(true);
+  };
+
+  // Function to handle successful website generation
+  const handleGenerationSuccess = () => {
+    setShowGenerationPopup(false);
+    setWebsiteGenerated(true);
+    setShowWebsiteReadyPopup(true);
+
+    // Hide the "website ready" popup after 5 seconds
+    setTimeout(() => {
+      setShowWebsiteReadyPopup(false);
+    }, 5000);
+  };
 
   const handleEditClick = () => {
     if (hasActiveSubscription || hasTrialStarted) {
@@ -85,7 +135,7 @@ export default function PreviewPage() {
   };
 
   // Use a loading state while checking authentication
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center space-y-4">
@@ -96,6 +146,9 @@ export default function PreviewPage() {
     );
   }
 
+  const pageBlurred =
+    showAuthPopup || showGenerationPopup || showWebsiteReadyPopup;
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <PreviewHeader
@@ -105,12 +158,28 @@ export default function PreviewPage() {
         hasActiveSubscription={hasActiveSubscription || hasTrialStarted}
       />
 
-      <main className="flex-grow container mx-auto px-4 py-6">
+      <main
+        className={`flex-grow container mx-auto px-4 py-6 transition-all duration-300 ${
+          pageBlurred ? "filter blur-sm" : ""
+        }`}
+      >
         <WebsitePreview
           deviceView={deviceView}
           onElementClick={handleElementClick}
+          websiteGenerated={websiteGenerated}
         />
       </main>
+
+      {showAuthPopup && <AuthPopup onSuccess={handleAuthSuccess} />}
+
+      {showGenerationPopup && (
+        <GenerationPopup
+          siteInfo={siteInfo}
+          onSuccess={handleGenerationSuccess}
+        />
+      )}
+
+      {showWebsiteReadyPopup && <WebsiteReadyPopup />}
 
       <TrialModal
         isOpen={isTrialModalOpen}

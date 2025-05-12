@@ -1,3 +1,5 @@
+// src/components/editor/design-summary.tsx
+
 "use client";
 
 import { useState } from "react";
@@ -16,11 +18,13 @@ interface DesignSummaryProps {
     };
   };
   onEdit: () => void;
+  disabled?: boolean;
 }
 
 export function DesignSummary({
   colorAndFontData,
   onEdit,
+  disabled = false,
 }: DesignSummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -35,6 +39,7 @@ export function DesignSummary({
           size="sm"
           onClick={onEdit}
           className="text-[#FF7300] hover:text-[#E56A00] font-medium cursor-pointer"
+          disabled={disabled}
         >
           Edit
         </Button>
@@ -109,6 +114,7 @@ export function DesignSummary({
         size="sm"
         onClick={() => setIsExpanded(!isExpanded)}
         className="text-gray-700 hover:text-gray-900 px-0 font-medium cursor-pointer"
+        disabled={disabled}
       >
         {isExpanded ? (
           <>

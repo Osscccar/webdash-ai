@@ -1,3 +1,5 @@
+// src/components/editor/colors-and-fonts.tsx
+
 "use client";
 
 import type React from "react";
@@ -34,11 +36,13 @@ interface ColorsAndFontsProps {
       };
     }>
   >;
+  disabled?: boolean;
 }
 
 export function ColorsAndFonts({
   colorAndFontData,
   setColorAndFontData,
+  disabled = false,
 }: ColorsAndFontsProps) {
   const fontOptions = [
     "Montserrat",
@@ -84,7 +88,9 @@ export function ColorsAndFonts({
             <Label htmlFor="primaryColor">Primary Color</Label>
             <div className="flex items-center gap-3">
               <div
-                className="w-10 h-10 rounded-full border"
+                className={`w-10 h-10 rounded-full border ${
+                  disabled ? "animate-pulse" : ""
+                }`}
                 style={{
                   backgroundColor: colorAndFontData.colors.primaryColor,
                 }}
@@ -96,7 +102,10 @@ export function ColorsAndFonts({
                 onChange={(e) =>
                   handleColorChange("primaryColor", e.target.value)
                 }
-                className="w-full"
+                className={`w-full ${
+                  disabled ? "bg-gray-50 animate-pulse" : ""
+                }`}
+                disabled={disabled}
               />
             </div>
             <div className="text-sm text-gray-500">
@@ -108,7 +117,9 @@ export function ColorsAndFonts({
             <Label htmlFor="secondaryColor">Secondary Color</Label>
             <div className="flex items-center gap-3">
               <div
-                className="w-10 h-10 rounded-full border"
+                className={`w-10 h-10 rounded-full border ${
+                  disabled ? "animate-pulse" : ""
+                }`}
                 style={{
                   backgroundColor: colorAndFontData.colors.secondaryColor,
                 }}
@@ -120,7 +131,10 @@ export function ColorsAndFonts({
                 onChange={(e) =>
                   handleColorChange("secondaryColor", e.target.value)
                 }
-                className="w-full"
+                className={`w-full ${
+                  disabled ? "bg-gray-50 animate-pulse" : ""
+                }`}
+                disabled={disabled}
               />
             </div>
             <div className="text-sm text-gray-500">
@@ -132,7 +146,9 @@ export function ColorsAndFonts({
             <Label htmlFor="backgroundDark">Background Dark</Label>
             <div className="flex items-center gap-3">
               <div
-                className="w-10 h-10 rounded-full border"
+                className={`w-10 h-10 rounded-full border ${
+                  disabled ? "animate-pulse" : ""
+                }`}
                 style={{
                   backgroundColor: colorAndFontData.colors.backgroundDark,
                 }}
@@ -144,7 +160,10 @@ export function ColorsAndFonts({
                 onChange={(e) =>
                   handleColorChange("backgroundDark", e.target.value)
                 }
-                className="w-full"
+                className={`w-full ${
+                  disabled ? "bg-gray-50 animate-pulse" : ""
+                }`}
+                disabled={disabled}
               />
             </div>
             <div className="text-sm text-gray-500">
@@ -161,8 +180,12 @@ export function ColorsAndFonts({
           <Select
             value={colorAndFontData.fonts.primaryFont}
             onValueChange={handleFontChange}
+            disabled={disabled}
           >
-            <SelectTrigger id="primaryFont" className="w-full">
+            <SelectTrigger
+              id="primaryFont"
+              className={`w-full ${disabled ? "bg-gray-50 animate-pulse" : ""}`}
+            >
               <SelectValue placeholder="Select a font" />
             </SelectTrigger>
             <SelectContent>

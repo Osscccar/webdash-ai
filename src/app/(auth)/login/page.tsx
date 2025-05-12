@@ -32,11 +32,23 @@ export default function LoginPage() {
   const redirect = searchParams.get("redirect") || "/dashboard";
 
   // Redirect authenticated users
+  // Modify the redirect in src/app/(auth)/login/page.tsx
+  // Look for this code section in the useEffect:
+
   useEffect(() => {
     if (user) {
       setIsRedirecting(true);
 
-      // Before redirecting, check if the redirect URL exists
+      // Before redirecting, check if we should go to preview
+      const previewRedirect = localStorage.getItem("webdash_website");
+
+      if (previewRedirect && redirect === "/dashboard") {
+        // If we're coming from website generation, go to preview instead
+        router.push("/preview");
+        return;
+      }
+
+      // Otherwise, do the normal check
       const checkPageExists = async () => {
         try {
           const response = await fetch(redirect, { method: "HEAD" });

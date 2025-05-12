@@ -1,9 +1,11 @@
+// src/components/editor/visual-page-tree.tsx
+
 "use client";
 
 import type React from "react";
 
 import { useState, useRef, useEffect } from "react";
-import { Plus, MoreHorizontal, Pencil } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +42,9 @@ export function VisualPageTree({
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const [scale, setScale] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const handlePageClick = (page: PageNode) => {
     setSelectedPageId(page.id);
@@ -62,10 +66,67 @@ export function VisualPageTree({
   // Handle mouse down for dragging
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left mouse button
-    if (e.target instanceof HTMLButtonElement || e.target instanceof SVGElement)
+    if (
+      e.target instanceof HTMLButtonElement ||
+      e.target instanceof SVGElement ||
+      (e.target as HTMLElement).closest("button")
+    ) {
       return; // Don't drag when clicking buttons or SVG elements
+    }
+
     setIsDragging(true);
     setStartPos({ x: e.clientX - position.x, y: e.clientY - position.y });
+
+    if (containerRef.current) {
+      containerRef.current.style.cursor = "grabbing";
+    }
+  };
+
+  // Handle touch start for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    if (
+      e.target instanceof HTMLButtonElement ||
+      e.target instanceof SVGElement ||
+      (e.target as HTMLElement).closest("button")
+    ) {
+      return;
+    }
+
+    const touch = e.touches[0];
+    setIsDragging(true);
+    setStartPos({
+      x: touch.clientX - position.x,
+      y: touch.clientY - position.y,
+    });
+  };
+
+  // Zoom functionality
+  const handleWheel = (e: WheelEvent) => {
+    e.preventDefault();
+
+    // Determine zoom direction
+    const delta = -e.deltaY;
+
+    // Calculate pointer position relative to content
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Determine new scale
+    const newScale = Math.max(0.5, Math.min(2, scale + delta * 0.001));
+
+    // Calculate new position based on pointer position
+    const scaleChange = newScale / scale;
+    const newPosition = {
+      x: x - (x - position.x) * scaleChange,
+      y: y - (y - position.y) * scaleChange,
+    };
+
+    setScale(newScale);
+    setPosition(newPosition);
   };
 
   // Handle mouse move for dragging
@@ -78,38 +139,147 @@ export function VisualPageTree({
       });
     };
 
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      setPosition({
+        x: touch.clientX - startPos.x,
+        y: touch.clientY - startPos.y,
+      });
+    };
+
     const handleMouseUp = () => {
+      setIsDragging(false);
+      if (containerRef.current) {
+        containerRef.current.style.cursor = "grab";
+      }
+    };
+
+    const handleTouchEnd = () => {
       setIsDragging(false);
     };
 
     if (isDragging) {
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("touchmove", handleTouchMove);
+      document.addEventListener("touchend", handleTouchEnd);
     }
 
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleTouchEnd);
     };
   }, [isDragging, startPos]);
+
+  // Add wheel event listener for zooming
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener("wheel", handleWheel);
+    };
+  }, [scale, position]);
+
+  // Handle pinch zoom for touch devices
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let initialDistance = 0;
+    let initialScale = 1;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+
+      initialDistance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+
+      initialScale = scale;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+
+      const currentDistance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+
+      // Calculate center point between the two touches
+      const center = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      };
+
+      const rect = container.getBoundingClientRect();
+      const x = center.x - rect.left;
+      const y = center.y - rect.top;
+
+      // Calculate new scale
+      const newScale = Math.max(
+        0.5,
+        Math.min(2, initialScale * (currentDistance / initialDistance))
+      );
+
+      // Calculate new position
+      const scaleChange = newScale / scale;
+      const newPosition = {
+        x: x - (x - position.x) * scaleChange,
+        y: y - (y - position.y) * scaleChange,
+      };
+
+      setScale(newScale);
+      setPosition(newPosition);
+    };
+
+    container.addEventListener("touchstart", handleTouchStart, {
+      passive: false,
+    });
+    container.addEventListener("touchmove", handleTouchMove, {
+      passive: false,
+    });
+
+    return () => {
+      container.removeEventListener("touchstart", handleTouchStart);
+      container.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, [scale, position]);
+
+  // Reset position and scale
+  const resetView = () => {
+    setPosition({ x: 0, y: 0 });
+    setScale(1);
+  };
 
   return (
     <div
       className="relative w-full h-full overflow-hidden bg-gray-50 rounded-lg"
       ref={containerRef}
       onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
       style={{
         backgroundImage:
           "linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px)",
         backgroundSize: "20px 20px",
         cursor: isDragging ? "grabbing" : "grab",
+        touchAction: "none", // Prevent browser handling of touch events
       }}
     >
-      {/* Draggable content */}
+      {/* Draggable and zoomable content */}
       <div
-        className="absolute min-w-[800px] min-h-[600px] p-6"
+        ref={contentRef}
+        className="absolute min-w-[800px] min-h-[600px] p-6 origin-top-left"
         style={{
-          transform: `translate(${position.x}px, ${position.y}px)`,
+          transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+          transition: isDragging ? "none" : "transform 0.1s ease-out",
         }}
       >
         {/* Home page at the top */}
@@ -184,7 +354,7 @@ export function VisualPageTree({
               e.stopPropagation();
               onAddPage();
             }}
-            className=" bg-white text-black outline-black/60 outline-1 hover:bg-neutral-100 cursor-pointer"
+            className="bg-white text-black outline-black/60 outline-1 hover:bg-neutral-100 cursor-pointer"
           >
             <Plus className="h-4 w-4 mr-2" /> Add Page
           </Button>
@@ -282,6 +452,34 @@ export function VisualPageTree({
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Zoom controls - placed in bottom right corner */}
+      <div className="absolute bottom-4 right-4 flex flex-col gap-2 bg-white rounded-md shadow-md p-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setScale(Math.min(2, scale + 0.1))}
+          className="h-8 w-8"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setScale(Math.max(0.5, scale - 0.1))}
+          className="h-8 w-8"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={resetView}
+          className="h-8 w-8 text-xs"
+        >
+          100%
+        </Button>
       </div>
     </div>
   );

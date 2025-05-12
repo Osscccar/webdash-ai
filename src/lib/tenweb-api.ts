@@ -284,7 +284,7 @@ export const generateAISite = async (params: {
     // If we failed, create a mock success response as a fallback
     return {
       data: {
-        url: `https://${params.domainId}.10web.site`,
+        url: `https://${params.domainId}.webdash.site`,
         domain_id: params.domainId,
         status: "mocked_success",
       },

@@ -89,7 +89,7 @@ export default function DashboardPage() {
               id: "website-1",
               domainId: 12345, // This will be replaced by real data
               subdomain: subdomain,
-              siteUrl: `https://${subdomain}.10web.site`,
+              siteUrl: `https://${subdomain}.webdash.site`,
               title:
                 parsedInfo.websiteTitle ||
                 parsedInfo.businessName ||

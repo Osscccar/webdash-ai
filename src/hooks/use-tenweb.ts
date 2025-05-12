@@ -1,3 +1,5 @@
+// src/hooks/use-tenweb.ts
+
 "use client";
 
 import { useState, useRef } from "react";
@@ -44,6 +46,7 @@ export function useTenWeb() {
 
   /**
    * Generate a website from a prompt with full configuration
+   * Modified to skip the AI generation step
    */
   const generateWebsite = async (prompt: string, params: any) => {
     // Prevent duplicate website creation
@@ -121,7 +124,13 @@ export function useTenWeb() {
       const domainId = baseWebsite.data.domain_id;
       console.log("Base website created with domain ID:", domainId);
 
-      // Step 2: Generate the sitemap
+      // Store the domain_id in localStorage
+      localStorage.setItem("webdash_domain_id", domainId.toString());
+
+      // IMPORTANT: Skipping the AI generation step as requested
+      // Instead, we'll simulate the progress steps to provide feedback to the user
+
+      // Simulate the remaining steps
       updateGenerationProgress(
         2,
         GenerationStep.GENERATING_SITEMAP,
@@ -129,63 +138,53 @@ export function useTenWeb() {
         30
       );
 
-      // Step 3-6: Design pages, navigation, device optimization, and speed
-      // These steps are simulated in the UI but are handled by the AI Generate Site API
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       updateGenerationProgress(
         3,
         GenerationStep.DESIGNING_PAGES,
         "processing",
         45
       );
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       updateGenerationProgress(
         4,
         GenerationStep.SETTING_UP_NAVIGATION,
         "processing",
         60
       );
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       updateGenerationProgress(
         5,
         GenerationStep.OPTIMIZING_FOR_DEVICES,
         "processing",
-        70
+        75
       );
 
-      // Step 7: Generate the AI site with all required parameters
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       updateGenerationProgress(
         6,
         GenerationStep.BOOSTING_SPEED,
         "processing",
-        80
+        90
       );
 
-      console.log("Generating AI site for domain ID:", domainId);
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Prepare complete parameters for the API
-      const aiSiteParams = {
-        domainId: domainId,
-        businessType,
-        businessName,
-        businessDescription,
-        websiteTitle,
-        websiteDescription,
-        websiteKeyphrase,
-        websiteType: businessType,
-        colors: params.colors,
-        fonts: params.fonts,
-      };
+      // Create the website URL using webdash.site domain
+      const siteUrl = `https://${subdomain}.webdash.site`;
 
-      const aiGenResult = await tenwebApi.generateAISite(aiSiteParams);
-
-      if (!aiGenResult || !aiGenResult.data) {
-        throw new Error("Failed to generate AI site");
-      }
-
-      // Create a website object based on the result
+      // Create a website object
       const website: UserWebsite = {
         id: `website-${Date.now()}`,
         domainId: domainId,
         subdomain,
-        siteUrl: aiGenResult.data.url || `https://${subdomain}.10web.site`,
+        siteUrl: siteUrl,
         title: businessName,
         description: businessDescription,
         createdAt: new Date().toISOString(),
@@ -214,7 +213,7 @@ export function useTenWeb() {
       updateGenerationProgress(7, GenerationStep.FINALIZING, "complete", 100);
 
       toast({
-        title: "Website generated successfully",
+        title: "Website created successfully",
         description: "Your website is ready to view and edit.",
       });
 

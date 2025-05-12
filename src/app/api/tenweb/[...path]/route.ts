@@ -253,7 +253,7 @@ export async function POST(
         console.log("🔄 Returning mock success response");
         return NextResponse.json({
           data: {
-            url: `https://${body.domain_id}.10web.site`,
+            url: `https://${body.domain_id}.webdash.site`,
             domain_id: body.domain_id,
             status: "mocked_success",
           },
@@ -315,7 +315,7 @@ export async function POST(
         // Return a mock success response
         return NextResponse.json({
           data: {
-            url: `https://${body.domain_id}.10web.site`,
+            url: `https://${body.domain_id}.webdash.site`,
             domain_id: body.domain_id,
             status: "mocked_success",
           },
