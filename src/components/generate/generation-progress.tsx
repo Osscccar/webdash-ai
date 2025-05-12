@@ -1,7 +1,7 @@
 "use client";
 
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, CircleIcon } from "lucide-react";
+import { CheckCircle, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { GenerationStep } from "@/types";
 
@@ -34,7 +34,8 @@ export function GenerationProgress({
     },
     {
       name: GenerationStep.SETTING_UP_NAVIGATION,
-      description: "Ensuring visitors easily find what they need",
+      description:
+        "Ensuring visitors easily find what they need with clear menus and links",
     },
     {
       name: GenerationStep.OPTIMIZING_FOR_DEVICES,
@@ -51,19 +52,22 @@ export function GenerationProgress({
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Progress value={progress} className="h-2 w-full" />
-        <div className="flex justify-between text-sm text-gray-500">
-          <span>Progress</span>
-          <span>{Math.round(progress)}%</span>
+    <div className="space-y-8">
+      <div className="space-y-3">
+        <div className="flex justify-between text-sm font-medium mb-1">
+          <span className="text-gray-700">Generation Progress</span>
+          <span className="text-gray-900 font-semibold">
+            {Math.round(progress)}%
+          </span>
         </div>
+        <Progress value={progress} className="h-2 w-full bg-gray-100" />
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {steps.map((s, index) => {
           const isCompleted = index < step;
           const isActive = index === step;
+          const isPending = index > step;
 
           return (
             <motion.div
@@ -71,47 +75,46 @@ export function GenerationProgress({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className={`flex items-start space-x-3 ${
-                isActive
-                  ? "text-[#f58327]"
-                  : isCompleted
-                  ? "text-green-500"
-                  : "text-gray-400"
+              className={`flex items-start space-x-4 ${
+                isPending ? "opacity-50" : ""
               }`}
             >
-              <div className="mt-0.5">
+              <div className="mt-0.5 flex-shrink-0">
                 {isCompleted ? (
-                  <CheckCircle className="h-5 w-5" />
+                  <div className="bg-green-50 rounded-full p-1">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  </div>
                 ) : isActive ? (
                   <motion.div
-                    animate={{ scale: [1, 1.1, 1] }}
-                    transition={{ repeat: Infinity, duration: 2 }}
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      repeat: Number.POSITIVE_INFINITY,
+                      duration: 2,
+                      ease: "linear",
+                    }}
+                    className="bg-gray-50 rounded-full p-1"
                   >
-                    <CircleIcon className="h-5 w-5 fill-current" />
+                    <Loader2 className="h-5 w-5 text-gray-600" />
                   </motion.div>
                 ) : (
-                  <CircleIcon className="h-5 w-5" />
+                  <div className="border-2 border-dashed border-gray-200 rounded-full h-7 w-7"></div>
                 )}
               </div>
-              <div>
+              <div className="flex-1">
                 <p
                   className={`font-medium ${
                     isActive
-                      ? "text-[#f58327]"
+                      ? "text-gray-900"
                       : isCompleted
-                      ? "text-green-700"
+                      ? "text-gray-900"
                       : "text-gray-500"
                   }`}
                 >
                   {s.name}
                 </p>
                 <p
-                  className={`text-sm ${
-                    isActive
-                      ? "text-[#f58327]/80"
-                      : isCompleted
-                      ? "text-green-600"
-                      : "text-gray-400"
+                  className={`text-sm mt-1 ${
+                    isActive ? "text-gray-600" : "text-gray-500"
                   }`}
                 >
                   {s.description}

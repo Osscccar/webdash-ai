@@ -50,28 +50,33 @@ export function WebsitesList({
   const handleOpenWPDashboard = async (website: UserWebsite) => {
     setIsLoading(true);
     setActiveWebsiteId(website.id);
-    
+
     try {
       // If parent component provided a handler, use that
       if (onOpenWPDashboard) {
         onOpenWPDashboard(website);
         return;
       }
-      
+
       // Otherwise handle it here
       const wpAdminUrl = `${website.siteUrl}/wp-admin`;
-      
+
       // Get autologin token
-      const token = await tenWebHook.getWPAutologinToken(website.domainId, wpAdminUrl);
-      
+      const token = await tenWebHook.getWPAutologinToken(
+        website.domainId,
+        wpAdminUrl
+      );
+
       if (!token) {
         throw new Error("Failed to get WordPress autologin token");
       }
-      
+
       // Construct the autologin URL
       const email = user?.email || "";
-      const autologinUrl = `${wpAdminUrl}/?twb_wp_login_token=${token}&email=${encodeURIComponent(email)}`;
-      
+      const autologinUrl = `${wpAdminUrl}/?twb_wp_login_token=${token}&email=${encodeURIComponent(
+        email
+      )}`;
+
       // Open WordPress admin
       window.open(autologinUrl, "_blank");
     } catch (error: any) {
@@ -124,7 +129,9 @@ export function WebsitesList({
                     <Globe className="mr-2 h-4 w-4" />
                     Visit Website
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleOpenWPDashboard(website)}>
+                  <DropdownMenuItem
+                    onClick={() => handleOpenWPDashboard(website)}
+                  >
                     <Settings className="mr-2 h-4 w-4" />
                     WordPress Dashboard
                   </DropdownMenuItem>
@@ -153,7 +160,7 @@ export function WebsitesList({
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">URL</span>
-                  
+                  <a
                     href={website.siteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -191,9 +198,12 @@ export function WebsitesList({
               size="sm"
               className="bg-[#f58327] hover:bg-[#f58327]/90 text-white"
               onClick={() => handleOpenWPDashboard(website)}
-              disabled={isLoading && activeWebsiteId === website.id || parentIsLoading}
+              disabled={
+                (isLoading && activeWebsiteId === website.id) || parentIsLoading
+              }
             >
-              {(isLoading && activeWebsiteId === website.id) || parentIsLoading ? (
+              {(isLoading && activeWebsiteId === website.id) ||
+              parentIsLoading ? (
                 <span className="flex items-center">
                   <svg
                     className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"

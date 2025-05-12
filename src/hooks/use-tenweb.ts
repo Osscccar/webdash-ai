@@ -6,7 +6,7 @@ import { useAuth } from "./use-auth";
 import { useToast } from "@/components/ui/use-toast";
 import tenwebApi from "@/lib/tenweb-api";
 import { generateRandomSubdomain } from "@/lib/utils";
-import { GenerationStep, UserWebsite, WebsiteGenerationParams } from "@/types";
+import { GenerationStep, UserWebsite } from "@/types";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
 
@@ -15,10 +15,10 @@ export function useTenWeb() {
   const { user, userData } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const isGeneratingRef = useRef(false); // Add this to track generation state
+  const isGeneratingRef = useRef(false); // Track generation state
   const [generationProgress, setGenerationProgress] = useState({
     step: 0,
-    totalSteps: 3, // Simplified steps to match the API flow
+    totalSteps: 7, // Match the steps in GenerationStep enum
     currentStep: GenerationStep.CREATING_SITE,
     progress: 0,
     status: "pending" as "pending" | "processing" | "complete" | "error",
@@ -35,7 +35,7 @@ export function useTenWeb() {
   ) => {
     setGenerationProgress({
       step,
-      totalSteps: 3, // Simplified to 3 steps: start, create website, generate AI site
+      totalSteps: 7, // Match the steps in GenerationStep enum
       currentStep,
       progress: progress,
       status,
@@ -43,12 +43,9 @@ export function useTenWeb() {
   };
 
   /**
-   * Generate a website from a prompt
+   * Generate a website from a prompt with full configuration
    */
-  const generateWebsite = async (
-    prompt: string,
-    params?: Partial<WebsiteGenerationParams>
-  ) => {
+  const generateWebsite = async (prompt: string, params: any) => {
     // Prevent duplicate website creation
     if (isGeneratingRef.current) {
       console.log(
@@ -62,56 +59,133 @@ export function useTenWeb() {
     updateGenerationProgress(0, GenerationStep.CREATING_SITE, "processing", 0);
 
     try {
-      // Generate a random subdomain if not provided
+      console.log("Starting website generation with parameters:", params);
+
+      // Generate a random subdomain based on business name
       const businessNameInput = params?.businessName || "mywebsite";
       const sanitizedBusinessName = businessNameInput
         .toLowerCase()
         .replace(/[^a-z0-9]/g, "");
-      const subdomain = params?.businessName
-        ? generateRandomSubdomain(sanitizedBusinessName)
-        : generateRandomSubdomain("site");
+      const subdomain = generateRandomSubdomain(sanitizedBusinessName);
 
-      // Parse the prompt to extract business info
+      // Get required parameters from the passed configuration
       const businessType = params?.businessType || "agency";
-      const businessName = params?.businessName || "Creative Solutions";
+      const businessName = params?.businessName || "Business Website";
       const businessDescription =
-        params?.businessDescription ||
-        prompt ||
-        "A modern agency providing creative solutions.";
+        params?.businessDescription || prompt || "A modern website.";
+      const websiteTitle = params?.websiteTitle || businessName;
+      const websiteDescription =
+        params?.websiteDescription || businessDescription;
+      const websiteKeyphrase =
+        params?.websiteKeyphrase ||
+        businessName.toLowerCase().split(" ").join(" ");
 
       // Store website generation information in localStorage for the preview
       const siteInfo = {
         businessType,
         businessName,
         businessDescription,
-        websiteTitle: params?.websiteTitle || businessName,
-        websiteDescription: businessDescription,
-        websiteKeyphrase: businessName.toLowerCase().split(" ").join(" "),
+        websiteTitle,
+        websiteDescription,
+        websiteKeyphrase,
+        colors: params?.colors,
+        fonts: params?.fonts,
       };
 
       localStorage.setItem("webdash_prompt", prompt);
       localStorage.setItem("webdash_site_info", JSON.stringify(siteInfo));
       localStorage.setItem("webdash_subdomain", subdomain);
 
-      // Using the API docs flow: create website then apply AI
-      const result = await tenwebApi.generateWebsiteFromPrompt({
-        prompt,
+      // Step 1: Create the base website
+      updateGenerationProgress(
+        1,
+        GenerationStep.CREATING_SITE,
+        "processing",
+        15
+      );
+
+      console.log("Creating base website with subdomain:", subdomain);
+
+      const baseWebsite = await tenwebApi.createWebsite({
         subdomain,
-        region: "us-central1-c",
-        siteTitle: params?.websiteTitle || businessName,
+        region: "us-central1-c", // Use a default region
+        siteTitle: websiteTitle,
+        adminUsername: `admin_${subdomain}`,
+        adminPassword: "Password1Ab", // Using a password that meets requirements
+      });
+
+      if (!baseWebsite || !baseWebsite.data || !baseWebsite.data.domain_id) {
+        throw new Error("Failed to create base website");
+      }
+
+      const domainId = baseWebsite.data.domain_id;
+      console.log("Base website created with domain ID:", domainId);
+
+      // Step 2: Generate the sitemap
+      updateGenerationProgress(
+        2,
+        GenerationStep.GENERATING_SITEMAP,
+        "processing",
+        30
+      );
+
+      // Step 3-6: Design pages, navigation, device optimization, and speed
+      // These steps are simulated in the UI but are handled by the AI Generate Site API
+      updateGenerationProgress(
+        3,
+        GenerationStep.DESIGNING_PAGES,
+        "processing",
+        45
+      );
+      updateGenerationProgress(
+        4,
+        GenerationStep.SETTING_UP_NAVIGATION,
+        "processing",
+        60
+      );
+      updateGenerationProgress(
+        5,
+        GenerationStep.OPTIMIZING_FOR_DEVICES,
+        "processing",
+        70
+      );
+
+      // Step 7: Generate the AI site with all required parameters
+      updateGenerationProgress(
+        6,
+        GenerationStep.BOOSTING_SPEED,
+        "processing",
+        80
+      );
+
+      console.log("Generating AI site for domain ID:", domainId);
+
+      // Prepare complete parameters for the API
+      const aiSiteParams = {
+        domainId: domainId,
         businessType,
         businessName,
         businessDescription,
-        adminPassword: "Password1Ab", // Hard-coded password that meets requirements
-        onProgress: updateGenerationProgress,
-      });
+        websiteTitle,
+        websiteDescription,
+        websiteKeyphrase,
+        websiteType: businessType,
+        colors: params.colors,
+        fonts: params.fonts,
+      };
+
+      const aiGenResult = await tenwebApi.generateAISite(aiSiteParams);
+
+      if (!aiGenResult || !aiGenResult.data) {
+        throw new Error("Failed to generate AI site");
+      }
 
       // Create a website object based on the result
       const website: UserWebsite = {
         id: `website-${Date.now()}`,
-        domainId: result.domainId,
+        domainId: domainId,
         subdomain,
-        siteUrl: result.url,
+        siteUrl: aiGenResult.data.url || `https://${subdomain}.10web.site`,
         title: businessName,
         description: businessDescription,
         createdAt: new Date().toISOString(),
@@ -130,13 +204,14 @@ export function useTenWeb() {
             ...website,
             userId: user.uid,
           });
+          console.log("Website saved to Firestore");
         } catch (error) {
-          console.error("Failed to update user profile:", error);
+          console.error("Failed to save website to Firestore:", error);
         }
       }
 
       // Update progress to complete
-      updateGenerationProgress(3, GenerationStep.FINALIZING, "complete", 100);
+      updateGenerationProgress(7, GenerationStep.FINALIZING, "complete", 100);
 
       toast({
         title: "Website generated successfully",

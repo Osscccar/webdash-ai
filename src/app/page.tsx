@@ -3,15 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { GeneratePrompt } from "@/components/landing/generate-prompt";
-import { HeaderNav } from "@/components/landing/header-nav";
-import { FooterSection } from "@/components/landing/footer-section";
-import { generateRandomSubdomain } from "@/lib/utils";
+import { Sparkles, Wand2 } from "lucide-react";
 
-export default function LandingPage() {
+export default function OnboardingPage() {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -22,190 +18,102 @@ export default function LandingPage() {
     try {
       setIsLoading(true);
 
-      // Generate a random subdomain to track this generation
-      const subdomain = generateRandomSubdomain("site");
-
-      // Save prompt to local storage for now (will be saved to database after authentication)
+      // Save prompt to local storage to pass to the editor page
       localStorage.setItem("webdash_prompt", prompt);
-      localStorage.setItem("webdash_subdomain", subdomain);
 
-      // Redirect to the generation page
-      router.push("/generate");
+      // Redirect to the editor page, not directly to generate page
+      router.push("/editor");
     } catch (error) {
-      console.error("Error generating website:", error);
+      console.error("Error preparing website generation:", error);
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
-      <HeaderNav />
+    <div className="relative flex flex-col items-center justify-center min-h-screen overflow-hidden">
+      {/* Animated gradient background */}
+      <div className="absolute inset-0 w-full h-full overflow-hidden">
+        <div className="absolute inset-0 bg-black opacity-95" />
+        <motion.div
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: "url('/noise.png')",
+            backgroundSize: "200px 200px",
+          }}
+        />
+        <motion.div
+          className="absolute inset-0"
+          animate={{
+            background: [
+              "radial-gradient(circle at 20% 30%, rgba(245, 131, 39, 0.15) 0%, transparent 40%)",
+              "radial-gradient(circle at 40% 70%, rgba(245, 131, 39, 0.15) 0%, transparent 40%)",
+              "radial-gradient(circle at 60% 20%, rgba(245, 131, 39, 0.15) 0%, transparent 40%)",
+              "radial-gradient(circle at 80% 50%, rgba(245, 131, 39, 0.15) 0%, transparent 40%)",
+              "radial-gradient(circle at 20% 30%, rgba(245, 131, 39, 0.15) 0%, transparent 40%)",
+            ],
+          }}
+          transition={{
+            duration: 15,
+            repeat: Number.POSITIVE_INFINITY,
+            repeatType: "reverse",
+          }}
+        />
+      </div>
 
-      <main className="flex-grow">
-        {/* Hero Section */}
-        <section className="py-12 md:py-24 lg:py-32 bg-gradient-to-b from-gray-50 to-white">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center justify-center space-y-4 text-center">
-              <div className="space-y-2">
-                <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl">
-                  <span className="text-black">
-                    Create Stunning Websites with{" "}
-                  </span>
-                  <span className="text-[#f58327]">AI</span>
-                </h1>
-                <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl">
-                  Describe your dream website and our AI will generate it
-                  instantly. No coding required.
-                </p>
-              </div>
-
-              <Card className="w-full max-w-2xl border-0 shadow-lg">
-                <CardContent className="p-6">
+      <div className="container relative z-10 px-4 py-10 mx-auto">
+        <div className="flex flex-col items-center max-w-3xl mx-auto">
+          {/* Main card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="w-full"
+          >
+            <Card className="border-0 bg-black/30 backdrop-blur-xl shadow-2xl">
+              <CardContent className="p-8">
+                <div className="space-y-6">
                   <GeneratePrompt
                     prompt={prompt}
                     setPrompt={setPrompt}
                     onGenerate={handleGenerateWebsite}
                     isLoading={isLoading}
                   />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
 
-        {/* Features Section */}
-        <section className="py-12 md:py-24 bg-white">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center justify-center space-y-4 text-center">
-              <div className="space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-                  Create Websites in Minutes
-                </h2>
-                <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl">
-                  Our AI-powered platform makes web design accessible to
-                  everyone.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
-                {features.map((feature, index) => (
                   <motion.div
-                    key={feature.title}
-                    className="flex flex-col items-center p-6 bg-white rounded-lg shadow hover:shadow-md"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.5, delay: 0.6 }}
+                    className="flex flex-wrap justify-center gap-2 pt-2 text-xs text-gray-400"
                   >
-                    <div className="w-12 h-12 rounded-full bg-[#f58327]/10 flex items-center justify-center mb-4">
-                      {feature.icon}
-                    </div>
-                    <h3 className="text-xl font-bold">{feature.title}</h3>
-                    <p className="text-gray-500 text-center mt-2">
-                      {feature.description}
-                    </p>
+                    <span className="px-2 py-1 rounded-full bg-white/10 backdrop-blur-sm">
+                      Business website
+                    </span>
+                    <span className="px-2 py-1 rounded-full bg-white/10 backdrop-blur-sm">
+                      Portfolio
+                    </span>
+                    <span className="px-2 py-1 rounded-full bg-white/10 backdrop-blur-sm">
+                      E-commerce
+                    </span>
+                    <span className="px-2 py-1 rounded-full bg-white/10 backdrop-blur-sm">
+                      Blog
+                    </span>
                   </motion.div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-        {/* CTA Section */}
-        <section className="py-12 md:py-24 bg-gray-50">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center justify-center space-y-4 text-center">
-              <div className="space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-                  Ready to Create Your Website?
-                </h2>
-                <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl">
-                  Get started in seconds with our AI-powered website builder.
-                </p>
-              </div>
-
-              <Button
-                size="lg"
-                className="bg-[#f58327] hover:bg-[#f58327]/90 text-white mt-4"
-                onClick={() => document.getElementById("hero-prompt")?.focus()}
-              >
-                Start Building Now
-              </Button>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <FooterSection />
+          {/* Footer with minimal info */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.8 }}
+            className="mt-12 text-xs text-center text-gray-400"
+          >
+            <p>© {new Date().getFullYear()} WebDash. All rights reserved.</p>
+          </motion.div>
+        </div>
+      </div>
     </div>
   );
 }
-
-// Features data
-const features = [
-  {
-    title: "AI-Powered Design",
-    description:
-      "Our AI analyzes your description and generates a custom website tailored to your needs.",
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="text-[#f58327]"
-      >
-        <path d="M12 2a4 4 0 0 0-4 4v1H3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4v-1h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2h-5V6a4 4 0 0 0-4-4z" />
-      </svg>
-    ),
-  },
-  {
-    title: "No Coding Required",
-    description:
-      "Create a professional website without writing a single line of code.",
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="text-[#f58327]"
-      >
-        <path d="m18 16 4-4-4-4" />
-        <path d="m6 8-4 4 4 4" />
-        <path d="m14.5 4-5 16" />
-      </svg>
-    ),
-  },
-  {
-    title: "Fully Customizable",
-    description:
-      "Easily modify colors, fonts, and content to match your brand identity.",
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="text-[#f58327]"
-      >
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-      </svg>
-    ),
-  },
-];

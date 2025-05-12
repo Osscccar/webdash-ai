@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import type React from "react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -9,246 +10,173 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AVAILABLE_FONTS } from "@/config/tenweb";
-import { Label } from "@/components/ui/label";
-import { HexColorPicker } from "react-colorful";
-import { useToast } from "@/components/ui/use-toast";
 
-export function ColorsAndFonts() {
-  const { toast } = useToast();
-  const [primaryColor, setPrimaryColor] = useState("#ff69b4");
-  const [secondaryColor, setSecondaryColor] = useState("#ffd700");
-  const [backgroundDark, setBackgroundDark] = useState("#212121");
-  const [primaryFont, setPrimaryFont] = useState("Montserrat");
-  const [activeColorPicker, setActiveColorPicker] = useState<string | null>(
-    null
-  );
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSave = () => {
-    setIsSaving(true);
-
-    // In a real implementation, this would save to the database or API
-    // For now, we'll just simulate the save
-    const colorAndFontData = {
-      colors: {
-        primaryColor,
-        secondaryColor,
-        backgroundDark,
-      },
-      fonts: {
-        primaryFont,
-      },
+interface ColorsAndFontsProps {
+  colorAndFontData: {
+    colors: {
+      primaryColor: string;
+      secondaryColor: string;
+      backgroundDark: string;
     };
+    fonts: {
+      primaryFont: string;
+    };
+  };
+  setColorAndFontData: React.Dispatch<
+    React.SetStateAction<{
+      colors: {
+        primaryColor: string;
+        secondaryColor: string;
+        backgroundDark: string;
+      };
+      fonts: {
+        primaryFont: string;
+      };
+    }>
+  >;
+}
 
-    // Save to localStorage for demo purposes
-    localStorage.setItem(
-      "webdash_colors_fonts",
-      JSON.stringify(colorAndFontData)
-    );
+export function ColorsAndFonts({
+  colorAndFontData,
+  setColorAndFontData,
+}: ColorsAndFontsProps) {
+  const fontOptions = [
+    "Montserrat",
+    "Roboto",
+    "Open Sans",
+    "Lato",
+    "Poppins",
+    "Raleway",
+    "Oswald",
+    "Playfair Display",
+    "Merriweather",
+  ];
 
-    setTimeout(() => {
-      setIsSaving(false);
-      toast({
-        title: "Color and font preferences saved",
-        description: "Your customizations have been applied to your website.",
-      });
-    }, 1000);
+  const handleColorChange = (
+    colorType: "primaryColor" | "secondaryColor" | "backgroundDark",
+    value: string
+  ) => {
+    setColorAndFontData({
+      ...colorAndFontData,
+      colors: {
+        ...colorAndFontData.colors,
+        [colorType]: value,
+      },
+    });
+  };
+
+  const handleFontChange = (value: string) => {
+    setColorAndFontData({
+      ...colorAndFontData,
+      fonts: {
+        ...colorAndFontData.fonts,
+        primaryFont: value,
+      },
+    });
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold mb-4">Colors</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Primary Color */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <Label>Primary Color</Label>
-              <div
-                className="h-10 w-10 rounded-full cursor-pointer border border-gray-200"
-                style={{ backgroundColor: primaryColor }}
-                onClick={() =>
-                  setActiveColorPicker(
-                    activeColorPicker === "primary" ? null : "primary"
-                  )
-                }
-              />
-            </div>
-            {activeColorPicker === "primary" && (
-              <div className="relative z-10">
-                <div
-                  className="fixed inset-0"
-                  onClick={() => setActiveColorPicker(null)}
-                />
-                <div className="absolute right-0 top-0">
-                  <HexColorPicker
-                    color={primaryColor}
-                    onChange={setPrimaryColor}
-                  />
-                  <div className="bg-white p-2 mt-2 text-center border rounded shadow">
-                    <span className="text-sm font-mono">{primaryColor}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div
-              className="p-4 rounded-md"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <p className="text-white text-center font-medium">
-                Primary Color
-              </p>
-            </div>
-            <p className="text-sm text-gray-500">
-              Used for buttons, links, and important UI elements.
-            </p>
-          </div>
-
-          {/* Secondary Color */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <Label>Secondary Color</Label>
-              <div
-                className="h-10 w-10 rounded-full cursor-pointer border border-gray-200"
-                style={{ backgroundColor: secondaryColor }}
-                onClick={() =>
-                  setActiveColorPicker(
-                    activeColorPicker === "secondary" ? null : "secondary"
-                  )
-                }
-              />
-            </div>
-            {activeColorPicker === "secondary" && (
-              <div className="relative z-10">
-                <div
-                  className="fixed inset-0"
-                  onClick={() => setActiveColorPicker(null)}
-                />
-                <div className="absolute right-0 top-0">
-                  <HexColorPicker
-                    color={secondaryColor}
-                    onChange={setSecondaryColor}
-                  />
-                  <div className="bg-white p-2 mt-2 text-center border rounded shadow">
-                    <span className="text-sm font-mono">{secondaryColor}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div
-              className="p-4 rounded-md"
-              style={{ backgroundColor: secondaryColor }}
-            >
-              <p className="text-gray-800 text-center font-medium">
-                Secondary Color
-              </p>
-            </div>
-            <p className="text-sm text-gray-500">
-              Used for accents, highlights, and secondary elements.
-            </p>
-          </div>
-
-          {/* Background Dark */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <Label>Background Dark</Label>
-              <div
-                className="h-10 w-10 rounded-full cursor-pointer border border-gray-200"
-                style={{ backgroundColor: backgroundDark }}
-                onClick={() =>
-                  setActiveColorPicker(
-                    activeColorPicker === "background" ? null : "background"
-                  )
-                }
-              />
-            </div>
-            {activeColorPicker === "background" && (
-              <div className="relative z-10">
-                <div
-                  className="fixed inset-0"
-                  onClick={() => setActiveColorPicker(null)}
-                />
-                <div className="absolute right-0 top-0">
-                  <HexColorPicker
-                    color={backgroundDark}
-                    onChange={setBackgroundDark}
-                  />
-                  <div className="bg-white p-2 mt-2 text-center border rounded shadow">
-                    <span className="text-sm font-mono">{backgroundDark}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div
-              className="p-4 rounded-md"
-              style={{ backgroundColor: backgroundDark }}
-            >
-              <p className="text-white text-center font-medium">
-                Background Dark
-              </p>
-            </div>
-            <p className="text-sm text-gray-500">
-              Used for footers, dark sections, and contrast areas.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Typography</h2>
+        <h3 className="text-base font-medium mb-4">Brand Colors</h3>
         <div className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="primary-font">Primary Font</Label>
-            <Select value={primaryFont} onValueChange={setPrimaryFont}>
-              <SelectTrigger id="primary-font" className="w-full">
-                <SelectValue placeholder="Select a font" />
-              </SelectTrigger>
-              <SelectContent>
-                {AVAILABLE_FONTS.map((font) => (
-                  <SelectItem key={font} value={font}>
-                    <span style={{ fontFamily: font }}>{font}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-sm text-gray-500">
-              The main font used throughout your website.
-            </p>
+          <div className="space-y-3">
+            <Label htmlFor="primaryColor">Primary Color</Label>
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-full border"
+                style={{
+                  backgroundColor: colorAndFontData.colors.primaryColor,
+                }}
+              ></div>
+              <Input
+                id="primaryColor"
+                type="text"
+                value={colorAndFontData.colors.primaryColor}
+                onChange={(e) =>
+                  handleColorChange("primaryColor", e.target.value)
+                }
+                className="w-full"
+              />
+            </div>
+            <div className="text-sm text-gray-500">
+              Used for buttons, links, and important UI elements.
+            </div>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-md">
-            <h3
-              className="text-lg font-medium mb-2"
-              style={{ fontFamily: primaryFont }}
-            >
-              Font Preview: {primaryFont}
-            </h3>
-            <p style={{ fontFamily: primaryFont }} className="mb-2">
-              This is how your body text will look using the {primaryFont} font.
-            </p>
-            <h4
-              style={{ fontFamily: primaryFont }}
-              className="text-xl font-bold mb-2"
-            >
-              Heading Example
-            </h4>
-            <p style={{ fontFamily: primaryFont }}>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do
-              eiusmod tempor incididunt ut labore et dolore magna aliqua.
-            </p>
+          <div className="space-y-3">
+            <Label htmlFor="secondaryColor">Secondary Color</Label>
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-full border"
+                style={{
+                  backgroundColor: colorAndFontData.colors.secondaryColor,
+                }}
+              ></div>
+              <Input
+                id="secondaryColor"
+                type="text"
+                value={colorAndFontData.colors.secondaryColor}
+                onChange={(e) =>
+                  handleColorChange("secondaryColor", e.target.value)
+                }
+                className="w-full"
+              />
+            </div>
+            <div className="text-sm text-gray-500">
+              Used for accents, highlights, and secondary elements.
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label htmlFor="backgroundDark">Background Dark</Label>
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-full border"
+                style={{
+                  backgroundColor: colorAndFontData.colors.backgroundDark,
+                }}
+              ></div>
+              <Input
+                id="backgroundDark"
+                type="text"
+                value={colorAndFontData.colors.backgroundDark}
+                onChange={(e) =>
+                  handleColorChange("backgroundDark", e.target.value)
+                }
+                className="w-full"
+              />
+            </div>
+            <div className="text-sm text-gray-500">
+              Used for footers, dark sections, and contrast areas.
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="flex justify-end">
-        <Button
-          onClick={handleSave}
-          className="bg-[#f58327] hover:bg-[#f58327]/90 text-white"
-          disabled={isSaving}
-        >
-          {isSaving ? "Saving..." : "Save Colors & Fonts"}
-        </Button>
+      <div>
+        <h3 className="text-base font-medium mb-4">Typography</h3>
+        <div className="space-y-3">
+          <Label htmlFor="primaryFont">Primary Font</Label>
+          <Select
+            value={colorAndFontData.fonts.primaryFont}
+            onValueChange={handleFontChange}
+          >
+            <SelectTrigger id="primaryFont" className="w-full">
+              <SelectValue placeholder="Select a font" />
+            </SelectTrigger>
+            <SelectContent>
+              {fontOptions.map((font) => (
+                <SelectItem key={font} value={font}>
+                  {font}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="text-sm text-gray-500">
+            Used for all text on your website.
+          </div>
+        </div>
       </div>
     </div>
   );
