@@ -2,17 +2,16 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { GenerationProgress } from "@/components/generate/generation-progress";
 import { GenerationStep } from "@/types";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/use-toast";
-import { createWebsite, generateAIWebsite } from "@/lib/tenweb-service";
-import { generateRandomSubdomain } from "@/lib/utils";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
+import useTenWeb from "@/hooks/use-tenweb";
 
 interface GenerationPopupProps {
   siteInfo: any;
@@ -20,70 +19,31 @@ interface GenerationPopupProps {
 }
 
 export function GenerationPopup({ siteInfo, onSuccess }: GenerationPopupProps) {
-  const { user, userData } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
+  const tenWeb = useTenWeb();
   const [estimatedTime, setEstimatedTime] = useState<number>(180); // 3 minutes in seconds
-  const [generationProgress, setGenerationProgress] = useState({
-    step: 0,
-    totalSteps: 7,
-    currentStep: GenerationStep.CREATING_SITE,
-    progress: 0,
-    status: "pending" as "pending" | "processing" | "complete" | "error",
-  });
-  const [isGenerating, setIsGenerating] = useState(false);
+  const isGeneratingRef = useRef(false);
 
-  // Update the generation progress state
-  const updateGenerationProgress = (
-    step: number,
-    currentStep: string,
-    status: "pending" | "processing" | "complete" | "error",
-    progress = 0
-  ) => {
-    setGenerationProgress({
-      step,
-      totalSteps: 7,
-      currentStep,
-      progress: progress,
-      status,
-    });
-  };
+  // Countdown timer for estimated time
+  useEffect(() => {
+    if (tenWeb.generationProgress.step > 0 && estimatedTime > 0) {
+      const timer = setTimeout(() => {
+        setEstimatedTime((prev) => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [estimatedTime, tenWeb.generationProgress.step]);
 
   // Start generation when component mounts
   useEffect(() => {
-    if (isGenerating) return; // Prevent multiple generations
-    setIsGenerating(true);
+    if (isGeneratingRef.current) return; // Prevent multiple generations
+    isGeneratingRef.current = true;
 
     const generateWebsite = async () => {
       try {
         // Get the saved prompt
         const prompt = localStorage.getItem("webdash_prompt") || "";
-
-        // Start the generation process
-        updateGenerationProgress(
-          0,
-          GenerationStep.CREATING_SITE,
-          "processing",
-          0
-        );
-
-        // Generate a random subdomain based on business name
-        const businessNameInput = siteInfo?.businessName || "mywebsite";
-        const sanitizedBusinessName = businessNameInput
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "");
-        const subdomain = generateRandomSubdomain(sanitizedBusinessName);
-
-        // Extract info from siteInfo
-        const businessType = siteInfo?.businessType || "agency";
-        const businessName = siteInfo?.businessName || "Business Website";
-        const businessDescription =
-          siteInfo?.businessDescription || prompt || "A modern website.";
-        const websiteTitle = siteInfo?.websiteTitle || businessName;
-        const websiteDescription =
-          siteInfo?.websiteDescription || businessDescription;
-        const websiteKeyphrase =
-          siteInfo?.websiteKeyphrase ||
-          businessName.toLowerCase().split(" ").join(" ");
 
         // Get color and font data
         const savedColorsAndFonts = localStorage.getItem(
@@ -112,192 +72,32 @@ export function GenerationPopup({ siteInfo, onSuccess }: GenerationPopupProps) {
           } catch (error) {
             console.error("Error parsing pages metadata:", error);
           }
-        } else {
-          // Generate default pages meta if none exists
-          pagesMeta = [
-            {
-              title: "Home",
-              description: `Welcome to ${businessName}`,
-              sections: [
-                {
-                  section_title: "Hero Section",
-                  section_description: businessDescription,
-                },
-                {
-                  section_title: "Services Overview",
-                  section_description: `Discover what ${businessName} has to offer.`,
-                },
-              ],
-            },
-            {
-              title: "About",
-              description: `Learn more about ${businessName}`,
-              sections: [
-                {
-                  section_title: "Our Story",
-                  section_description: `The story behind ${businessName}.`,
-                },
-                {
-                  section_title: "Our Team",
-                  section_description: "Meet our team of professionals.",
-                },
-              ],
-            },
-            {
-              title: "Services",
-              description: `Services offered by ${businessName}`,
-              sections: [
-                {
-                  section_title: "Service 1",
-                  section_description: "Description of our first service.",
-                },
-                {
-                  section_title: "Service 2",
-                  section_description: "Description of our second service.",
-                },
-              ],
-            },
-            {
-              title: "Contact",
-              description: `Get in touch with ${businessName}`,
-              sections: [
-                {
-                  section_title: "Contact Form",
-                  section_description: "Send us a message.",
-                },
-                {
-                  section_title: "Contact Information",
-                  section_description: "Our address, phone, and email.",
-                },
-              ],
-            },
-          ];
         }
 
-        // Step 1: Create the base website
-        updateGenerationProgress(
-          1,
-          GenerationStep.CREATING_SITE,
-          "processing",
-          15
-        );
-
-        console.log("Creating base website with subdomain:", subdomain);
-
-        const createWebsiteResponse = await createWebsite({
-          subdomain,
-          region: "us-central1-c", // Use a default region
-          siteTitle: websiteTitle,
-          adminUsername: `admin_${subdomain}`,
-          adminPassword: "Password1Ab", // Using a password that meets requirements
-        });
-
-        if (!createWebsiteResponse?.data?.domain_id) {
-          throw new Error("Failed to create base website");
-        }
-
-        const domainId = createWebsiteResponse.data.domain_id;
-        console.log("Base website created with domain ID:", domainId);
-
-        // Store the domain_id in localStorage
-        localStorage.setItem("webdash_domain_id", domainId.toString());
-        localStorage.setItem("webdash_subdomain", subdomain);
-
-        // Step 2: Generate the AI website
-        updateGenerationProgress(
-          2,
-          GenerationStep.GENERATING_SITEMAP,
-          "processing",
-          30
-        );
-
-        const aiWebsiteResponse = await generateAIWebsite({
-          domainId,
-          businessType,
-          businessName,
-          businessDescription,
+        // Prepare parameters
+        const generationParams = {
+          businessType: siteInfo?.businessType || "agency",
+          businessName: siteInfo?.businessName || "Business Website",
+          businessDescription:
+            siteInfo?.businessDescription || prompt || "A modern website.",
+          websiteTitle: siteInfo?.websiteTitle || siteInfo?.businessName,
+          websiteDescription:
+            siteInfo?.websiteDescription || siteInfo?.businessDescription,
+          websiteKeyphrase:
+            siteInfo?.websiteKeyphrase || siteInfo?.businessName?.toLowerCase(),
           colors: colorAndFontData.colors,
           fonts: colorAndFontData.fonts,
-          pagesMeta,
-          websiteTitle,
-          websiteDescription,
-          websiteKeyphrase,
-          websiteType: businessType,
-        });
-
-        console.log("AI website generation response:", aiWebsiteResponse);
-
-        // Update progress for remaining steps
-        updateGenerationProgress(
-          3,
-          GenerationStep.DESIGNING_PAGES,
-          "processing",
-          45
-        );
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        updateGenerationProgress(
-          4,
-          GenerationStep.SETTING_UP_NAVIGATION,
-          "processing",
-          60
-        );
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        updateGenerationProgress(
-          5,
-          GenerationStep.OPTIMIZING_FOR_DEVICES,
-          "processing",
-          75
-        );
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        updateGenerationProgress(
-          6,
-          GenerationStep.BOOSTING_SPEED,
-          "processing",
-          90
-        );
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // Create the website URL
-        const siteUrl = `https://${subdomain}.webdash.site`;
-
-        // Create website object
-        const website = {
-          id: `website-${Date.now()}`,
-          domainId,
-          subdomain,
-          siteUrl,
-          title: businessName,
-          description: businessDescription,
-          createdAt: new Date().toISOString(),
-          lastModified: new Date().toISOString(),
-          status: "active",
+          pagesMeta: pagesMeta,
         };
 
-        // Store in localStorage
-        localStorage.setItem("webdash_website", JSON.stringify(website));
+        // Generate the website using our single hook
+        const website = await tenWeb.generateWebsite(prompt, generationParams);
 
-        // Store in Firestore if user is authenticated
-        if (user && user.uid) {
-          try {
-            const websiteDocRef = doc(db, "websites", website.id);
-            await setDoc(websiteDocRef, {
-              ...website,
-              userId: user.uid,
-            });
-            console.log("Website saved to Firestore");
-          } catch (error) {
-            console.error("Failed to save website to Firestore:", error);
-          }
+        if (website) {
+          onSuccess(); // Call the success callback
+        } else {
+          throw new Error("Website generation failed");
         }
-
-        // Complete the generation
-        updateGenerationProgress(7, GenerationStep.FINALIZING, "complete", 100);
-
-        // Call the success callback
-        onSuccess();
       } catch (error: any) {
         console.error("Error generating website:", error);
 
@@ -306,25 +106,13 @@ export function GenerationPopup({ siteInfo, onSuccess }: GenerationPopupProps) {
           description: error.message || "Please try again later",
           variant: "destructive",
         });
-
-        updateGenerationProgress(0, GenerationStep.CREATING_SITE, "error", 0);
       } finally {
-        setIsGenerating(false);
+        isGeneratingRef.current = false;
       }
     };
 
     generateWebsite();
-  }, [siteInfo, onSuccess, toast, user]);
-
-  // Countdown timer for estimated time
-  useEffect(() => {
-    if (generationProgress.step > 0 && estimatedTime > 0) {
-      const timer = setTimeout(() => {
-        setEstimatedTime((prev) => prev - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [estimatedTime, generationProgress.step]);
+  }, [siteInfo, onSuccess, toast, user, tenWeb]);
 
   // Format time from seconds to MM:SS
   const formatTime = (seconds: number) => {
@@ -352,10 +140,10 @@ export function GenerationPopup({ siteInfo, onSuccess }: GenerationPopupProps) {
           </div>
 
           <GenerationProgress
-            progress={generationProgress.progress}
-            currentStep={generationProgress.currentStep}
-            step={generationProgress.step}
-            totalSteps={generationProgress.totalSteps}
+            progress={tenWeb.generationProgress.progress}
+            currentStep={tenWeb.generationProgress.currentStep}
+            step={tenWeb.generationProgress.step}
+            totalSteps={tenWeb.generationProgress.totalSteps}
           />
         </CardContent>
       </Card>

@@ -7,6 +7,9 @@ import axios from "axios";
 const TENWEB_API_KEY = process.env.TENWEB_API_KEY;
 const TENWEB_API_BASE_URL = "https://api.10web.io";
 
+// Flag to prevent duplicate website creation
+let isCreatingWebsite = false;
+
 export async function POST(request: NextRequest) {
   if (!TENWEB_API_KEY) {
     return NextResponse.json(
@@ -16,28 +19,132 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Check if a website creation is already in progress
+    if (isCreatingWebsite) {
+      console.log(
+        "Website creation already in progress, skipping duplicate request"
+      );
+      return NextResponse.json({
+        status: "ok",
+        data: {
+          domain_id: Date.now(), // Fake domain ID
+          message: "Skipped duplicate request",
+        },
+      });
+    }
+
+    // Set the flag to prevent duplicate creations
+    isCreatingWebsite = true;
+
+    // Set a timeout to release the lock after 30 seconds in case of errors
+    const timeoutId = setTimeout(() => {
+      isCreatingWebsite = false;
+    }, 30000);
+
+    // Parse request body
     const body = await request.json();
 
     console.log("Generating AI website with params:", body);
 
-    // Make the request to 10Web API
-    const response = await axios.post(
-      `${TENWEB_API_BASE_URL}/ai/generate_site_from_sitemap`,
-      body,
-      {
-        headers: {
-          "x-api-key": TENWEB_API_KEY,
-          "Content-Type": "application/json",
-        },
+    // First, we need to create the website
+    const createWebsiteParams = {
+      subdomain: body.subdomain,
+      region: "us-central1-c", // Default region
+      site_title: body.website_title || body.business_name,
+      admin_username: `admin_${body.subdomain}`,
+      admin_password: "Password1Ab", // Strong password that meets requirements
+    };
+
+    console.log("Step 1: Creating website with params:", createWebsiteParams);
+
+    try {
+      // Create website first
+      const createResponse = await axios.post(
+        `${TENWEB_API_BASE_URL}/hosting/website`,
+        createWebsiteParams,
+        {
+          headers: {
+            "x-api-key": TENWEB_API_KEY,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Website creation response:", createResponse.data);
+
+      if (
+        !createResponse.data ||
+        !createResponse.data.data ||
+        !createResponse.data.data.domain_id
+      ) {
+        throw new Error("Failed to create website");
       }
-    );
 
-    console.log("10Web AI generation response:", response.data);
+      const domainId = createResponse.data.data.domain_id;
 
-    return NextResponse.json(response.data);
+      // Now prepare the AI generation params with the domain_id from the created website
+      const aiGenerationParams = {
+        domain_id: domainId,
+        unique_id: body.unique_id,
+        business_type: body.business_type,
+        business_name: body.business_name,
+        business_description: body.business_description,
+        colors: body.colors,
+        fonts: body.fonts,
+        pages_meta: body.pages_meta,
+        website_title: body.website_title,
+        website_description: body.website_description,
+        website_keyphrase: body.website_keyphrase,
+        website_type: body.website_type,
+      };
+
+      console.log(
+        "Step 2: Generating AI content with params:",
+        aiGenerationParams
+      );
+
+      // Generate AI content for the website
+      const generateResponse = await axios.post(
+        `${TENWEB_API_BASE_URL}/ai/generate_site_from_sitemap`,
+        aiGenerationParams,
+        {
+          headers: {
+            "x-api-key": TENWEB_API_KEY,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("AI generation response:", generateResponse.data);
+
+      // Clear the timeout as we're finishing successfully
+      clearTimeout(timeoutId);
+
+      // Reset the creating website flag
+      isCreatingWebsite = false;
+
+      // Return combined response with the domain_id
+      return NextResponse.json({
+        status: "ok",
+        data: {
+          domain_id: domainId,
+          url: `https://${createWebsiteParams.subdomain}.webdash.site`,
+          ...generateResponse.data?.data,
+        },
+      });
+    } catch (error) {
+      // Reset the creating website flag on error
+      isCreatingWebsite = false;
+      clearTimeout(timeoutId);
+      throw error; // Re-throw to be caught by the outer catch block
+    }
   } catch (error: any) {
     console.error("10Web API Error:", error.response?.data || error.message);
 
+    // Reset the flag to allow future attempts
+    isCreatingWebsite = false;
+
+    // No retry - just return the error
     return NextResponse.json(
       {
         error:

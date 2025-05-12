@@ -6,7 +6,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./use-auth";
 import { useToast } from "@/components/ui/use-toast";
-import tenwebApi from "@/lib/tenweb-api";
+import axios from "axios";
 import { generateRandomSubdomain } from "@/lib/utils";
 import { GenerationStep, UserWebsite } from "@/types";
 import { doc, setDoc } from "firebase/firestore";
@@ -17,10 +17,10 @@ export function useTenWeb() {
   const { user, userData } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const isGeneratingRef = useRef(false); // Track generation state
+  const isGeneratingRef = useRef(false);
   const [generationProgress, setGenerationProgress] = useState({
     step: 0,
-    totalSteps: 7, // Match the steps in GenerationStep enum
+    totalSteps: 7,
     currentStep: GenerationStep.CREATING_SITE,
     progress: 0,
     status: "pending" as "pending" | "processing" | "complete" | "error",
@@ -37,7 +37,7 @@ export function useTenWeb() {
   ) => {
     setGenerationProgress({
       step,
-      totalSteps: 7, // Match the steps in GenerationStep enum
+      totalSteps: 7,
       currentStep,
       progress: progress,
       status,
@@ -46,7 +46,7 @@ export function useTenWeb() {
 
   /**
    * Generate a website from a prompt with full configuration
-   * Modified to skip the AI generation step
+   * Using ONLY the generate_site_from_sitemap endpoint
    */
   const generateWebsite = async (prompt: string, params: any) => {
     // Prevent duplicate website creation
@@ -99,38 +99,11 @@ export function useTenWeb() {
       localStorage.setItem("webdash_site_info", JSON.stringify(siteInfo));
       localStorage.setItem("webdash_subdomain", subdomain);
 
-      // Step 1: Create the base website
-      updateGenerationProgress(
-        1,
-        GenerationStep.CREATING_SITE,
-        "processing",
-        15
-      );
+      // Generate unique ID for the request
+      const uniqueId = `webdash_${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 9)}`;
 
-      console.log("Creating base website with subdomain:", subdomain);
-
-      const baseWebsite = await tenwebApi.createWebsite({
-        subdomain,
-        region: "us-central1-c", // Use a default region
-        siteTitle: websiteTitle,
-        adminUsername: `admin_${subdomain}`,
-        adminPassword: "Password1Ab", // Using a password that meets requirements
-      });
-
-      if (!baseWebsite || !baseWebsite.data || !baseWebsite.data.domain_id) {
-        throw new Error("Failed to create base website");
-      }
-
-      const domainId = baseWebsite.data.domain_id;
-      console.log("Base website created with domain ID:", domainId);
-
-      // Store the domain_id in localStorage
-      localStorage.setItem("webdash_domain_id", domainId.toString());
-
-      // IMPORTANT: Skipping the AI generation step as requested
-      // Instead, we'll simulate the progress steps to provide feedback to the user
-
-      // Simulate the remaining steps
       updateGenerationProgress(
         2,
         GenerationStep.GENERATING_SITEMAP,
@@ -138,15 +111,130 @@ export function useTenWeb() {
         30
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Get pages meta from localStorage if not provided in params
+      let pagesMeta = params.pagesMeta;
 
+      if (!pagesMeta) {
+        const savedPagesMeta = localStorage.getItem("webdash_pages_meta");
+        if (savedPagesMeta) {
+          try {
+            pagesMeta = JSON.parse(savedPagesMeta);
+          } catch (error) {
+            console.error("Error parsing pages meta from localStorage:", error);
+          }
+        }
+      }
+
+      // Use default pages meta if none is available
+      if (!pagesMeta) {
+        pagesMeta = [
+          {
+            title: "Home",
+            description: `Welcome to ${businessName}`,
+            sections: [
+              {
+                section_title: "Hero Section",
+                section_description: businessDescription,
+              },
+              {
+                section_title: "Services Overview",
+                section_description: `Discover what ${businessName} has to offer.`,
+              },
+            ],
+          },
+          {
+            title: "About",
+            description: `Learn more about ${businessName}`,
+            sections: [
+              {
+                section_title: "Our Story",
+                section_description: `The story behind ${businessName}.`,
+              },
+              {
+                section_title: "Our Team",
+                section_description: "Meet our team of professionals.",
+              },
+            ],
+          },
+          {
+            title: "Services",
+            description: `Services offered by ${businessName}`,
+            sections: [
+              {
+                section_title: "Service 1",
+                section_description: "Description of our first service.",
+              },
+              {
+                section_title: "Service 2",
+                section_description: "Description of our second service.",
+              },
+            ],
+          },
+          {
+            title: "Contact",
+            description: `Get in touch with ${businessName}`,
+            sections: [
+              {
+                section_title: "Contact Form",
+                section_description: "Send us a message.",
+              },
+              {
+                section_title: "Contact Information",
+                section_description: "Our address, phone, and email.",
+              },
+            ],
+          },
+        ];
+      }
+
+      // Format the request body according to the API specifications
+      const requestBody = {
+        subdomain: subdomain,
+        unique_id: uniqueId,
+        business_type: businessType,
+        business_name: businessName,
+        business_description: businessDescription,
+        colors: {
+          primary_color: params.colors?.primaryColor || "#f58327",
+          secondary_color: params.colors?.secondaryColor || "#4a5568",
+          background_dark: params.colors?.backgroundDark || "#212121",
+        },
+        fonts: {
+          primary_font: params.fonts?.primaryFont || "Montserrat",
+        },
+        pages_meta: pagesMeta,
+        website_title: websiteTitle,
+        website_description: websiteDescription,
+        website_keyphrase: websiteKeyphrase,
+        website_type: businessType,
+      };
+
+      console.log("Sending AI generation request:", requestBody);
+
+      // We use a single API call through the catch-all route
+      // which will handle website creation and AI generation
+      const response = await axios.post(
+        "/api/tenweb/ai/generate_site_from_sitemap",
+        requestBody
+      );
+
+      console.log("AI site generation response:", response.data);
+
+      // Extract domain ID and URL from response
+      const domainId = response.data?.data?.domain_id || Date.now();
+      const siteUrl =
+        response.data?.data?.url || `https://${subdomain}.webdash.site`;
+
+      // Store the domain_id in localStorage
+      localStorage.setItem("webdash_domain_id", domainId.toString());
+
+      // Update progress for remaining steps
       updateGenerationProgress(
         3,
         GenerationStep.DESIGNING_PAGES,
         "processing",
         45
       );
-
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       updateGenerationProgress(
@@ -155,7 +243,6 @@ export function useTenWeb() {
         "processing",
         60
       );
-
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       updateGenerationProgress(
@@ -164,7 +251,6 @@ export function useTenWeb() {
         "processing",
         75
       );
-
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       updateGenerationProgress(
@@ -173,13 +259,9 @@ export function useTenWeb() {
         "processing",
         90
       );
-
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Create the website URL using webdash.site domain
-      const siteUrl = `https://${subdomain}.webdash.site`;
-
-      // Create a website object
+      // Create website object
       const website: UserWebsite = {
         id: `website-${Date.now()}`,
         domainId: domainId,
@@ -192,7 +274,7 @@ export function useTenWeb() {
         status: "active",
       };
 
-      // Store the website data in localStorage for later access after auth
+      // Store the website data in localStorage for later access
       localStorage.setItem("webdash_website", JSON.stringify(website));
 
       // Only update Firestore if user is logged in
@@ -255,11 +337,12 @@ export function useTenWeb() {
     setIsLoading(true);
 
     try {
-      const result = await tenwebApi.getWPAutologinToken({
-        domainId,
-        adminUrl,
-      });
-      return result.token;
+      const response = await axios.get(
+        `/api/tenweb/account/domains/${domainId}/single?admin_url=${encodeURIComponent(
+          adminUrl
+        )}`
+      );
+      return response.data.token;
     } catch (error: any) {
       console.error("Error getting WP autologin token:", error);
 
