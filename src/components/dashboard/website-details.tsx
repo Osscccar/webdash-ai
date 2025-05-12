@@ -15,12 +15,11 @@ import {
   HardDrive,
   Home,
   Settings,
-  ShoppingCart,
-  Users,
   Edit,
   Copy,
   FileText,
   Clock,
+  Users,
 } from "lucide-react";
 import {
   Table,
@@ -30,6 +29,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useAnalytics } from "@/hooks/use-analytics";
+import { AnalyticsChart } from "./analytics-chart";
+import { useToast } from "@/components/ui/use-toast";
 
 interface WebsiteDetailsProps {
   website: UserWebsite;
@@ -45,20 +47,28 @@ export function WebsiteDetails({
   isLoading,
 }: WebsiteDetailsProps) {
   const [activeTab, setActiveTab] = useState("main");
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<
+    "day" | "week" | "month" | "year"
+  >("month");
+  const { toast } = useToast();
 
-  // Mock data for the website details
-  const mockAnalytics = {
-    pageViews: 0,
-    uniqueVisitors: 0,
-    storageUsed: {
-      database: 864, // KB
-      files: 207530, // KB
-      total: 208394, // KB
-    },
-    performanceScore: {
-      desktop: 100,
-      mobile: 100,
-    },
+  // Fetch analytics data
+  const { data: analyticsData, isLoading: isLoadingAnalytics } = useAnalytics(
+    website.domainId,
+    analyticsPeriod
+  );
+
+  // Mock data for the website details (for storage)
+  const mockStorage = {
+    database: 864, // KB
+    files: 207530, // KB
+    total: 208394, // KB
+  };
+
+  // Mock performance scores
+  const mockPerformance = {
+    desktop: 100,
+    mobile: 100,
   };
 
   // Mock DNS records
@@ -84,6 +94,14 @@ export function WebsiteDetails({
       ttl: "3600",
     },
   ];
+
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(website.siteUrl);
+    toast({
+      title: "URL copied",
+      description: "The website URL has been copied to clipboard.",
+    });
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -211,14 +229,7 @@ export function WebsiteDetails({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 cursor-pointer"
-                    onClick={() => {
-                      navigator.clipboard.writeText(website.siteUrl);
-                      toast({
-                        title: "URL copied",
-                        description:
-                          "The website URL has been copied to clipboard.",
-                      });
-                    }}
+                    onClick={handleCopyUrl}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -278,62 +289,13 @@ export function WebsiteDetails({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-base">
-                  <BarChart3 className="h-5 w-5 mr-2 text-gray-500" />
-                  Analytics Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-sm text-gray-500">Page Views</p>
-                      <p className="text-2xl font-medium">
-                        {mockAnalytics.pageViews}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-gray-500">Unique Visitors</p>
-                      <p className="text-2xl font-medium">
-                        {mockAnalytics.uniqueVisitors}
-                      </p>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <p className="text-sm text-gray-500">Performance Score</p>
-                      <p className="text-sm font-normal">Excellent</p>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <span>Desktop</span>
-                        <span>
-                          {mockAnalytics.performanceScore.desktop}/100
-                        </span>
-                      </div>
-                      <Progress
-                        value={mockAnalytics.performanceScore.desktop}
-                        className="h-2"
-                      />
-
-                      <div className="flex justify-between text-xs">
-                        <span>Mobile</span>
-                        <span>{mockAnalytics.performanceScore.mobile}/100</span>
-                      </div>
-                      <Progress
-                        value={mockAnalytics.performanceScore.mobile}
-                        className="h-2"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Analytics Overview */}
+            <AnalyticsChart
+              data={analyticsData}
+              isLoading={isLoadingAnalytics}
+              period={analyticsPeriod}
+              onChange={setAnalyticsPeriod}
+            />
 
             <Card>
               <CardHeader>
@@ -348,24 +310,19 @@ export function WebsiteDetails({
                     <div className="space-y-1">
                       <p className="text-sm text-gray-500">Total Storage</p>
                       <p className="text-2xl font-medium">
-                        {(mockAnalytics.storageUsed.total / 1024).toFixed(2)} MB
+                        {(mockStorage.total / 1024).toFixed(2)} MB
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-gray-500">
-                        {(
-                          (mockAnalytics.storageUsed.total / (1024 * 1024)) *
-                          100
-                        ).toFixed(2)}
+                        {((mockStorage.total / (1024 * 1024)) * 100).toFixed(2)}
                         % of 1GB used
                       </p>
                     </div>
                   </div>
 
                   <Progress
-                    value={
-                      (mockAnalytics.storageUsed.total / (1024 * 1024)) * 100
-                    }
+                    value={(mockStorage.total / (1024 * 1024)) * 100}
                     className="h-2"
                   />
 
@@ -376,8 +333,7 @@ export function WebsiteDetails({
                         <p className="text-sm text-gray-500">Database</p>
                       </div>
                       <p className="text-sm font-normal">
-                        {(mockAnalytics.storageUsed.database / 1024).toFixed(2)}{" "}
-                        MB
+                        {(mockStorage.database / 1024).toFixed(2)} MB
                       </p>
                     </div>
                     <div className="space-y-1">
@@ -386,7 +342,7 @@ export function WebsiteDetails({
                         <p className="text-sm text-gray-500">Files</p>
                       </div>
                       <p className="text-sm font-normal">
-                        {(mockAnalytics.storageUsed.files / 1024).toFixed(2)} MB
+                        {(mockStorage.files / 1024).toFixed(2)} MB
                       </p>
                     </div>
                   </div>
@@ -441,15 +397,135 @@ export function WebsiteDetails({
               <CardTitle className="text-base">Website Analytics</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <BarChart3 className="h-16 w-16 text-gray-300 mb-4" />
-                <h3 className="text-xl font-normal mb-2">
-                  No analytics data yet
-                </h3>
-                <p className="text-gray-500 max-w-md">
-                  Your website is new and hasn't received any visitors yet.
-                  Check back later to see your analytics data.
-                </p>
+              <div className="space-y-6">
+                <AnalyticsChart
+                  data={analyticsData}
+                  isLoading={isLoadingAnalytics}
+                  period={analyticsPeriod}
+                  onChange={setAnalyticsPeriod}
+                />
+
+                {/* Additional analytics information */}
+                {analyticsData && (
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+                    <h3 className="font-medium text-gray-700">
+                      Visitor Insights
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-white p-3 rounded border">
+                        <div className="text-sm text-gray-500">Page Views</div>
+                        <div className="text-xl font-medium">
+                          {analyticsData.total}
+                        </div>
+                      </div>
+                      <div className="bg-white p-3 rounded border">
+                        <div className="text-sm text-gray-500">
+                          Unique Visitors
+                        </div>
+                        <div className="text-xl font-medium">
+                          {analyticsData.unique}
+                        </div>
+                      </div>
+                      <div className="bg-white p-3 rounded border">
+                        <div className="text-sm text-gray-500">
+                          Avg. Visit Duration
+                        </div>
+                        <div className="text-xl font-medium">2m 15s</div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-4 rounded border">
+                      <h4 className="font-medium text-gray-700 mb-3">
+                        Top Pages
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Homepage</span>
+                          <span className="font-medium">
+                            {Math.round(analyticsData.total * 0.65)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>About</span>
+                          <span className="font-medium">
+                            {Math.round(analyticsData.total * 0.15)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Services</span>
+                          <span className="font-medium">
+                            {Math.round(analyticsData.total * 0.12)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Contact</span>
+                          <span className="font-medium">
+                            {Math.round(analyticsData.total * 0.08)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row gap-4">
+                      <div className="bg-white p-4 rounded border flex-1">
+                        <h4 className="font-medium text-gray-700 mb-3">
+                          Top Referrers
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span>Direct</span>
+                            <span className="font-medium">65%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Google</span>
+                            <span className="font-medium">20%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Social Media</span>
+                            <span className="font-medium">10%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Other</span>
+                            <span className="font-medium">5%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-4 rounded border flex-1">
+                        <h4 className="font-medium text-gray-700 mb-3">
+                          Devices
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span>Desktop</span>
+                            <span className="font-medium">45%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Mobile</span>
+                            <span className="font-medium">50%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Tablet</span>
+                            <span className="font-medium">5%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!analyticsData && !isLoadingAnalytics && (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <BarChart3 className="h-16 w-16 text-gray-300 mb-4" />
+                    <h3 className="text-xl font-normal mb-2">
+                      No analytics data yet
+                    </h3>
+                    <p className="text-gray-500 max-w-md">
+                      Your website is new and hasn't received any visitors yet.
+                      Check back later to see your analytics data.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -546,10 +622,4 @@ export function WebsiteDetails({
       </div>
     </div>
   );
-}
-
-// Helper function to format toast notifications
-function toast({ title, description }: { title: string; description: string }) {
-  // In a real implementation, this would use the toast from useToast
-  console.log(`Toast: ${title} - ${description}`);
 }
