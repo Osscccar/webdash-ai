@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,10 +19,34 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
-export default function SignUpPage() {
+// Create a search params wrapper component that uses the hook
+function SearchParamsWrapper({ children }: { children: React.ReactNode }) {
+  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(
+    null
+  );
+
+  useEffect(() => {
+    // Only run in the browser
+    if (typeof window !== "undefined") {
+      setSearchParams(new URLSearchParams(window.location.search));
+    }
+  }, []);
+
+  if (!searchParams) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" message="Loading..." />
+      </div>
+    );
+  }
+
+  return children;
+}
+
+// Main signup component that doesn't directly use useSearchParams
+function SignUpPageContent() {
   const { user, signUpWithEmail, signInWithGoogle, error, loading } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,9 +54,18 @@ export default function SignUpPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [redirect, setRedirect] = useState("/dashboard");
 
-  // Get the redirect URL from the query string
-  const redirect = searchParams.get("redirect") || "/dashboard";
+  // Get the redirect URL from the URL on component mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const redirectParam = params.get("redirect");
+      if (redirectParam) {
+        setRedirect(redirectParam);
+      }
+    }
+  }, []);
 
   // Redirect authenticated users
   useEffect(() => {
@@ -287,7 +320,9 @@ export default function SignUpPage() {
               Already have an account?{" "}
               <Link
                 href={`/login${
-                  redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""
+                  redirect && redirect !== "/dashboard"
+                    ? `?redirect=${encodeURIComponent(redirect)}`
+                    : ""
                 }`}
                 className="text-[#f58327] hover:underline"
               >
@@ -298,5 +333,22 @@ export default function SignUpPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// Export the page component that wraps the content with Suspense
+export default function SignUpPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <LoadingSpinner size="lg" message="Loading..." />
+        </div>
+      }
+    >
+      <SearchParamsWrapper>
+        <SignUpPageContent />
+      </SearchParamsWrapper>
+    </Suspense>
   );
 }
