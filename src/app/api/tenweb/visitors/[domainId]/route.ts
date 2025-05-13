@@ -1,4 +1,4 @@
-// src/app/api/tenweb/analytics/route.ts
+// src/app/api/tenweb/visitors/[domainId]/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
@@ -25,10 +25,10 @@ const tenwebApi = axios.create({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  context: { params: { domainId: string } }
 ) {
   try {
-    console.log("🔍 Received 10Web analytics API request");
+    console.log("🔍 Received 10Web visitors API request");
 
     // Apply rate limiting
     const ip = request.headers.get("x-forwarded-for") || "anonymous";
@@ -41,32 +41,35 @@ export async function GET(
       );
     }
 
-    // Get query parameters
-    const { searchParams } = new URL(request.url);
-    const domainId = searchParams.get("domain_id");
-    const period = searchParams.get("period") || "month";
+    // Extract domain ID from the URL path instead of params
+    // Use context.params which doesn't need to be awaited
+    const domainId = context.params.domainId;
 
     if (!domainId) {
       return NextResponse.json(
-        { error: "domain_id is required" },
+        { error: "Domain ID is required" },
         { status: 400 }
       );
     }
 
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const period = searchParams.get("period") || "month";
+
     console.log(
-      `🔍 Fetching analytics for domain ID: ${domainId}, period: ${period}`
+      `🔍 Fetching visitor statistics for domain ID: ${domainId}, period: ${period}`
     );
 
-    // Make the request to 10Web API
+    // Make the request to 10Web API using the correct endpoint
     const response = await tenwebApi.get(
-      `/hosting/website/${domainId}/statistics?period=${period}`
+      `/hosting/domains/${domainId}/visitors?period=${period}`
     );
-    console.log(`✅ 10Web API analytics response:`, response.data);
+    console.log(`✅ 10Web API visitors response:`, response.data);
 
     return NextResponse.json(response.data);
   } catch (error: any) {
     console.error(
-      "❌ 10Web API Analytics Error:",
+      "❌ 10Web API Visitors Error:",
       error?.response?.data || error?.message || error
     );
 

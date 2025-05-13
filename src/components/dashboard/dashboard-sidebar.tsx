@@ -16,7 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import Image from "next/image";
-import { WebDashLogo } from "../../../public/WebDash.webp";
+import WebDashLogo from "../../../public/WebDash.webp";
 
 interface DashboardSidebarProps {
   isCollapsed: boolean;

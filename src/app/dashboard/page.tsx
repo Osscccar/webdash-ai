@@ -47,6 +47,8 @@ import {
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import WebDashLogo from "../../../public/WebDash.webp";
+import { VisitorStatistics } from "@/components/dashboard/visitor-statistics";
+import { PrimaryButton } from "@/components/ui/custom-button";
 
 // Mock workspaces data
 const WORKSPACES = [{ id: "1", name: "WebDash's Workspace", role: "Owner" }];
@@ -355,7 +357,7 @@ export default function DashboardPage() {
           </div>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="text-gray-400 hover:text-gray-600 md:block hidden cursor-pointer"
+            className="text-gray-400 hover:text-gray-600 cursor-pointer"
           >
             {sidebarCollapsed ? (
               <ChevronRight className="h-5 w-5" />
@@ -591,7 +593,9 @@ export default function DashboardPage() {
                 {isMobileMenuOpen ? (
                   <X className="h-6 w-6" />
                 ) : (
-                  <Menu className="h-6 w-6" />
+                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-normal">
+                    {userInitials}
+                  </div>
                 )}
               </button>
             </div>
@@ -681,13 +685,14 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <div className="flex items-center space-x-3 w-full md:w-auto">
-                    <button
-                      onClick={() => router.push("/")}
-                      className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-4 py-2 rounded-md font-normal flex items-center space-x-2 cursor-pointer"
-                    >
+                    <PrimaryButton className="relative font-normal border-neutral-100 border-2 hover:bg-neutral-100 hover:shadow-none text-base bg-white text-black rounded-[16px] transition-all shadow-none">
                       <Plus className="h-4 w-4" />
-                      <span>New Website</span>
-                    </button>
+                      <span>Add Collaborators</span>
+                    </PrimaryButton>
+                    <PrimaryButton>
+                      <Plus className="h-4 w-4" />
+                      <span>Add Website</span>
+                    </PrimaryButton>
                   </div>
                 </div>
 
@@ -749,16 +754,6 @@ export default function DashboardPage() {
                               >
                                 <ExternalLink className="h-3 w-3" />
                                 <span>Visit</span>
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push("/editor");
-                                }}
-                                className="bg-white text-gray-800 hover:bg-white/90 px-3 py-1 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
-                              >
-                                <Edit className="h-3 w-3" />
-                                <span>Edit</span>
                               </button>
                             </div>
                           </div>
@@ -843,8 +838,7 @@ export default function DashboardPage() {
                     <Edit className="h-4 w-4" />
                     <span>Edit Site</span>
                   </button>
-                  <button
-                    className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-3 py-1.5 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
+                  <PrimaryButton
                     onClick={() => handleOpenWPDashboard(selectedWebsite)}
                     disabled={isWpDashboardLoading}
                   >
@@ -878,7 +872,7 @@ export default function DashboardPage() {
                         <span>WP Dashboard</span>
                       </>
                     )}
-                  </button>
+                  </PrimaryButton>
                 </div>
               </div>
 
@@ -898,7 +892,6 @@ export default function DashboardPage() {
                           className="text-[#f58327] hover:underline flex items-center"
                         >
                           {selectedWebsite.siteUrl}
-                          <ExternalLink className="h-3 w-3 ml-1" />
                         </a>
                         <button className="text-gray-400 hover:text-gray-600 cursor-pointer">
                           <Copy className="h-4 w-4" />
@@ -975,48 +968,6 @@ export default function DashboardPage() {
                               </p>
                             </div>
                           </div>
-
-                          <div className="border-t border-gray-100 my-4"></div>
-
-                          <div>
-                            <div className="flex justify-between mb-1">
-                              <p className="text-sm text-gray-500">
-                                Performance Score
-                              </p>
-                              <p className="text-sm font-normal">Excellent</p>
-                            </div>
-                            <div className="space-y-2">
-                              <div className="flex justify-between text-xs">
-                                <span>Desktop</span>
-                                <span>
-                                  {mockAnalytics.performanceScore.desktop}/100
-                                </span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-green-500 h-2 rounded-full"
-                                  style={{
-                                    width: `${mockAnalytics.performanceScore.desktop}%`,
-                                  }}
-                                ></div>
-                              </div>
-
-                              <div className="flex justify-between text-xs">
-                                <span>Mobile</span>
-                                <span>
-                                  {mockAnalytics.performanceScore.mobile}/100
-                                </span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-green-500 h-2 rounded-full"
-                                  style={{
-                                    width: `${mockAnalytics.performanceScore.mobile}%`,
-                                  }}
-                                ></div>
-                              </div>
-                            </div>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -1065,35 +1016,6 @@ export default function DashboardPage() {
                                 }%`,
                               }}
                             ></div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4 pt-2">
-                            <div className="space-y-1">
-                              <div className="flex items-center">
-                                <div className="h-3 w-3 rounded-sm bg-blue-500 mr-2"></div>
-                                <p className="text-sm text-gray-500">
-                                  Database
-                                </p>
-                              </div>
-                              <p className="text-sm font-normal">
-                                {(
-                                  mockAnalytics.storageUsed.database / 1024
-                                ).toFixed(2)}{" "}
-                                MB
-                              </p>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="flex items-center">
-                                <div className="h-3 w-3 rounded-sm bg-green-500 mr-2"></div>
-                                <p className="text-sm text-gray-500">Files</p>
-                              </div>
-                              <p className="text-sm font-normal">
-                                {(
-                                  mockAnalytics.storageUsed.files / 1024
-                                ).toFixed(2)}{" "}
-                                MB
-                              </p>
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -1161,17 +1083,8 @@ export default function DashboardPage() {
                     <div className="p-4 border-b border-gray-100">
                       <h3 className="font-normal">Website Analytics</h3>
                     </div>
-                    <div className="p-4">
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <BarChart3 className="h-16 w-16 text-gray-300 mb-4" />
-                        <h3 className="text-xl font-normal mb-2">
-                          No analytics data yet
-                        </h3>
-                        <p className="text-gray-500 max-w-md">
-                          Your website is new and hasn't received any visitors
-                          yet. Check back later to see your analytics data.
-                        </p>
-                      </div>
+                    <div className="p-6">
+                      <VisitorStatistics domainId={selectedWebsite.domainId} />
                     </div>
                   </div>
                 </div>

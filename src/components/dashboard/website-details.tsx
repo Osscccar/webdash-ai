@@ -19,7 +19,6 @@ import {
   Copy,
   FileText,
   Clock,
-  Users,
 } from "lucide-react";
 import {
   Table,
@@ -29,8 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useAnalytics } from "@/hooks/use-analytics";
-import { AnalyticsChart } from "./analytics-chart";
+import { VisitorStatistics } from "@/components/dashboard/visitor-statistics";
 import { useToast } from "@/components/ui/use-toast";
 
 interface WebsiteDetailsProps {
@@ -47,16 +45,7 @@ export function WebsiteDetails({
   isLoading,
 }: WebsiteDetailsProps) {
   const [activeTab, setActiveTab] = useState("main");
-  const [analyticsPeriod, setAnalyticsPeriod] = useState<
-    "day" | "week" | "month" | "year"
-  >("month");
   const { toast } = useToast();
-
-  // Fetch analytics data
-  const { data: analyticsData, isLoading: isLoadingAnalytics } = useAnalytics(
-    website.domainId,
-    analyticsPeriod
-  );
 
   // Mock data for the website details (for storage)
   const mockStorage = {
@@ -289,13 +278,8 @@ export function WebsiteDetails({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Analytics Overview */}
-            <AnalyticsChart
-              data={analyticsData}
-              isLoading={isLoadingAnalytics}
-              period={analyticsPeriod}
-              onChange={setAnalyticsPeriod}
-            />
+            {/* Visitor Statistics */}
+            <VisitorStatistics domainId={website.domainId} />
 
             <Card>
               <CardHeader>
@@ -392,143 +376,164 @@ export function WebsiteDetails({
         </TabsContent>
 
         <TabsContent value="analytics" className="mt-0 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Website Analytics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <AnalyticsChart
-                  data={analyticsData}
-                  isLoading={isLoadingAnalytics}
-                  period={analyticsPeriod}
-                  onChange={setAnalyticsPeriod}
-                />
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-medium mb-6">Website Analytics</h2>
 
-                {/* Additional analytics information */}
-                {analyticsData && (
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-4">
-                    <h3 className="font-medium text-gray-700">
-                      Visitor Insights
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-white p-3 rounded border">
-                        <div className="text-sm text-gray-500">Page Views</div>
-                        <div className="text-xl font-medium">
-                          {analyticsData.total}
-                        </div>
-                      </div>
-                      <div className="bg-white p-3 rounded border">
-                        <div className="text-sm text-gray-500">
-                          Unique Visitors
-                        </div>
-                        <div className="text-xl font-medium">
-                          {analyticsData.unique}
-                        </div>
-                      </div>
-                      <div className="bg-white p-3 rounded border">
-                        <div className="text-sm text-gray-500">
-                          Avg. Visit Duration
-                        </div>
-                        <div className="text-xl font-medium">2m 15s</div>
-                      </div>
-                    </div>
+            {/* Main analytics chart - full width */}
+            <VisitorStatistics domainId={website.domainId} className="mb-6" />
 
-                    <div className="bg-white p-4 rounded border">
-                      <h4 className="font-medium text-gray-700 mb-3">
-                        Top Pages
-                      </h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span>Homepage</span>
-                          <span className="font-medium">
-                            {Math.round(analyticsData.total * 0.65)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>About</span>
-                          <span className="font-medium">
-                            {Math.round(analyticsData.total * 0.15)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Services</span>
-                          <span className="font-medium">
-                            {Math.round(analyticsData.total * 0.12)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Contact</span>
-                          <span className="font-medium">
-                            {Math.round(analyticsData.total * 0.08)}
-                          </span>
+            {/* Additional analytics insights */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Traffic Sources</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span>Direct</span>
+                      <div className="flex items-center">
+                        <span className="font-medium mr-2">65%</span>
+                        <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-500 rounded-full"
+                            style={{ width: "65%" }}
+                          ></div>
                         </div>
                       </div>
                     </div>
-
-                    <div className="flex flex-col md:flex-row gap-4">
-                      <div className="bg-white p-4 rounded border flex-1">
-                        <h4 className="font-medium text-gray-700 mb-3">
-                          Top Referrers
-                        </h4>
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span>Direct</span>
-                            <span className="font-medium">65%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Google</span>
-                            <span className="font-medium">20%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Social Media</span>
-                            <span className="font-medium">10%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Other</span>
-                            <span className="font-medium">5%</span>
-                          </div>
+                    <div className="flex justify-between items-center">
+                      <span>Google</span>
+                      <div className="flex items-center">
+                        <span className="font-medium mr-2">20%</span>
+                        <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-green-500 rounded-full"
+                            style={{ width: "20%" }}
+                          ></div>
                         </div>
                       </div>
-
-                      <div className="bg-white p-4 rounded border flex-1">
-                        <h4 className="font-medium text-gray-700 mb-3">
-                          Devices
-                        </h4>
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span>Desktop</span>
-                            <span className="font-medium">45%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Mobile</span>
-                            <span className="font-medium">50%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Tablet</span>
-                            <span className="font-medium">5%</span>
-                          </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Social Media</span>
+                      <div className="flex items-center">
+                        <span className="font-medium mr-2">10%</span>
+                        <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-orange-500 rounded-full"
+                            style={{ width: "10%" }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Other</span>
+                      <div className="flex items-center">
+                        <span className="font-medium mr-2">5%</span>
+                        <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-purple-500 rounded-full"
+                            style={{ width: "5%" }}
+                          ></div>
                         </div>
                       </div>
                     </div>
                   </div>
-                )}
+                </CardContent>
+              </Card>
 
-                {!analyticsData && !isLoadingAnalytics && (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <BarChart3 className="h-16 w-16 text-gray-300 mb-4" />
-                    <h3 className="text-xl font-normal mb-2">
-                      No analytics data yet
-                    </h3>
-                    <p className="text-gray-500 max-w-md">
-                      Your website is new and hasn't received any visitors yet.
-                      Check back later to see your analytics data.
-                    </p>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Device Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span>Desktop</span>
+                      <div className="flex items-center">
+                        <span className="font-medium mr-2">45%</span>
+                        <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-indigo-500 rounded-full"
+                            style={{ width: "45%" }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Mobile</span>
+                      <div className="flex items-center">
+                        <span className="font-medium mr-2">50%</span>
+                        <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#f58327] rounded-full"
+                            style={{ width: "50%" }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Tablet</span>
+                      <div className="flex items-center">
+                        <span className="font-medium mr-2">5%</span>
+                        <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-teal-500 rounded-full"
+                            style={{ width: "5%" }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Top pages */}
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="text-base">Top Pages</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Page</TableHead>
+                      <TableHead>Views</TableHead>
+                      <TableHead>Unique Visitors</TableHead>
+                      <TableHead>Avg. Time on Page</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-medium">Homepage</TableCell>
+                      <TableCell>420</TableCell>
+                      <TableCell>215</TableCell>
+                      <TableCell>1m 45s</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">About</TableCell>
+                      <TableCell>125</TableCell>
+                      <TableCell>98</TableCell>
+                      <TableCell>1m 12s</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Services</TableCell>
+                      <TableCell>87</TableCell>
+                      <TableCell>62</TableCell>
+                      <TableCell>2m 10s</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Contact</TableCell>
+                      <TableCell>43</TableCell>
+                      <TableCell>38</TableCell>
+                      <TableCell>0m 58s</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="domain" className="mt-0 space-y-6">

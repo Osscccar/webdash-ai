@@ -4,13 +4,16 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useToast } from "@/components/ui/use-toast";
 
+// Updated interface to match 10Web API response
 export interface AnalyticsData {
-  total: number;
-  unique: number;
-  time_series: Array<{
+  data: Array<{
     date: string;
     visitors: number;
   }>;
+  end_date: string;
+  start_date: string;
+  status: string;
+  sum: number;
 }
 
 export function useAnalytics(
@@ -30,23 +33,25 @@ export function useAnalytics(
       setError(null);
 
       try {
+        // Use the correct endpoint for visitor statistics
         const response = await axios.get(
-          `/api/tenweb/analytics?domain_id=${domainId}&period=${period}`
+          `/api/tenweb/visitors/${domainId}?period=${period}`
         );
 
         if (response.data.status === "ok") {
-          setData(response.data.data);
+          // The data is already in the format we expect
+          setData(response.data);
         } else {
           throw new Error(
-            response.data.error || "Failed to fetch analytics data"
+            response.data.error || "Failed to fetch visitor statistics"
           );
         }
       } catch (err: any) {
-        console.error("Error fetching analytics:", err);
-        setError(err.message || "Failed to fetch analytics data");
+        console.error("Error fetching visitor statistics:", err);
+        setError(err.message || "Failed to fetch visitor statistics");
         toast({
           title: "Analytics Error",
-          description: err.message || "Failed to fetch analytics data",
+          description: err.message || "Failed to fetch visitor statistics",
           variant: "destructive",
         });
       } finally {

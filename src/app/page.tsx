@@ -133,7 +133,7 @@ export default function OnboardingPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.8 }}
+            transition={{ duration: 0.6, delay: 0.8 }}
             className="mt-12 text-xs text-center text-gray-400"
           >
             <p>© {new Date().getFullYear()} WebDash. All rights reserved.</p>
