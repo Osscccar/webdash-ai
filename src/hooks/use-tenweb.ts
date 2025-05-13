@@ -69,12 +69,24 @@ export function useTenWeb() {
     try {
       console.log("Starting website generation with parameters:", params);
 
-      // Generate a random subdomain based on business name
-      const businessNameInput = params?.businessName || "mywebsite";
-      const sanitizedBusinessName = businessNameInput
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "");
-      const subdomain = generateRandomSubdomain(sanitizedBusinessName);
+      // Check if we already have a domain ID - if so, use it
+      const existingDomainId = localStorage.getItem("webdash_domain_id");
+      const existingSubdomain = localStorage.getItem("webdash_subdomain");
+
+      // Generate a random subdomain based on business name or use existing
+      let subdomain;
+      if (existingSubdomain) {
+        console.log("Using existing subdomain:", existingSubdomain);
+        subdomain = existingSubdomain;
+      } else {
+        const businessNameInput = params?.businessName || "mywebsite";
+        const sanitizedBusinessName = businessNameInput
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
+        subdomain = generateRandomSubdomain(sanitizedBusinessName);
+        console.log("Generated new subdomain:", subdomain);
+        localStorage.setItem("webdash_subdomain", subdomain);
+      }
 
       // Get required parameters from the passed configuration
       const businessType = params?.businessType || "agency";
@@ -85,10 +97,9 @@ export function useTenWeb() {
       const websiteDescription =
         params?.websiteDescription || businessDescription;
       const websiteKeyphrase =
-        params?.websiteKeyphrase ||
-        businessName.toLowerCase().split(" ").join(" ");
+        params?.websiteKeyphrase || businessName.toLowerCase();
 
-      // Store website generation information in localStorage for the preview
+      // Store website generation information in localStorage
       const siteInfo = {
         businessType,
         businessName,
@@ -102,13 +113,13 @@ export function useTenWeb() {
 
       localStorage.setItem("webdash_prompt", prompt);
       localStorage.setItem("webdash_site_info", JSON.stringify(siteInfo));
-      localStorage.setItem("webdash_subdomain", subdomain);
 
       // Generate unique ID for the request
       const uniqueId = `webdash_${Date.now()}_${Math.random()
         .toString(36)
         .substring(2, 9)}`;
 
+      // Update progress
       updateGenerationProgress(
         2,
         GenerationStep.GENERATING_SITEMAP,
@@ -126,6 +137,7 @@ export function useTenWeb() {
             pagesMeta = JSON.parse(savedPagesMeta);
           } catch (error) {
             console.error("Error parsing pages meta from localStorage:", error);
+            // Continue without the parsed data
           }
         }
       }
@@ -192,9 +204,9 @@ export function useTenWeb() {
         ];
       }
 
-      // Format the request body according to the API specifications
+      // Make the API call to generate the website
       const requestBody = {
-        subdomain: subdomain,
+        subdomain,
         unique_id: uniqueId,
         business_type: businessType,
         business_name: businessName,
@@ -214,16 +226,18 @@ export function useTenWeb() {
         website_type: businessType,
       };
 
-      console.log("Sending AI generation request:", requestBody);
+      console.log("Sending API request to generate site:", requestBody);
 
-      // We use a single API call through the catch-all route
-      // which will handle website creation and AI generation
+      // Make the request with a generous timeout
       const response = await axios.post(
         "/api/tenweb/ai/generate_site_from_sitemap",
-        requestBody
+        requestBody,
+        {
+          timeout: 180000, // 3-minute timeout
+        }
       );
 
-      console.log("AI site generation response:", response.data);
+      console.log("API response for site generation:", response.data);
 
       // Extract domain ID and URL from response
       const domainId = response.data?.data?.domain_id || Date.now();
@@ -269,7 +283,7 @@ export function useTenWeb() {
       // Create website object
       const website: UserWebsite = {
         id: `website-${Date.now()}`,
-        userId: user?.uid || "", // Ensure userId is set
+        userId: user?.uid || "",
         domainId: domainId,
         subdomain,
         siteUrl: siteUrl,
@@ -291,7 +305,7 @@ export function useTenWeb() {
         },
       };
 
-      // Store the website data in localStorage for later access
+      // Store the website data in localStorage
       localStorage.setItem("webdash_website", JSON.stringify(website));
 
       // Only update Firestore if user is logged in
@@ -329,27 +343,32 @@ export function useTenWeb() {
       return website;
     } catch (error: any) {
       console.error("Error generating website:", error);
-      console.error(
-        "Error details:",
-        error.response?.data || "No additional details"
-      );
 
-      // Get more specific error info if available
+      // Detailed error logging
+      if (error.response) {
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+      }
+
+      updateGenerationProgress(0, GenerationStep.CREATING_SITE, "error", 0);
+
       const errorMessage =
         error.response?.data?.error ||
         error.message ||
         "Failed to generate website";
-      const errorDetails = error.response?.data?.details || {};
-
-      updateGenerationProgress(0, GenerationStep.CREATING_SITE, "error", 0);
 
       toast({
-        title: "Error Generating Website",
+        title: "Error generating website",
         description: errorMessage,
         variant: "destructive",
       });
 
-      throw error; // Propagate the error for handling in components
+      // Add details to the error for better handling in the UI
+      const enhancedError = new Error(errorMessage);
+      // @ts-ignore
+      enhancedError.details = error.response?.data || {};
+
+      throw enhancedError;
     } finally {
       setIsLoading(false);
       isGeneratingRef.current = false; // Reset the generation flag
