@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { getServerStripe } from "@/config/stripe";
 
@@ -161,11 +170,10 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const customerId = invoice.customer as string;
 
   try {
-    // Find user by Stripe customer ID
-    const usersRef = db.collection("users");
-    const snapshot = await usersRef
-      .where("stripeCustomerId", "==", customerId)
-      .get();
+    // Find user by Stripe customer ID using Firebase v9 syntax
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("stripeCustomerId", "==", customerId));
+    const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
       console.error(`No user found with Stripe customer ID ${customerId}`);
@@ -200,11 +208,10 @@ async function updateSubscriptionInFirestore(
   const customerId = subscription.customer as string;
 
   try {
-    // Find user by Stripe customer ID
-    const usersRef = db.collection("users");
-    const snapshot = await usersRef
-      .where("stripeCustomerId", "==", customerId)
-      .get();
+    // Find user by Stripe customer ID using Firebase v9 syntax
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("stripeCustomerId", "==", customerId));
+    const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
       console.error(`No user found with Stripe customer ID ${customerId}`);

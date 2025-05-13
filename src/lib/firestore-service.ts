@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   deleteDoc,
   addDoc,
+  arrayUnion,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { UserData, UserWebsite } from "@/types";
@@ -126,16 +127,9 @@ export const FirestoreService = {
       const userDoc = await getDoc(userRef);
 
       if (userDoc.exists()) {
-        // Get the current websites array or create an empty one
-        const userData = userDoc.data() as UserData;
-        const currentWebsites = userData.websites || [];
-
-        // Add the new website to the array
-        const updatedWebsites = [...currentWebsites, website];
-
-        // Update the user document
+        // Update the user document with the new website using arrayUnion
         await updateDoc(userRef, {
-          websites: updatedWebsites,
+          websites: arrayUnion(website),
           updatedAt: serverTimestamp(),
         });
 
@@ -190,7 +184,7 @@ export const FirestoreService = {
             description: "AI-generated website",
             createdAt: new Date().toISOString(),
             lastModified: new Date().toISOString(),
-            status: "active",
+            status: "active" as "active",
             userId: userId,
           };
 
@@ -221,6 +215,9 @@ export const FirestoreService = {
 
         // Save to Firestore
         await this.createWebsite(website);
+
+        // Also add to user's websites array
+        await this.addWebsiteToUser(userId, website);
 
         return true;
       }
