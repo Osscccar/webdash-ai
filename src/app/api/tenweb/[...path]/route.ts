@@ -8,11 +8,9 @@ const limiter = rateLimit({
   maxRequests: 100, // 100 requests per minute
 });
 
-// 10Web API configuration
 const TENWEB_API_KEY = process.env.TENWEB_API_KEY;
 const TENWEB_API_BASE_URL = "https://api.10web.io";
 
-// Create a secure axios instance for 10Web API calls
 const tenwebApi = axios.create({
   baseURL: TENWEB_API_BASE_URL,
   headers: {
@@ -21,23 +19,15 @@ const tenwebApi = axios.create({
   },
 });
 
-// Set a global flag to track if a website creation is in progress
 let isWebsiteCreationInProgress = false;
 
-// Set a timeout to reset the flag after 5 minutes
 setInterval(() => {
   isWebsiteCreationInProgress = false;
 }, 300000);
 
-// POST handler
-export async function POST(
-  request: NextRequest,
-  context: { params: { path: string[] } }
-) {
+// POST Handler
+export async function POST(request: NextRequest) {
   try {
-    console.log("🔍 Received 10Web API POST request");
-
-    // Apply rate limiting
     const ip = request.headers.get("x-forwarded-for") || "anonymous";
     const isAllowed = limiter.check(`${ip}_POST`);
     if (!isAllowed) {
@@ -49,15 +39,10 @@ export async function POST(
 
     const url = request.nextUrl.pathname;
     const path = url.replace(/^\/api\/tenweb\//, "");
-
-    console.log(`🔍 Forwarding 10Web API POST request to path: ${path}`);
-
     const body = await request.json();
-    console.log("🔍 Request body:", body);
 
     if (path === "hosting/website") {
       if (isWebsiteCreationInProgress) {
-        console.log("⚠️ Website creation already in progress");
         return NextResponse.json({
           status: "ok",
           data: {
@@ -66,7 +51,6 @@ export async function POST(
           },
         });
       }
-
       isWebsiteCreationInProgress = true;
 
       setTimeout(() => {
@@ -75,7 +59,6 @@ export async function POST(
     }
 
     const response = await tenwebApi.post(`/${path}`, body);
-    console.log(`✅ 10Web API POST response for ${path}:`, response.data);
 
     if (path === "hosting/website") {
       isWebsiteCreationInProgress = false;
@@ -83,21 +66,6 @@ export async function POST(
 
     return NextResponse.json(response.data);
   } catch (error: any) {
-    console.error(
-      "❌ 10Web API POST Error:",
-      error?.response?.data || error?.message || error
-    );
-
-    if (error.response) {
-      console.error("❌ Error Response Data:", error.response.data);
-      console.error("❌ Error Response Status:", error.response.status);
-      console.error("❌ Error Response Headers:", error.response.headers);
-    } else if (error.request) {
-      console.error("❌ Error Request:", error.request);
-    } else {
-      console.error("❌ Error Message:", error.message);
-    }
-
     isWebsiteCreationInProgress = false;
 
     return NextResponse.json(
@@ -114,15 +82,9 @@ export async function POST(
   }
 }
 
-// GET handler
-export async function GET(
-  request: NextRequest,
-  context: { params: { path: string[] } }
-) {
+// GET Handler
+export async function GET(request: NextRequest) {
   try {
-    const { params } = context;
-
-    // Apply rate limiting
     const ip = request.headers.get("x-forwarded-for") || "anonymous";
     const isAllowed = limiter.check(`${ip}_GET`);
     if (!isAllowed) {
@@ -136,26 +98,10 @@ export async function GET(
     const path = url.replace(/^\/api\/tenweb\//, "");
     const queryString = request.nextUrl.search || "";
 
-    console.log(
-      `🔍 Forwarding 10Web API GET request to: ${path}${queryString}`
-    );
-
     const response = await tenwebApi.get(`/${path}${queryString}`);
-    console.log(`✅ 10Web API GET response for ${path}:`, response.data);
 
     return NextResponse.json(response.data);
   } catch (error: any) {
-    console.error(
-      "❌ 10Web API GET Error:",
-      error?.response?.data || error?.message || error
-    );
-
-    if (error.response) {
-      console.error("❌ Error Response Data:", error.response.data);
-      console.error("❌ Error Response Status:", error.response.status);
-      console.error("❌ Error Response Headers:", error.response.headers);
-    }
-
     return NextResponse.json(
       {
         error:
