@@ -329,16 +329,27 @@ export function useTenWeb() {
       return website;
     } catch (error: any) {
       console.error("Error generating website:", error);
+      console.error(
+        "Error details:",
+        error.response?.data || "No additional details"
+      );
+
+      // Get more specific error info if available
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to generate website";
+      const errorDetails = error.response?.data?.details || {};
 
       updateGenerationProgress(0, GenerationStep.CREATING_SITE, "error", 0);
 
       toast({
-        title: "Error generating website",
-        description: error.message || "Please try again later",
+        title: "Error Generating Website",
+        description: errorMessage,
         variant: "destructive",
       });
 
-      return null;
+      throw error; // Propagate the error for handling in components
     } finally {
       setIsLoading(false);
       isGeneratingRef.current = false; // Reset the generation flag
