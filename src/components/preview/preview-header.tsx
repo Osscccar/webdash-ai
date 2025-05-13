@@ -26,12 +26,7 @@ export function PreviewHeader({
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
             {/* Use the Next.js Image component correctly */}
-            <Image
-              src={WebDashLogo}
-              alt="WebDash Logo"
-              width={40}
-              height={40}
-            />
+            <Image src={WebDashLogo} alt="WebDash lgo" width={40} height={40} />
           </Link>
 
           <div className="flex items-center space-x-4">
