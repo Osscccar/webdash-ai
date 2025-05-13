@@ -140,9 +140,11 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  context: NextApiRequestContext
 ) {
   try {
+    const { params } = context;
+
     // Apply rate limiting
     const ip = request.headers.get("x-forwarded-for") || "anonymous";
     const isAllowed = limiter.check(`${ip}_GET`);
@@ -154,18 +156,14 @@ export async function GET(
       );
     }
 
-    // Get the path from the URL
-    // Use string manipulation instead of directly accessing params.path
     const url = request.nextUrl.pathname;
-    // Extract the part after /api/tenweb/
     const path = url.replace(/^\/api\/tenweb\//, "");
-
     const queryString = request.nextUrl.search || "";
+
     console.log(
       `🔍 Forwarding 10Web API GET request to: ${path}${queryString}`
     );
 
-    // Make the request to 10Web API
     const response = await tenwebApi.get(`/${path}${queryString}`);
     console.log(`✅ 10Web API GET response for ${path}:`, response.data);
 
@@ -176,7 +174,6 @@ export async function GET(
       error?.response?.data || error?.message || error
     );
 
-    // Enhanced error logging for GET requests
     if (error.response) {
       console.error("❌ Error Response Data:", error.response.data);
       console.error("❌ Error Response Status:", error.response.status);
