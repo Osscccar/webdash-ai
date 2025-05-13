@@ -25,7 +25,7 @@ const tenwebApi = axios.create({
 
 export async function GET(
   request: NextRequest,
-  context: { params: { domainId: string } }
+  { params }: { params: { domainId: string } }
 ) {
   try {
     console.log("🔍 Received 10Web visitors API request");
@@ -41,9 +41,8 @@ export async function GET(
       );
     }
 
-    // Extract domain ID from the URL path instead of params
-    // Use context.params which doesn't need to be awaited
-    const domainId = context.params.domainId;
+    // Extract domain ID from params
+    const domainId = params?.domainId;
 
     if (!domainId) {
       return NextResponse.json(
@@ -73,7 +72,6 @@ export async function GET(
       error?.response?.data || error?.message || error
     );
 
-    // Enhanced error logging
     if (error.response) {
       console.error("❌ Error Response Data:", error.response.data);
       console.error("❌ Error Response Status:", error.response.status);
