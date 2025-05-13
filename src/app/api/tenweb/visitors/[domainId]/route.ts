@@ -23,10 +23,7 @@ const tenwebApi = axios.create({
   },
 });
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { domainId: string } }
-) {
+export async function GET(request: NextRequest, context: any) {
   try {
     console.log("🔍 Received 10Web visitors API request");
 
@@ -41,8 +38,8 @@ export async function GET(
       );
     }
 
-    // Extract domain ID from params
-    const domainId = params?.domainId;
+    // Extract domain ID from context
+    const domainId = context.params?.domainId;
 
     if (!domainId) {
       return NextResponse.json(
