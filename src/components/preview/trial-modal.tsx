@@ -59,7 +59,7 @@ export function TrialModal({
                   variant={selectedPlan === "monthly" ? "default" : "outline"}
                   className={
                     selectedPlan === "monthly"
-                      ? "bg-[#f58327] hover:bg-[#f58327]/90 flex-1"
+                      ? "bg-[#f58327] hover:bg-[#f58326]/90 flex-1"
                       : "flex-1"
                   }
                   onClick={() => setSelectedPlan("monthly")}
