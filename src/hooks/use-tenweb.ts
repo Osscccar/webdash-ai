@@ -233,7 +233,7 @@ export function useTenWeb() {
         "/api/tenweb/ai/generate_site_from_sitemap",
         requestBody,
         {
-          timeout: 180000, // 3-minute timeout
+          timeout: 3000000, // 3-minute timeout
         }
       );
 

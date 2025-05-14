@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
             "x-api-key": TENWEB_API_KEY,
             "Content-Type": "application/json",
           },
-          timeout: 30000, // 30-second timeout
+          timeout: 3000000, // 300-second timeout
         }
       );
 
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
             "x-api-key": TENWEB_API_KEY,
             "Content-Type": "application/json",
           },
-          timeout: 60000, // 60-second timeout
+          timeout: 3000000, // 60-second timeout
         }
       );
 
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
             "x-api-key": TENWEB_API_KEY,
             "Content-Type": "application/json",
           },
-          timeout: 120000, // 120-second timeout for this potentially long operation
+          timeout: 3000000, // 120-second timeout for this potentially long operation
         }
       );
 
