@@ -5,9 +5,8 @@ import axios from "axios";
 
 // 10Web API configuration
 const TENWEB_API_KEY = process.env.TENWEB_API_KEY;
-const TENWEB_API_BASE_URL = "https://api.10web.io";
 
-// Flag to prevent duplicate website creation
+// Keep track of pending requests (this is in-memory only, reset on function cold start)
 let pendingRequests = new Map();
 
 export async function POST(request: NextRequest) {
@@ -37,155 +36,51 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.log("Starting website generation with params:", body);
+    console.log("Starting background website generation with params:", body);
 
-    // Step 1: Create the website
-    try {
-      console.log("Step 1: Creating website with subdomain:", body.subdomain);
+    // Call the Netlify background function using fetch
+    // We need the absolute URL for the background function
+    // This depends on your Netlify site name
+    // During local development, you can use the netlify dev proxy at port 8888
+    let backgroundFunctionUrl;
 
-      const createResponse = await axios.post(
-        `${TENWEB_API_BASE_URL}/hosting/website`,
-        {
-          subdomain: body.subdomain,
-          region: "us-central1-c", // Default region
-          site_title: body.website_title || body.business_name || "New Website",
-          admin_username: `admin_${body.subdomain}`,
-          admin_password: "Password1Ab", // Strong password that meets requirements
-        },
-        {
-          headers: {
-            "x-api-key": TENWEB_API_KEY,
-            "Content-Type": "application/json",
-          },
-          timeout: 3000000, // 300-second timeout
-        }
-      );
-
-      console.log("Website creation response:", createResponse.data);
-
-      if (
-        !createResponse.data ||
-        !createResponse.data.data ||
-        !createResponse.data.data.domain_id
-      ) {
-        throw new Error(
-          "Failed to create website - missing domain_id in response"
-        );
-      }
-
-      const domainId = createResponse.data.data.domain_id;
-
-      // Store in pending requests map
-      pendingRequests.set(requestId, domainId);
-
-      // Set a timeout to remove from pending requests after 5 minutes
-      setTimeout(() => {
-        pendingRequests.delete(requestId);
-      }, 5 * 60 * 1000);
-
-      // Step 2: Generate a sitemap first to get a unique_id
-      console.log("Step 2: Generating sitemap for domain ID:", domainId);
-
-      const sitemapParams = {
-        domain_id: domainId,
-        params: {
-          business_type: body.business_type || "agency",
-          business_name: body.business_name || "My Business",
-          business_description:
-            body.business_description || "A professional website",
-        },
-      };
-
-      const sitemapResponse = await axios.post(
-        `${TENWEB_API_BASE_URL}/ai/generate_sitemap`,
-        sitemapParams,
-        {
-          headers: {
-            "x-api-key": TENWEB_API_KEY,
-            "Content-Type": "application/json",
-          },
-          timeout: 3000000, // 60-second timeout
-        }
-      );
-
-      console.log("Sitemap generation response:", sitemapResponse.data);
-
-      if (!sitemapResponse.data?.data?.unique_id) {
-        throw new Error(
-          "Failed to generate sitemap - missing unique_id in response"
-        );
-      }
-
-      const unique_id = sitemapResponse.data.data.unique_id;
-
-      // Step 3: Generate site from sitemap
-      console.log(
-        "Step 3: Generating site from sitemap for domain ID:",
-        domainId
-      );
-
-      const generateParams = {
-        domain_id: domainId,
-        unique_id: unique_id,
-        params: {
-          business_type: body.business_type || "agency",
-          business_name: body.business_name || "My Business",
-          business_description:
-            body.business_description || "A professional website",
-          colors: body.colors || {
-            primary_color: "#f58327",
-            secondary_color: "#4a5568",
-            background_dark: "#212121",
-          },
-          fonts: body.fonts || {
-            primary_font: "Montserrat",
-          },
-          pages_meta: body.pages_meta || [],
-          website_title:
-            body.website_title || body.business_name || "My Website",
-          website_description:
-            body.website_description ||
-            body.business_description ||
-            "A professional website",
-          website_keyphrase:
-            body.website_keyphrase ||
-            body.business_name?.toLowerCase() ||
-            "website",
-          website_type: body.website_type || body.business_type || "agency",
-        },
-      };
-
-      const generateResponse = await axios.post(
-        `${TENWEB_API_BASE_URL}/ai/generate_site_from_sitemap`,
-        generateParams,
-        {
-          headers: {
-            "x-api-key": TENWEB_API_KEY,
-            "Content-Type": "application/json",
-          },
-          timeout: 3000000, // 120-second timeout for this potentially long operation
-        }
-      );
-
-      console.log("AI site generation response:", generateResponse.data);
-
-      // Remove from pending requests map
-      pendingRequests.delete(requestId);
-
-      // Return successful response
-      return NextResponse.json({
-        status: "ok",
-        data: {
-          domain_id: domainId,
-          url: `https://${body.subdomain}.webdash.site`,
-          ...generateResponse.data?.data,
-        },
-      });
-    } catch (error: any) {
-      // If an error occurred during website creation, remove from pending requests
-      pendingRequests.delete(requestId);
-      throw error; // Re-throw the error for the outer catch block
+    if (process.env.NETLIFY_DEV === "true") {
+      // Local development with netlify dev
+      backgroundFunctionUrl =
+        "http://localhost:8888/.netlify/functions/background-site-generator";
+    } else {
+      // Production URL - replace YOUR_SITE_NAME with your Netlify site name
+      backgroundFunctionUrl = `https://${
+        process.env.URL || request.headers.get("host")
+      }/.netlify/functions/background-site-generator`;
     }
+
+    const response = await fetch(backgroundFunctionUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const result = await response.json();
+
+    // Store in pending requests map with a placeholder domain ID
+    // In a real implementation, you'd use a database to track this
+    pendingRequests.set(requestId, "pending");
+
+    // Set a timeout to remove from pending requests after 10 minutes
+    setTimeout(() => {
+      pendingRequests.delete(requestId);
+    }, 10 * 60 * 1000);
+
+    return NextResponse.json({
+      status: "accepted",
+      data: {
+        requestId: requestId,
+        message: "Website generation started in background",
+      },
+    });
   } catch (error: any) {
     console.error("10Web API Error:", error.message);
 
