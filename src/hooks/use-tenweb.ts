@@ -1,34 +1,43 @@
 // src/hooks/use-tenweb.ts
 
-"use client";
+'use client';
 
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "./use-auth";
-import { useToast } from "@/components/ui/use-toast";
-import axios from "axios";
-import { generateRandomSubdomain } from "@/lib/utils";
-import { GenerationStep, UserWebsite } from "@/types";
-import { db } from "@/config/firebase";
+import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from './use-auth';
+import { useToast } from '@/components/ui/use-toast';
+import axios from 'axios';
+import { generateRandomSubdomain } from '@/lib/utils';
+import { GenerationStep, UserWebsite } from '@/types';
+import { db } from '@/config/firebase';
 import {
   doc,
   updateDoc,
   arrayUnion,
   serverTimestamp,
-} from "firebase/firestore";
+} from 'firebase/firestore';
 
 export function useTenWeb() {
   const router = useRouter();
   const { user, userData } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const isGeneratingRef = useRef(false);
+  const pollingRef = useRef<{ jobId: string | null; isPolling: boolean }>({
+    jobId: null,
+    isPolling: false,
+  });
+  const [isCancelled, setIsCancelled] = useState(false);
   const [generationProgress, setGenerationProgress] = useState({
     step: 0,
     totalSteps: 7,
     currentStep: GenerationStep.CREATING_SITE,
     progress: 0,
-    status: "pending" as "pending" | "processing" | "complete" | "error",
+    status: 'pending' as
+      | 'pending'
+      | 'processing'
+      | 'complete'
+      | 'error'
+      | 'cancelled',
   });
 
   /**
@@ -36,8 +45,8 @@ export function useTenWeb() {
    */
   const updateGenerationProgress = (
     step: number,
-    currentStep: string,
-    status: "pending" | "processing" | "complete" | "error",
+    currentStep: GenerationStep,
+    status: 'pending' | 'processing' | 'complete' | 'error' | 'cancelled',
     progress = 0
   ) => {
     setGenerationProgress({
@@ -50,356 +59,222 @@ export function useTenWeb() {
   };
 
   /**
-   * Generate a website from a prompt with full configuration
-   * Using background functions to handle long-running operations
+   * Poll for website generation status
+   * This should only be called after a job has been started
    */
-  const generateWebsite = async (prompt: string, params: any) => {
-    // Prevent duplicate website creation
-    if (isGeneratingRef.current) {
-      console.log(
-        "Website generation already in progress, skipping duplicate call"
-      );
+  const pollGenerationStatus = async (jobId: string, generationParams: any) => {
+    // Only allow polling if we're not already polling a different job
+    if (pollingRef.current.isPolling && pollingRef.current.jobId !== jobId) {
+      console.log('Already polling a different job, skipping');
       return null;
     }
 
-    isGeneratingRef.current = true;
+    // If we're already polling this job, continue
+    if (pollingRef.current.jobId === jobId && pollingRef.current.isPolling) {
+      console.log('Already polling this job, continuing');
+      return null;
+    }
+
+    // Start polling this job
+    pollingRef.current = { jobId, isPolling: true };
     setIsLoading(true);
-    updateGenerationProgress(0, GenerationStep.CREATING_SITE, "processing", 0);
+    setIsCancelled(false);
+    updateGenerationProgress(0, GenerationStep.CREATING_SITE, 'processing', 0);
 
     try {
-      console.log("Starting website generation with parameters:", params);
-
-      // Check if we already have a domain ID - if so, use it
-      const existingDomainId = localStorage.getItem("webdash_domain_id");
-      const existingSubdomain = localStorage.getItem("webdash_subdomain");
-
-      // Generate a random subdomain based on business name or use existing
-      let subdomain;
-      if (existingSubdomain) {
-        console.log("Using existing subdomain:", existingSubdomain);
-        subdomain = existingSubdomain;
-      } else {
-        const businessNameInput = params?.businessName || "mywebsite";
-        const sanitizedBusinessName = businessNameInput
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "");
-        subdomain = generateRandomSubdomain(sanitizedBusinessName);
-        console.log("Generated new subdomain:", subdomain);
-        localStorage.setItem("webdash_subdomain", subdomain);
-      }
-
-      // Get required parameters from the passed configuration
-      const businessType = params?.businessType || "agency";
-      const businessName = params?.businessName || "Business Website";
-      const businessDescription =
-        params?.businessDescription || prompt || "A modern website.";
-      const websiteTitle = params?.websiteTitle || businessName;
-      const websiteDescription =
-        params?.websiteDescription || businessDescription;
-      const websiteKeyphrase =
-        params?.websiteKeyphrase || businessName.toLowerCase();
-
-      // Store website generation information in localStorage
-      const siteInfo = {
-        businessType,
-        businessName,
-        businessDescription,
-        websiteTitle,
-        websiteDescription,
-        websiteKeyphrase,
-        colors: params?.colors,
-        fonts: params?.fonts,
-      };
-
-      localStorage.setItem("webdash_prompt", prompt);
-      localStorage.setItem("webdash_site_info", JSON.stringify(siteInfo));
-
-      // Generate unique ID for the request
-      const uniqueId = `webdash_${Date.now()}_${Math.random()
-        .toString(36)
-        .substring(2, 9)}`;
-
-      // Update progress
-      updateGenerationProgress(
-        2,
-        GenerationStep.GENERATING_SITEMAP,
-        "processing",
-        30
-      );
-
-      // Get pages meta from localStorage if not provided in params
-      let pagesMeta = params.pagesMeta;
-
-      if (!pagesMeta) {
-        const savedPagesMeta = localStorage.getItem("webdash_pages_meta");
-        if (savedPagesMeta) {
-          try {
-            pagesMeta = JSON.parse(savedPagesMeta);
-          } catch (error) {
-            console.error("Error parsing pages meta from localStorage:", error);
-            // Continue without the parsed data
-          }
-        }
-      }
-
-      // Use default pages meta if none is available
-      if (!pagesMeta) {
-        pagesMeta = [
-          {
-            title: "Home",
-            description: `Welcome to ${businessName}`,
-            sections: [
-              {
-                section_title: "Hero Section",
-                section_description: businessDescription,
-              },
-              {
-                section_title: "Services Overview",
-                section_description: `Discover what ${businessName} has to offer.`,
-              },
-            ],
-          },
-          {
-            title: "About",
-            description: `Learn more about ${businessName}`,
-            sections: [
-              {
-                section_title: "Our Story",
-                section_description: `The story behind ${businessName}.`,
-              },
-              {
-                section_title: "Our Team",
-                section_description: "Meet our team of professionals.",
-              },
-            ],
-          },
-          {
-            title: "Services",
-            description: `Services offered by ${businessName}`,
-            sections: [
-              {
-                section_title: "Service 1",
-                section_description: "Description of our first service.",
-              },
-              {
-                section_title: "Service 2",
-                section_description: "Description of our second service.",
-              },
-            ],
-          },
-          {
-            title: "Contact",
-            description: `Get in touch with ${businessName}`,
-            sections: [
-              {
-                section_title: "Contact Form",
-                section_description: "Send us a message.",
-              },
-              {
-                section_title: "Contact Information",
-                section_description: "Our address, phone, and email.",
-              },
-            ],
-          },
-        ];
-      }
-
-      // Make the API call to generate the website - now with the background function
-      const requestBody = {
-        subdomain,
-        unique_id: uniqueId,
-        business_type: businessType,
-        business_name: businessName,
-        business_description: businessDescription,
-        colors: {
-          primary_color: params.colors?.primaryColor || "#f58327",
-          secondary_color: params.colors?.secondaryColor || "#4a5568",
-          background_dark: params.colors?.backgroundDark || "#212121",
-        },
-        fonts: {
-          primary_font: params.fonts?.primaryFont || "Montserrat",
-        },
-        pages_meta: pagesMeta,
-        website_title: websiteTitle,
-        website_description: websiteDescription,
-        website_keyphrase: websiteKeyphrase,
-        website_type: businessType,
-      };
-
-      console.log("Sending API request to generate site:", requestBody);
-
-      // Send the request to our NextJS API route, which will call the background function
-      const response = await axios.post(
-        "/api/tenweb/ai/generate_site_from_sitemap",
-        requestBody
-      );
-
-      console.log("API response for site generation:", response.data);
-
-      // Now we need to poll for status since the generation is happening in the background
-      const requestId = response.data?.data?.requestId || uniqueId;
-
-      // Store the requestId in localStorage
-      localStorage.setItem("webdash_generation_request_id", requestId);
-
-      // For domain ID - use existing or create placeholder
-      const domainId =
-        existingDomainId || response.data?.data?.domain_id || Date.now();
-      localStorage.setItem("webdash_domain_id", domainId.toString());
+      console.log('Starting to poll for website generation status:', jobId);
 
       // Start polling for status
       let isComplete = false;
       let retryCount = 0;
-      let siteUrl = `https://${subdomain}.webdash.site`;
+      let notFoundRetries = 0;
+      let consecutiveErrors = 0;
+      const maxRetries = 120;
+      const maxNotFoundRetries = 10;
+      const maxConsecutiveErrors = 5;
+      const notFoundRetryDelay = 2000;
+      const errorRetryDelay = 1000;
 
-      // Update progress for next step
-      updateGenerationProgress(
-        3,
-        GenerationStep.DESIGNING_PAGES,
-        "processing",
-        40
-      );
-
-      // Polling loop - check status every 5 seconds, for up to 10 minutes
-      // For the purposes of this implementation, we'll continue optimistically
-      // and assume the site will be generated in the background
-      const maxRetries = 10; // Check for a short period, then proceed
-
-      while (!isComplete && retryCount < maxRetries) {
+      while (!isComplete && retryCount < maxRetries && !isCancelled) {
         try {
-          // Wait 5 seconds between checks
-          await new Promise((resolve) => setTimeout(resolve, 5000));
+          // Wait between checks
+          await new Promise((resolve) => setTimeout(resolve, 2000));
 
-          // Check status - we would implement this API endpoint
-          // Using a simulated progression for now
-          const progress = 40 + retryCount * 6; // Increment by 6% each check
+          // Check job status
+          const statusResponse = await axios.get(
+            `/api/job-status?jobId=${jobId}`
+          );
+          const jobData = statusResponse.data.job;
 
-          // Determine which step we're in based on progress
-          let currentStep = GenerationStep.DESIGNING_PAGES;
-          let stepNumber = 3;
+          // Reset error counters on successful response
+          consecutiveErrors = 0;
+          notFoundRetries = 0;
 
-          if (progress > 80) {
-            currentStep = GenerationStep.FINALIZING;
-            stepNumber = 7;
-            isComplete = true; // Let's proceed after some checks
-          } else if (progress > 65) {
-            currentStep = GenerationStep.BOOSTING_SPEED;
-            stepNumber = 6;
-          } else if (progress > 50) {
-            currentStep = GenerationStep.OPTIMIZING_FOR_DEVICES;
-            stepNumber = 5;
-          } else if (progress > 40) {
-            currentStep = GenerationStep.SETTING_UP_NAVIGATION;
-            stepNumber = 4;
+          if (!jobData) {
+            console.log(
+              `Job not found, retry ${
+                notFoundRetries + 1
+              }/${maxNotFoundRetries}`
+            );
+            notFoundRetries++;
+
+            if (notFoundRetries >= maxNotFoundRetries) {
+              throw new Error('Job not found after maximum retries');
+            }
+
+            await new Promise((resolve) =>
+              setTimeout(resolve, notFoundRetryDelay)
+            );
+            continue;
           }
 
-          updateGenerationProgress(
-            stepNumber,
-            currentStep,
-            isComplete ? "complete" : "processing",
-            progress
-          );
+          if (jobData.status === 'complete') {
+            isComplete = true;
+            const website: UserWebsite = {
+              id: jobId,
+              userId: user?.uid || '',
+              domainId: jobData.domainId || Date.now(),
+              subdomain: jobData.subdomain,
+              siteUrl: jobData.siteUrl,
+              title: generationParams.businessName,
+              description: generationParams.businessDescription,
+              createdAt: new Date().toISOString(),
+              lastModified: new Date().toISOString(),
+              status: 'active',
+              generationParams: {
+                prompt: generationParams.prompt,
+                ...generationParams,
+              },
+            };
+
+            // Store the website data in localStorage
+            localStorage.setItem('webdash_website', JSON.stringify(website));
+
+            // Only update Firestore if user is logged in
+            if (user && user.uid) {
+              try {
+                const userRef = doc(db, 'users', user.uid);
+                await updateDoc(userRef, {
+                  websites: arrayUnion(website),
+                  updatedAt: serverTimestamp(),
+                });
+              } catch (error) {
+                console.error('Failed to save website to Firestore:', error);
+              }
+            }
+
+            toast({
+              title: 'Website created successfully',
+              description: 'Your website is ready to view!',
+            });
+
+            return website;
+          } else if (jobData.status === 'failed') {
+            throw new Error(jobData.error || 'Website generation failed');
+          } else if (jobData.status === 'cancelled') {
+            setIsCancelled(true);
+            throw new Error('Website generation was cancelled');
+          }
+
+          // Update progress based on job status
+          if (jobData.status === 'processing') {
+            let currentStep = GenerationStep.CREATING_SITE;
+            let stepNumber = 0;
+
+            if (jobData.progress <= 20) {
+              currentStep = GenerationStep.CREATING_SITE;
+              stepNumber = 0;
+            } else if (jobData.progress <= 40) {
+              currentStep = GenerationStep.GENERATING_SITEMAP;
+              stepNumber = 1;
+            } else if (jobData.progress <= 60) {
+              currentStep = GenerationStep.DESIGNING_PAGES;
+              stepNumber = 2;
+            } else if (jobData.progress <= 80) {
+              currentStep = GenerationStep.OPTIMIZING_FOR_DEVICES;
+              stepNumber = 3;
+            } else {
+              currentStep = GenerationStep.FINALIZING;
+              stepNumber = 4;
+            }
+
+            updateGenerationProgress(
+              stepNumber,
+              currentStep,
+              'processing',
+              jobData.progress
+            );
+          }
 
           retryCount++;
-        } catch (error) {
-          console.error("Error checking generation status:", error);
-          retryCount++;
-        }
-      }
+        } catch (error: any) {
+          console.error('Error checking generation status:', error);
 
-      // Update progress - simulate completion
-      updateGenerationProgress(7, GenerationStep.FINALIZING, "complete", 100);
+          if (isCancelled) {
+            throw new Error('Website generation was cancelled');
+          }
 
-      // Create website object
-      const website: UserWebsite = {
-        id: `website-${Date.now()}`,
-        userId: user?.uid || "",
-        domainId: parseInt(domainId.toString()),
-        subdomain,
-        siteUrl: siteUrl,
-        title: businessName,
-        description: businessDescription,
-        createdAt: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        status: "active",
-        generationParams: {
-          prompt,
-          businessType,
-          businessName,
-          businessDescription,
-          colors: params.colors,
-          fonts: params.fonts,
-          websiteTitle,
-          websiteDescription,
-          websiteKeyphrase,
-        },
-      };
+          // Handle specific error cases
+          if (
+            error.response?.status === 404 ||
+            error.message?.includes('Job not found')
+          ) {
+            notFoundRetries++;
+            console.log(
+              `Job not found, retry ${notFoundRetries}/${maxNotFoundRetries}`
+            );
 
-      // Store the website data in localStorage
-      localStorage.setItem("webdash_website", JSON.stringify(website));
+            if (notFoundRetries >= maxNotFoundRetries) {
+              console.error('Job not found after maximum retries');
+              throw new Error('Job not found after maximum retries');
+            }
 
-      // Only update Firestore if user is logged in
-      if (user && user.uid) {
-        try {
-          console.log("Saving website to Firestore for user:", user.uid);
-          console.log("Website data:", website);
+            await new Promise((resolve) =>
+              setTimeout(resolve, notFoundRetryDelay)
+            );
+            continue;
+          }
 
-          // Update user document to add this website
-          const userRef = doc(db, "users", user.uid);
-
-          // Use arrayUnion to add the website to the array without duplicates
-          await updateDoc(userRef, {
-            websites: arrayUnion(website),
-            updatedAt: serverTimestamp(),
-          });
-
+          // Handle other errors
+          consecutiveErrors++;
           console.log(
-            "Successfully saved website to user document in Firestore"
+            `Consecutive errors: ${consecutiveErrors}/${maxConsecutiveErrors}`
           );
-        } catch (error) {
-          console.error("Failed to save website to Firestore:", error);
-          // Continue anyway to show the site to the user from localStorage
+
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            console.error('Too many consecutive errors');
+            throw new Error(
+              'Too many consecutive errors while checking job status'
+            );
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, errorRetryDelay));
+          retryCount++;
         }
       }
 
-      toast({
-        title: "Website created successfully",
-        description:
-          "Your website is now being generated in the background and will be ready to view shortly.",
-      });
-
-      return website;
-    } catch (error: any) {
-      console.error("Error generating website:", error);
-
-      // Detailed error logging
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
+      if (!isComplete && !isCancelled) {
+        throw new Error('Website generation timed out');
       }
 
-      updateGenerationProgress(0, GenerationStep.CREATING_SITE, "error", 0);
+      return null;
+    } catch (error: any) {
+      console.error('Error polling website generation:', error);
+      updateGenerationProgress(
+        0,
+        GenerationStep.CREATING_SITE,
+        isCancelled ? 'cancelled' : 'error',
+        0
+      );
 
-      const errorMessage =
-        error.response?.data?.error ||
-        error.message ||
-        "Failed to generate website";
-
-      toast({
-        title: "Error generating website",
-        description: errorMessage,
-        variant: "destructive",
-      });
-
-      // Add details to the error for better handling in the UI
-      const enhancedError = new Error(errorMessage);
-      // @ts-ignore
-      enhancedError.details = error.response?.data || {};
-
-      throw enhancedError;
+      // Don't throw the error, just return null and let the component handle it
+      return null;
     } finally {
+      // Only reset polling state if this is the current job
+      if (pollingRef.current.jobId === jobId) {
+        pollingRef.current = { jobId: null, isPolling: false };
+      }
       setIsLoading(false);
-      isGeneratingRef.current = false; // Reset the generation flag
     }
   };
 
@@ -410,12 +285,12 @@ export function useTenWeb() {
   const getWPAutologinToken = async (domainId: number, adminUrl: string) => {
     if (!user) {
       toast({
-        title: "Authentication required",
-        description: "Please sign in to access WordPress dashboard",
-        variant: "destructive",
+        title: 'Authentication required',
+        description: 'Please sign in to access WordPress dashboard',
+        variant: 'destructive',
       });
 
-      router.push(`/login?redirect=${encodeURIComponent("/dashboard")}`);
+      router.push(`/login?redirect=${encodeURIComponent('/dashboard')}`);
       return null;
     }
 
@@ -429,12 +304,12 @@ export function useTenWeb() {
       );
       return response.data.token;
     } catch (error: any) {
-      console.error("Error getting WP autologin token:", error);
+      console.error('Error getting WP autologin token:', error);
 
       toast({
-        title: "Error accessing WordPress dashboard",
-        description: error.message || "Please try again later",
-        variant: "destructive",
+        title: 'Error accessing WordPress dashboard',
+        description: error.message || 'Please try again later',
+        variant: 'destructive',
       });
 
       return null;
@@ -443,11 +318,36 @@ export function useTenWeb() {
     }
   };
 
+  // Add cancel function
+  const cancelGeneration = async (jobId: string) => {
+    if (!jobId) return;
+
+    try {
+      await axios.post('/api/update-job-status', {
+        jobId,
+        status: 'cancelled',
+        error: 'Job cancelled by user',
+      });
+
+      setIsCancelled(true);
+      updateGenerationProgress(0, GenerationStep.CREATING_SITE, 'cancelled', 0);
+
+      toast({
+        title: 'Generation cancelled',
+        description: 'Website generation has been cancelled',
+      });
+    } catch (error) {
+      console.error('Error cancelling generation:', error);
+    }
+  };
+
   return {
-    generateWebsite,
+    pollGenerationStatus,
     getWPAutologinToken,
     generationProgress,
     isLoading,
+    cancelGeneration,
+    isCancelled,
   };
 }
 

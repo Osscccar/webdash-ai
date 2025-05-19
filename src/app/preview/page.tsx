@@ -1,108 +1,201 @@
 // src/app/preview/page.tsx
 
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PreviewHeader } from "@/components/preview/preview-header";
-import { WebsitePreview } from "@/components/preview/website-preview";
-import { TrialModal } from "@/components/preview/trial-modal";
-import { AuthPopup } from "@/components/preview/auth-popup";
-import { GenerationPopup } from "@/components/preview/generation-popup";
-import { WebsiteReadyPopup } from "@/components/preview/website-ready-popup";
-import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/components/ui/use-toast";
-import { PrimaryButton } from "@/components/ui/custom-button";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { PreviewHeader } from '@/components/preview/preview-header';
+import { WebsitePreview } from '@/components/preview/website-preview';
+import { TrialModal } from '@/components/preview/trial-modal';
+import { AuthPopup } from '@/components/preview/auth-popup';
+import { GenerationPopup } from '@/components/preview/generation-popup';
+import { WebsiteReadyPopup } from '@/components/preview/website-ready-popup';
+import { GenerationStatus } from '@/components/preview/generation-status';
+import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function PreviewPage() {
   const router = useRouter();
   const { user, userData, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
-  const [deviceView, setDeviceView] = useState<"desktop" | "mobile">("desktop");
+  const [deviceView, setDeviceView] = useState<'desktop' | 'mobile'>('desktop');
   const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
   const [hasTrialStarted, setHasTrialStarted] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">(
-    "monthly"
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>(
+    'monthly'
   );
   const [isLoading, setIsLoading] = useState(true);
 
-  // New states for the updated flow
-  const [showAuthPopup, setShowAuthPopup] = useState(false);
-  const [showGenerationPopup, setShowGenerationPopup] = useState(false);
-  const [showWebsiteReadyPopup, setShowWebsiteReadyPopup] = useState(false);
-  const [websiteGenerated, setWebsiteGenerated] = useState(false);
+  // Website and generation state
+  const [website, setWebsite] = useState<any>(null);
   const [siteInfo, setSiteInfo] = useState<any>(null);
+  const [generationState, setGenerationState] = useState<{
+    showAuthPopup: boolean;
+    showGenerationPopup: boolean;
+    showGenerationStatus: boolean;
+    showWebsiteReadyPopup: boolean;
+    jobId: string | null;
+  }>({
+    showAuthPopup: false,
+    showGenerationPopup: false,
+    showGenerationStatus: false,
+    showWebsiteReadyPopup: false,
+    jobId: null,
+  });
 
   // Check if the user has an active subscription
   const hasActiveSubscription = userData?.webdashSubscription?.active || false;
 
+  // Initial data load
   useEffect(() => {
-    // Check if there's a website information in progress
-    const savedSiteInfo = localStorage.getItem("webdash_site_info");
-    if (savedSiteInfo) {
+    async function initialize() {
+      // Check if there's a website information in progress
+      const savedSiteInfo = localStorage.getItem('webdash_site_info');
+      if (!savedSiteInfo) {
+        toast({
+          title: 'No website in progress',
+          description: 'Please generate a website first',
+        });
+        router.push('/');
+        return;
+      }
+
       try {
         setSiteInfo(JSON.parse(savedSiteInfo));
       } catch (e) {
-        console.error("Error parsing site info:", e);
+        console.error('Error parsing site info:', e);
+        router.push('/');
+        return;
       }
-    } else {
-      toast({
-        title: "No website in progress",
-        description: "Please generate a website first",
-      });
-      router.push("/");
-      return;
-    }
 
-    // Check if website is already generated
-    const savedWebsite = localStorage.getItem("webdash_website");
-    if (savedWebsite) {
-      try {
-        const websiteData = JSON.parse(savedWebsite);
-        if (websiteData.siteUrl) {
-          setWebsiteGenerated(true);
+      // Check for existing website first
+      const savedWebsite = localStorage.getItem('webdash_website');
+      if (savedWebsite) {
+        try {
+          const websiteData = JSON.parse(savedWebsite);
+          if (websiteData?.siteUrl) {
+            // We have a completed website, no need for generation
+            setWebsite(websiteData);
+            setGenerationState({
+              showAuthPopup: false,
+              showGenerationPopup: false,
+              showGenerationStatus: false,
+              showWebsiteReadyPopup: false,
+              jobId: null,
+            });
+            setIsLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.error('Error parsing website data:', e);
         }
-      } catch (e) {
-        console.error("Error parsing website data:", e);
       }
+
+      // Set the appropriate state based on auth
+      if (!authLoading) {
+        if (!user) {
+          // Need authentication first
+          setGenerationState({
+            showAuthPopup: true,
+            showGenerationPopup: false,
+            showGenerationStatus: false,
+            showWebsiteReadyPopup: false,
+            jobId: null,
+          });
+        } else {
+          // User is authenticated, always start with generation popup
+          // (We won't check for saved jobId because it may be stale)
+          setGenerationState({
+            showAuthPopup: false,
+            showGenerationPopup: true,
+            showGenerationStatus: false,
+            showWebsiteReadyPopup: false,
+            jobId: null,
+          });
+
+          // Clear any existing job ID to prevent stale references
+          localStorage.removeItem('webdash_job_id');
+        }
+      }
+
+      setIsLoading(false);
     }
 
-    // Set auth popup state after checking for user
-    if (!authLoading) {
-      if (!user) {
-        setShowAuthPopup(true);
-      } else if (!websiteGenerated) {
-        // If user is authenticated but website is not generated yet, show generation popup
-        setShowGenerationPopup(true);
-      }
-    }
-
-    setIsLoading(false);
-  }, [user, authLoading, router, toast, websiteGenerated]);
+    initialize();
+  }, [user, authLoading, router, toast]);
 
   // Function to handle successful authentication
   const handleAuthSuccess = () => {
-    setShowAuthPopup(false);
-    setShowGenerationPopup(true);
+    setGenerationState((prev) => ({
+      ...prev,
+      showAuthPopup: false,
+      showGenerationPopup: true,
+    }));
   };
 
-  // Function to handle successful website generation
-  const handleGenerationSuccess = () => {
-    setShowGenerationPopup(false);
-    setWebsiteGenerated(true);
-    setShowWebsiteReadyPopup(true);
+  // Function to handle job start
+  const handleJobStart = (jobId: string) => {
+    console.log('Job started with ID:', jobId);
+    setGenerationState((prev) => ({
+      ...prev,
+      showGenerationPopup: false,
+      showGenerationStatus: true,
+      jobId,
+    }));
+  };
+
+  // Function to handle generation completion
+  const handleGenerationComplete = (websiteData: any) => {
+    console.log('Generation complete:', websiteData);
+    setWebsite(websiteData);
+
+    setGenerationState((prev) => ({
+      ...prev,
+      showGenerationStatus: false,
+      showWebsiteReadyPopup: true,
+      jobId: null,
+    }));
+
+    // Clear job ID from localStorage
+    localStorage.removeItem('webdash_job_id');
 
     // Hide the "website ready" popup after 5 seconds
     setTimeout(() => {
-      setShowWebsiteReadyPopup(false);
+      setGenerationState((prev) => ({
+        ...prev,
+        showWebsiteReadyPopup: false,
+      }));
     }, 5000);
+  };
+
+  // Function to handle cancellation
+  const handleGenerationCancel = () => {
+    // Just clean up the UI state
+    setGenerationState((prev) => ({
+      ...prev,
+      showGenerationStatus: false,
+      jobId: null,
+    }));
+
+    // Clear job ID from localStorage
+    localStorage.removeItem('webdash_job_id');
+  };
+
+  // Function to handle retry with a new job ID
+  const handleGenerationRetry = (newJobId: string) => {
+    console.log('Retrying generation with new job ID:', newJobId);
+    setGenerationState((prev) => ({
+      ...prev,
+      jobId: newJobId,
+    }));
+
+    // The status component will automatically start polling the new job
   };
 
   const handleEditClick = () => {
     if (hasActiveSubscription || hasTrialStarted) {
-      router.push("/dashboard");
+      router.push('/dashboard');
     } else {
       setIsTrialModalOpen(true);
     }
@@ -114,7 +207,7 @@ export default function PreviewPage() {
     }
   };
 
-  const handleStartTrial = async (plan: "monthly" | "annual") => {
+  const handleStartTrial = async (plan: 'monthly' | 'annual') => {
     // This would normally connect to your backend to start the trial
     // For demo purposes, we'll just set the local state
     setSelectedPlan(plan);
@@ -122,15 +215,15 @@ export default function PreviewPage() {
     setIsTrialModalOpen(false);
 
     toast({
-      title: "Free trial started!",
+      title: 'Free trial started!',
       description: `You now have 7 days to explore all the features of WebDash ${
-        plan === "annual" ? "Annual" : "Monthly"
+        plan === 'annual' ? 'Annual' : 'Monthly'
       } plan.`,
     });
 
     // In a real implementation, this would also update the user's subscription status in Firebase
     setTimeout(() => {
-      router.push("/dashboard");
+      router.push('/dashboard');
     }, 1500);
   };
 
@@ -146,6 +239,14 @@ export default function PreviewPage() {
     );
   }
 
+  const {
+    showAuthPopup,
+    showGenerationPopup,
+    showGenerationStatus,
+    showWebsiteReadyPopup,
+    jobId,
+  } = generationState;
+
   const pageBlurred =
     showAuthPopup || showGenerationPopup || showWebsiteReadyPopup;
 
@@ -160,23 +261,31 @@ export default function PreviewPage() {
 
       <main
         className={`flex-grow container mx-auto px-4 py-6 transition-all duration-300 ${
-          pageBlurred ? "filter blur-sm" : ""
+          pageBlurred ? 'filter blur-sm' : ''
         }`}
       >
-        <WebsitePreview
-          deviceView={deviceView}
-          onElementClick={handleElementClick}
-          websiteGenerated={websiteGenerated}
-        />
+        {showGenerationStatus && jobId ? (
+          <div className="max-w-2xl mx-auto my-8">
+            <GenerationStatus
+              jobId={jobId}
+              onComplete={handleGenerationComplete}
+              onCancel={handleGenerationCancel}
+              onRetry={handleGenerationRetry}
+            />
+          </div>
+        ) : (
+          <WebsitePreview
+            deviceView={deviceView}
+            onElementClick={handleElementClick}
+            websiteGenerated={!!website}
+          />
+        )}
       </main>
 
       {showAuthPopup && <AuthPopup onSuccess={handleAuthSuccess} />}
 
       {showGenerationPopup && (
-        <GenerationPopup
-          siteInfo={siteInfo}
-          onSuccess={handleGenerationSuccess}
-        />
+        <GenerationPopup siteInfo={siteInfo} onSuccess={handleJobStart} />
       )}
 
       {showWebsiteReadyPopup && <WebsiteReadyPopup />}

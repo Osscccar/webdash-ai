@@ -1,108 +1,128 @@
 // src/components/preview/generation-popup.tsx
 
-import { useState, useEffect, useRef } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { GenerationProgress } from "@/components/generate/generation-progress";
-import { GenerationStep } from "@/types";
-import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/components/ui/use-toast";
-import FirestoreService from "@/lib/firestore-service";
-import useTenWeb from "@/hooks/use-tenweb";
+import { useState, useEffect, useRef } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { GenerationProgress } from '@/components/generate/generation-progress';
+import { GenerationStep } from '@/types';
+import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/components/ui/use-toast';
+import FirestoreService from '@/lib/firestore-service';
+
+// Helper function to generate unique job ID
+const generateJobId = () => {
+  const timestamp = Date.now().toString(36);
+  const randomStr = Math.random().toString(36).substring(2, 8);
+  return `job_${timestamp}_${randomStr}`;
+};
 
 interface GenerationPopupProps {
   siteInfo: any;
-  onSuccess: () => void;
+  onSuccess: (jobId: string) => void;
 }
 
 export function GenerationPopup({ siteInfo, onSuccess }: GenerationPopupProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const tenWeb = useTenWeb();
   const [estimatedTime, setEstimatedTime] = useState<number>(180); // 3 minutes in seconds
-  const isGeneratingRef = useRef(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<any>(null);
+  const [progress, setProgress] = useState({
+    step: 0,
+    totalSteps: 7,
+    currentStep: GenerationStep.CREATING_SITE,
+    progress: 0,
+    status: 'pending' as
+      | 'pending'
+      | 'processing'
+      | 'complete'
+      | 'error'
+      | 'cancelled',
+  });
+  const hasStartedRef = useRef(false);
 
   // Countdown timer for estimated time
   useEffect(() => {
-    if (tenWeb.generationProgress.step > 0 && estimatedTime > 0) {
+    if (progress.step > 0 && estimatedTime > 0) {
       const timer = setTimeout(() => {
         setEstimatedTime((prev) => prev - 1);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [estimatedTime, tenWeb.generationProgress.step]);
+  }, [estimatedTime, progress.step]);
 
-  // Start generation when component mounts
+  // Start job once when component mounts
   useEffect(() => {
-    // Check for existing website in localStorage
-    const existingWebsite = localStorage.getItem("webdash_website");
-    if (existingWebsite) {
-      try {
-        const website = JSON.parse(existingWebsite);
-        if (website.siteUrl) {
-          console.log("Found existing website, skipping generation:", website);
-          onSuccess();
-          return;
+    if (hasStartedRef.current || isStarting) return;
+
+    const startJob = async () => {
+      // Check for existing website
+      const existingWebsite = localStorage.getItem('webdash_website');
+      if (existingWebsite) {
+        try {
+          const website = JSON.parse(existingWebsite);
+          if (website.siteUrl) {
+            console.log(
+              'Found existing website, skipping generation:',
+              website
+            );
+            onSuccess(website.jobId || 'existing');
+            return;
+          }
+        } catch (e) {
+          console.error('Error parsing existing website:', e);
         }
-      } catch (e) {
-        console.error("Error parsing existing website:", e);
       }
-    }
 
-    // Prevent duplicate website creation
-    if (isGeneratingRef.current) {
-      console.log("Website generation already in progress, skipping");
-      return;
-    }
-
-    isGeneratingRef.current = true;
-
-    const generateWebsite = async () => {
       try {
+        setIsStarting(true);
         setError(null);
         setErrorDetails(null);
+        hasStartedRef.current = true;
 
-        // Get the saved prompt
-        const prompt = localStorage.getItem("webdash_prompt") || "";
-
-        // Get color and font data
+        // Prepare generation parameters
+        const prompt = localStorage.getItem('webdash_prompt') || '';
         const savedColorsAndFonts = localStorage.getItem(
-          "webdash_colors_fonts"
+          'webdash_colors_fonts'
         );
         const colorAndFontData = savedColorsAndFonts
           ? JSON.parse(savedColorsAndFonts)
           : {
               colors: {
-                primaryColor: "#f58327",
-                secondaryColor: "#4a5568",
-                backgroundDark: "#212121",
+                primaryColor: '#f58327',
+                secondaryColor: '#4a5568',
+                backgroundDark: '#212121',
               },
               fonts: {
-                primaryFont: "Montserrat",
+                primaryFont: 'Montserrat',
               },
             };
 
         // Get pages metadata
-        const savedPagesMeta = localStorage.getItem("webdash_pages_meta");
+        const savedPagesMeta = localStorage.getItem('webdash_pages_meta');
         let pagesMeta = [];
-
         if (savedPagesMeta) {
           try {
             pagesMeta = JSON.parse(savedPagesMeta);
           } catch (error) {
-            console.error("Error parsing pages metadata:", error);
+            console.error('Error parsing pages metadata:', error);
           }
         }
 
+        // Generate unique job ID
+        const jobId = generateJobId();
+        localStorage.setItem('webdash_job_id', jobId);
+
         // Prepare parameters
         const generationParams = {
-          businessType: siteInfo?.businessType || "agency",
-          businessName: siteInfo?.businessName || "Business Website",
+          jobId,
+          prompt,
+          businessType: siteInfo?.businessType || 'agency',
+          businessName: siteInfo?.businessName || 'Business Website',
           businessDescription:
-            siteInfo?.businessDescription || prompt || "A modern website.",
+            siteInfo?.businessDescription || prompt || 'A modern website.',
           websiteTitle: siteInfo?.websiteTitle || siteInfo?.businessName,
           websiteDescription:
             siteInfo?.websiteDescription || siteInfo?.businessDescription,
@@ -113,54 +133,77 @@ export function GenerationPopup({ siteInfo, onSuccess }: GenerationPopupProps) {
           pagesMeta: pagesMeta,
         };
 
-        console.log(
-          "Starting website generation with parameters:",
-          generationParams
+        // Store website generation information in localStorage
+        localStorage.setItem('webdash_prompt', prompt);
+        localStorage.setItem(
+          'webdash_site_info',
+          JSON.stringify({
+            businessType: generationParams.businessType,
+            businessName: generationParams.businessName,
+            businessDescription: generationParams.businessDescription,
+            websiteTitle: generationParams.websiteTitle,
+            websiteDescription: generationParams.websiteDescription,
+            websiteKeyphrase: generationParams.websiteKeyphrase,
+            colors: generationParams.colors,
+            fonts: generationParams.fonts,
+          })
         );
 
-        // Generate the website using our hook
-        const website = await tenWeb.generateWebsite(prompt, generationParams);
+        // Start the job
+        console.log('Starting new job with params:', generationParams);
+        const response = await fetch('/api/start-job', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(generationParams),
+        });
 
-        if (website) {
-          // If user is authenticated, save to Firestore
-          if (user && user.uid && website) {
-            // Make sure the website has userId
-            website.userId = user.uid;
-
-            // Save to Firestore
-            await FirestoreService.createWebsite(website);
-          }
-
-          onSuccess(); // Call the success callback
-        } else {
-          throw new Error("Website generation failed - no website returned");
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || 'Failed to start website generation'
+          );
         }
-      } catch (error: any) {
-        console.error("Error generating website:", error);
-        setError(error.message || "An unexpected error occurred");
 
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to start website generation');
+        }
+
+        console.log('Job started successfully:', data);
+
+        // Job started successfully, hand control to parent component for polling
+        onSuccess(jobId);
+      } catch (error: any) {
+        console.error('Error generating website:', error);
+        setError(error.message || 'An unexpected error occurred');
         if (error.details) {
           setErrorDetails(error.details);
         }
-
         toast({
-          title: "Website generation error",
-          description: error.message || "Please try again later",
-          variant: "destructive",
+          title: 'Website generation error',
+          description: error.message || 'Please try again later',
+          variant: 'destructive',
         });
-      } finally {
-        isGeneratingRef.current = false;
+
+        // Clear job ID on error
+        localStorage.removeItem('webdash_job_id');
+
+        // Reset the started flag so we can try again
+        hasStartedRef.current = false;
+        setIsStarting(false);
       }
     };
 
-    generateWebsite();
-  }, [siteInfo, onSuccess, toast, user, tenWeb]);
+    startJob();
+  }, [siteInfo, onSuccess, toast]);
 
   // Format time from seconds to MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
   // Handle retry
@@ -168,7 +211,8 @@ export function GenerationPopup({ siteInfo, onSuccess }: GenerationPopupProps) {
     // Reset states
     setError(null);
     setErrorDetails(null);
-    isGeneratingRef.current = false;
+    setIsStarting(false);
+    hasStartedRef.current = false;
 
     // Reload the page to start fresh
     window.location.reload();
@@ -224,7 +268,7 @@ export function GenerationPopup({ siteInfo, onSuccess }: GenerationPopupProps) {
               </Button>
             </div>
           ) : (
-            // Normal generation state
+            // Starting state
             <>
               <div className="flex items-center gap-3 mb-4">
                 <div className="bg-gray-100 p-2 rounded-full">
@@ -232,19 +276,19 @@ export function GenerationPopup({ siteInfo, onSuccess }: GenerationPopupProps) {
                 </div>
                 <div>
                   <h2 className="font-semibold text-gray-900">
-                    Building your website
+                    Starting website generation
                   </h2>
                   <p className="text-gray-500 text-sm">
-                    Estimated time remaining: {formatTime(estimatedTime)}
+                    Please wait while we prepare your website...
                   </p>
                 </div>
               </div>
 
               <GenerationProgress
-                progress={tenWeb.generationProgress.progress}
-                currentStep={tenWeb.generationProgress.currentStep}
-                step={tenWeb.generationProgress.step}
-                totalSteps={tenWeb.generationProgress.totalSteps}
+                progress={0}
+                currentStep={GenerationStep.CREATING_SITE}
+                step={0}
+                totalSteps={7}
               />
             </>
           )}

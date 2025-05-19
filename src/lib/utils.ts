@@ -1,6 +1,6 @@
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-import { customAlphabet } from "nanoid";
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import { customAlphabet } from 'nanoid';
 
 /**
  * Combines class names with tailwind merging
@@ -12,9 +12,9 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Format currency amount
  */
-export function formatCurrency(amount: number, currency = "USD"): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
+export function formatCurrency(amount: number, currency = 'USD'): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
     currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
@@ -26,20 +26,29 @@ export function formatCurrency(amount: number, currency = "USD"): string {
  */
 export function formatDate(date: Date | string | number): string {
   const d = new Date(date);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   });
 }
 
 /**
  * Generate a random subdomain
  */
-const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 10);
-export function generateRandomSubdomain(prefix = ""): string {
+const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 10);
+export function generateRandomSubdomain(prefix = ''): string {
   const randomId = nanoid(8);
-  return prefix ? `${prefix}-${randomId}` : randomId;
+
+  // Format the prefix: lowercase and replace spaces/special chars with hyphens
+  const formattedPrefix = prefix
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9-]/g, '-') // Replace non-alphanumeric chars with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with a single one
+    .replace(/^-|-$/g, ''); // Remove leading and trailing hyphens
+
+  return formattedPrefix ? `${formattedPrefix}-${randomId}` : randomId;
 }
 
 /**
@@ -56,9 +65,9 @@ export function generateRandomSubdomain(prefix = ""): string {
 export function generateSecurePassword(): string {
   // Force a password format that we know meets the requirements
   // This is simpler than trying to randomly generate one
-  const lowercase = "abcdefghijklmnopqrstuvwxyz";
-  const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const numbers = "0123456789";
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const numbers = '0123456789';
 
   // Pick random characters from each required category
   const randomLowercase = lowercase.charAt(
@@ -86,8 +95,8 @@ export function generateSecurePassword(): string {
  * Extract domain from email
  */
 export function getDomainFromEmail(email: string): string | null {
-  if (!email || !email.includes("@")) return null;
-  return email.split("@")[1].split(".")[0];
+  if (!email || !email.includes('@')) return null;
+  return email.split('@')[1].split('.')[0];
 }
 
 /**
@@ -103,9 +112,9 @@ export function delay(ms: number): Promise<void> {
 export function sanitizeForUrl(str: string): string {
   return str
     .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
     .trim();
 }
 
@@ -121,10 +130,10 @@ export function isValidEmail(email: string): boolean {
  * Get user initials from name
  */
 export function getUserInitials(name?: string): string {
-  if (!name) return "?";
+  if (!name) return '?';
 
-  const parts = name.split(" ").filter((part) => part.length > 0);
-  if (parts.length === 0) return "?";
+  const parts = name.split(' ').filter((part) => part.length > 0);
+  if (parts.length === 0) return '?';
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
 
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
@@ -143,25 +152,25 @@ export function truncateText(text: string, maxLength: number): string {
  */
 export function getStatusColor(status: string): string {
   switch (status.toLowerCase()) {
-    case "active":
-    case "complete":
-    case "completed":
-    case "ready":
-      return "bg-green-500";
-    case "pending":
-    case "processing":
-    case "generating":
-    case "configuring":
-    case "finalizing":
-      return "bg-blue-500";
-    case "error":
-    case "failed":
-      return "bg-red-500";
-    case "canceled":
-    case "cancelled":
-    case "suspended":
-      return "bg-orange-500";
+    case 'active':
+    case 'complete':
+    case 'completed':
+    case 'ready':
+      return 'bg-green-500';
+    case 'pending':
+    case 'processing':
+    case 'generating':
+    case 'configuring':
+    case 'finalizing':
+      return 'bg-blue-500';
+    case 'error':
+    case 'failed':
+      return 'bg-red-500';
+    case 'canceled':
+    case 'cancelled':
+    case 'suspended':
+      return 'bg-orange-500';
     default:
-      return "bg-gray-500";
+      return 'bg-gray-500';
   }
 }
