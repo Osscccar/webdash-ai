@@ -48,7 +48,7 @@ export default function OnboardingPage() {
       console.error("Error preparing website generation:", error);
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: "Something went wrong! Please try again.",
         variant: "destructive",
       });
       setIsLoading(false);
