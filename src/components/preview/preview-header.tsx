@@ -33,7 +33,7 @@ export function PreviewHeader({
           <div className="flex items-center space-x-4">
             <PrimaryButton onClick={onEditClick}>
               <Edit />
-              {hasActiveSubscription ? "Edit & Publish" : "Open Dashboard"}
+              {hasActiveSubscription ? "Edit & Publish" : "Edit & Publish"}
             </PrimaryButton>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "./use-auth";
-import { PLANS } from "@/config/stripe";
+import { PLANS, getPlanById } from "@/config/stripe";
 import { useToast } from "@/components/ui/use-toast";
 
 export function useStripe() {
@@ -11,12 +11,9 @@ export function useStripe() {
   const [isLoading, setIsLoading] = useState(false);
 
   /**
-   * Start a subscription (no trial)
+   * Start a subscription
    */
-  const startTrial = async (
-    planType: "monthly" | "annual",
-    promoCode?: string
-  ) => {
+  const startTrial = async (planId: string, promoCode?: string) => {
     if (!user) {
       toast({
         title: "Authentication required",
@@ -29,7 +26,11 @@ export function useStripe() {
     setIsLoading(true);
 
     try {
-      const plan = PLANS[planType];
+      const plan = getPlanById(planId);
+
+      if (!plan) {
+        throw new Error("Invalid plan selected");
+      }
 
       // Create a checkout session
       const response = await fetch("/api/stripe/checkout", {
@@ -47,7 +48,7 @@ export function useStripe() {
           returnUrl: window.location.origin + "/dashboard",
           promoCode, // Pass promo code if provided
           metadata: {
-            planType,
+            planType: plan.interval,
           },
         }),
       });
@@ -68,6 +69,61 @@ export function useStripe() {
       }
     } catch (error: any) {
       console.error("Error subscribing:", error);
+
+      toast({
+        title: "Error processing subscription",
+        description: error.message || "Please try again later",
+        variant: "destructive",
+      });
+
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Create a subscription directly with payment method
+   */
+  const createSubscription = async (
+    paymentMethodId: string,
+    priceId: string
+  ) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to subscribe",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/stripe/create-subscription", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          paymentMethodId,
+          priceId,
+          customerEmail: user.email,
+          customerName: userData?.firstName
+            ? `${userData.firstName} ${userData.lastName || ""}`
+            : user.displayName || "",
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create subscription");
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error("Error creating subscription:", error);
 
       toast({
         title: "Error processing subscription",
@@ -188,17 +244,12 @@ export function useStripe() {
       return null;
     }
 
-    if (planId === PLANS.monthly.id) {
-      return PLANS.monthly;
-    } else if (planId === PLANS.annual.id) {
-      return PLANS.annual;
-    }
-
-    return null;
+    return getPlanById(planId);
   };
 
   return {
-    startTrial, // Kept the same function name for compatibility
+    startTrial,
+    createSubscription,
     validatePromoCode,
     openCustomerPortal,
     hasActiveSubscription,

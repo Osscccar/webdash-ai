@@ -1,29 +1,29 @@
-// src/app/preview/page.tsx
+// src/app/preview/page.tsx - Updated to work with new trial modal
 
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { PreviewHeader } from '@/components/preview/preview-header';
-import { WebsitePreview } from '@/components/preview/website-preview';
-import { TrialModal } from '@/components/preview/trial-modal';
-import { AuthPopup } from '@/components/preview/auth-popup';
-import { GenerationPopup } from '@/components/preview/generation-popup';
-import { WebsiteReadyPopup } from '@/components/preview/website-ready-popup';
-import { GenerationStatus } from '@/components/preview/generation-status';
-import { useAuth } from '@/hooks/use-auth';
-import { useToast } from '@/components/ui/use-toast';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { PreviewHeader } from "@/components/preview/preview-header";
+import { WebsitePreview } from "@/components/preview/website-preview";
+import { PaymentCard } from "@/components/preview/payment-card";
+import { AuthPopup } from "@/components/preview/auth-popup";
+import { GenerationPopup } from "@/components/preview/generation-popup";
+import { WebsiteReadyPopup } from "@/components/preview/website-ready-popup";
+import { GenerationStatus } from "@/components/preview/generation-status";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function PreviewPage() {
   const router = useRouter();
   const { user, userData, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
-  const [deviceView, setDeviceView] = useState<'desktop' | 'mobile'>('desktop');
+  const [deviceView, setDeviceView] = useState<"desktop" | "mobile">("desktop");
   const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
   const [hasTrialStarted, setHasTrialStarted] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>(
-    'monthly'
+  const [selectedPlan, setSelectedPlan] = useState<string | undefined>(
+    undefined
   );
   const [isLoading, setIsLoading] = useState(true);
 
@@ -51,26 +51,26 @@ export default function PreviewPage() {
   useEffect(() => {
     async function initialize() {
       // Check if there's a website information in progress
-      const savedSiteInfo = localStorage.getItem('webdash_site_info');
+      const savedSiteInfo = localStorage.getItem("webdash_site_info");
       if (!savedSiteInfo) {
         toast({
-          title: 'No website in progress',
-          description: 'Please generate a website first',
+          title: "No website in progress",
+          description: "Please generate a website first",
         });
-        router.push('/');
+        router.push("/");
         return;
       }
 
       try {
         setSiteInfo(JSON.parse(savedSiteInfo));
       } catch (e) {
-        console.error('Error parsing site info:', e);
-        router.push('/');
+        console.error("Error parsing site info:", e);
+        router.push("/");
         return;
       }
 
       // Check for existing website first
-      const savedWebsite = localStorage.getItem('webdash_website');
+      const savedWebsite = localStorage.getItem("webdash_website");
       if (savedWebsite) {
         try {
           const websiteData = JSON.parse(savedWebsite);
@@ -88,7 +88,7 @@ export default function PreviewPage() {
             return;
           }
         } catch (e) {
-          console.error('Error parsing website data:', e);
+          console.error("Error parsing website data:", e);
         }
       }
 
@@ -115,7 +115,7 @@ export default function PreviewPage() {
           });
 
           // Clear any existing job ID to prevent stale references
-          localStorage.removeItem('webdash_job_id');
+          localStorage.removeItem("webdash_job_id");
         }
       }
 
@@ -136,7 +136,7 @@ export default function PreviewPage() {
 
   // Function to handle job start
   const handleJobStart = (jobId: string) => {
-    console.log('Job started with ID:', jobId);
+    console.log("Job started with ID:", jobId);
     setGenerationState((prev) => ({
       ...prev,
       showGenerationPopup: false,
@@ -147,7 +147,7 @@ export default function PreviewPage() {
 
   // Function to handle generation completion
   const handleGenerationComplete = (websiteData: any) => {
-    console.log('Generation complete:', websiteData);
+    console.log("Generation complete:", websiteData);
     setWebsite(websiteData);
 
     setGenerationState((prev) => ({
@@ -158,7 +158,7 @@ export default function PreviewPage() {
     }));
 
     // Clear job ID from localStorage
-    localStorage.removeItem('webdash_job_id');
+    localStorage.removeItem("webdash_job_id");
 
     // Hide the "website ready" popup after 5 seconds
     setTimeout(() => {
@@ -179,12 +179,12 @@ export default function PreviewPage() {
     }));
 
     // Clear job ID from localStorage
-    localStorage.removeItem('webdash_job_id');
+    localStorage.removeItem("webdash_job_id");
   };
 
   // Function to handle retry with a new job ID
   const handleGenerationRetry = (newJobId: string) => {
-    console.log('Retrying generation with new job ID:', newJobId);
+    console.log("Retrying generation with new job ID:", newJobId);
     setGenerationState((prev) => ({
       ...prev,
       jobId: newJobId,
@@ -195,7 +195,7 @@ export default function PreviewPage() {
 
   const handleEditClick = () => {
     if (hasActiveSubscription || hasTrialStarted) {
-      router.push('/dashboard');
+      router.push("/dashboard");
     } else {
       setIsTrialModalOpen(true);
     }
@@ -207,23 +207,20 @@ export default function PreviewPage() {
     }
   };
 
-  const handleStartTrial = async (plan: 'monthly' | 'annual') => {
+  const handleStartTrial = async (planId: string) => {
     // This would normally connect to your backend to start the trial
-    // For demo purposes, we'll just set the local state
-    setSelectedPlan(plan);
+    setSelectedPlan(planId);
     setHasTrialStarted(true);
     setIsTrialModalOpen(false);
 
     toast({
-      title: 'Free trial started!',
-      description: `You now have 7 days to explore all the features of WebDash ${
-        plan === 'annual' ? 'Annual' : 'Monthly'
-      } plan.`,
+      title: "Subscription started!",
+      description: "Your subscription has been activated successfully.",
     });
 
     // In a real implementation, this would also update the user's subscription status in Firebase
     setTimeout(() => {
-      router.push('/dashboard');
+      router.push("/dashboard");
     }, 1500);
   };
 
@@ -261,7 +258,7 @@ export default function PreviewPage() {
 
       <main
         className={`flex-grow container mx-auto px-4 py-6 transition-all duration-300 ${
-          pageBlurred ? 'filter blur-sm' : ''
+          pageBlurred ? "filter blur-sm" : ""
         }`}
       >
         {showGenerationStatus && jobId ? (
@@ -290,12 +287,11 @@ export default function PreviewPage() {
 
       {showWebsiteReadyPopup && <WebsiteReadyPopup />}
 
-      <TrialModal
+      <PaymentCard
         isOpen={isTrialModalOpen}
         onClose={() => setIsTrialModalOpen(false)}
         onStartTrial={handleStartTrial}
         selectedPlan={selectedPlan}
-        setSelectedPlan={setSelectedPlan}
       />
     </div>
   );
