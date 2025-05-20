@@ -64,7 +64,7 @@ export function PaymentCard({
       });
       setTimeout(() => {
         router.push("/dashboard");
-      }, 1000);
+      }, 100);
     } catch (error) {
       console.error("Error starting subscription:", error);
       toast({

@@ -13,7 +13,7 @@ import { PLANS, getPlanById } from "@/config/stripe";
 import { useAuth } from "@/hooks/use-auth";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
-import { Pencil, Check, X } from "lucide-react";
+import { Pencil, Check, X, LockIcon } from "lucide-react";
 
 interface PaymentFormProps {
   productId: string;
@@ -429,6 +429,23 @@ export function PaymentForm({
             ? "Processing..."
             : `Pay ${formatCurrency(discountedPrice)}`}
         </PrimaryButton>
+
+        <div className="flex items-center justify-center border-t border-gray-100 pt-4 mt-2">
+          <div className="flex items-center text-xs text-gray-500">
+            <LockIcon className="h-3 w-3 mr-1 text-gray-400" />
+            <span className="mr-1">Securely processed by</span>
+            <svg
+              className="h-6"
+              viewBox="0 0 60 25"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M59.64 14.28h-8.06v-1.83h8.06v1.83zm-9.18-5.45H47.7v9.13h2.76v-9.13zm-3.82 4.65c0-1.78-1.1-3.03-2.87-3.03-.97 0-1.65.45-2 .86l-.1-1.85h-2.76v9.13h2.76V14.3c0-.9.55-1.4 1.4-1.4.86 0 1.4.55 1.4 1.4v4.3h2.76v-5.47h.03zm-7.73 5.47v-9.13h-2.76v9.13h2.76zm-3.28-12.33c0-.76-.62-1.38-1.38-1.38-.76 0-1.38.62-1.38 1.38 0 .76.62 1.38 1.38 1.38.72 0 1.38-.62 1.38-1.38zm-5.3 3.2h-2l-1.72 5.47-1.85-5.47h-2.9l3.2 9.13h2.6l3.68-9.13zm-7.6 0h-2.76v9.13h2.76v-9.13zm-3.2-3.2c0-.76-.62-1.38-1.38-1.38-.76 0-1.38.62-1.38 1.38 0 .76.62 1.38 1.38 1.38.72 0 1.38-.62 1.38-1.38zm-5.75 7.84c0-1.78-1.1-3.03-2.87-3.03-.97 0-1.65.45-2 .86l-.1-1.85h-2.76v9.13h2.76V14.3c0-.9.55-1.4 1.4-1.4.86 0 1.4.55 1.4 1.4v4.3h2.76v-5.47h.03zm-11 5.47v-4.3c0-.9-.55-1.4-1.4-1.4-.86 0-1.4.55-1.4 1.4v4.3h-2.76V6.2h2.76v3.93c.38-.41 1.06-.86 2.04-.86 1.75 0 2.84 1.27 2.84 3.03v5.47h-2.73l.65-1.75z"
+                fill="#635BFF"
+              />
+            </svg>
+          </div>
+        </div>
 
         <p className="text-xs text-center text-gray-500">
           By continuing, you agree to our{" "}
