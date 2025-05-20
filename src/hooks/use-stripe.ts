@@ -11,13 +11,16 @@ export function useStripe() {
   const [isLoading, setIsLoading] = useState(false);
 
   /**
-   * Start a subscription with a trial period
+   * Start a subscription (no trial)
    */
-  const startTrial = async (planType: "monthly" | "annual") => {
+  const startTrial = async (
+    planType: "monthly" | "annual",
+    promoCode?: string
+  ) => {
     if (!user) {
       toast({
         title: "Authentication required",
-        description: "Please sign in to start a trial",
+        description: "Please sign in to subscribe",
         variant: "destructive",
       });
       return null;
@@ -42,7 +45,7 @@ export function useStripe() {
             ? `${userData.firstName} ${userData.lastName || ""}`
             : undefined,
           returnUrl: window.location.origin + "/dashboard",
-          trialPeriodDays: 7,
+          promoCode, // Pass promo code if provided
           metadata: {
             planType,
           },
@@ -64,10 +67,10 @@ export function useStripe() {
         throw new Error("No redirect URL returned from Stripe");
       }
     } catch (error: any) {
-      console.error("Error starting trial:", error);
+      console.error("Error subscribing:", error);
 
       toast({
-        title: "Error starting trial",
+        title: "Error processing subscription",
         description: error.message || "Please try again later",
         variant: "destructive",
       });
@@ -75,6 +78,39 @@ export function useStripe() {
       return null;
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  /**
+   * Validate a promotion code with Stripe
+   */
+  const validatePromoCode = async (promoCode: string, planId: string) => {
+    if (!promoCode) return { valid: false, message: "No promo code provided" };
+
+    try {
+      const response = await fetch("/api/stripe/validate-promo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          promoCode,
+          planId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to validate promo code");
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error("Error validating promo code:", error);
+      return {
+        valid: false,
+        message: error.message || "Failed to validate promo code",
+      };
     }
   };
 
@@ -139,18 +175,6 @@ export function useStripe() {
   };
 
   /**
-   * Check if the user is in a trial period
-   */
-  const isInTrialPeriod = (): boolean => {
-    if (!userData?.webdashSubscription?.trialEnd) {
-      return false;
-    }
-
-    const trialEnd = new Date(userData.webdashSubscription.trialEnd);
-    return trialEnd > new Date();
-  };
-
-  /**
    * Get the current subscription plan
    */
   const getCurrentPlan = () => {
@@ -174,10 +198,10 @@ export function useStripe() {
   };
 
   return {
-    startTrial,
+    startTrial, // Kept the same function name for compatibility
+    validatePromoCode,
     openCustomerPortal,
     hasActiveSubscription,
-    isInTrialPeriod,
     getCurrentPlan,
     isLoading,
   };

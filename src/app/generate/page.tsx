@@ -1,21 +1,21 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { motion } from 'framer-motion';
-import { GenerationProgress } from '@/components/generate/generation-progress';
-import { useToast } from '@/components/ui/use-toast';
-import { ArrowLeft, Bug, Code, Loader2 } from 'lucide-react';
-import { GenerationStep } from '@/types';
-import { useTenWeb } from '@/hooks/use-tenweb';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
+import { GenerationProgress } from "@/components/generate/generation-progress";
+import { useToast } from "@/components/ui/use-toast";
+import { ArrowLeft, Bug, Code, Loader2 } from "lucide-react";
+import { GenerationStep } from "@/types";
+import { useTenWeb } from "@/hooks/use-tenweb";
 
 export default function GeneratePage() {
   const router = useRouter();
   const { toast } = useToast();
   const { generationProgress, isLoading } = useTenWeb();
-  const [prompt, setPrompt] = useState<string>('');
+  const [prompt, setPrompt] = useState<string>("");
   const [siteInfo, setSiteInfo] = useState<any>(null);
   const [colorAndFontData, setColorAndFontData] = useState<any>(null);
   const [isReady, setIsReady] = useState(false);
@@ -24,18 +24,18 @@ export default function GeneratePage() {
 
   // Load required data from localStorage
   useEffect(() => {
-    const savedPrompt = localStorage.getItem('webdash_prompt');
-    const savedSiteInfo = localStorage.getItem('webdash_site_info');
-    const savedColorAndFontData = localStorage.getItem('webdash_colors_fonts');
-    const savedJobId = localStorage.getItem('webdash_job_id');
+    const savedPrompt = localStorage.getItem("webdash_prompt");
+    const savedSiteInfo = localStorage.getItem("webdash_site_info");
+    const savedColorAndFontData = localStorage.getItem("webdash_colors_fonts");
+    const savedJobId = localStorage.getItem("webdash_job_id");
 
     if (!savedPrompt || !savedSiteInfo) {
       toast({
-        title: 'Missing website information',
-        description: 'Please complete the website editor steps first.',
-        variant: 'destructive',
+        title: "Missing website information",
+        description: "Please complete the website editor steps first.",
+        variant: "destructive",
       });
-      router.push('/editor');
+      router.push("/editor");
       return;
     }
 
@@ -51,38 +51,38 @@ export default function GeneratePage() {
         // Use default colors and fonts if not set
         setColorAndFontData({
           colors: {
-            primaryColor: '#f58327',
-            secondaryColor: '#4a5568',
-            backgroundDark: '#212121',
+            primaryColor: "#f58327",
+            secondaryColor: "#4a5568",
+            backgroundDark: "#212121",
           },
           fonts: {
-            primaryFont: 'Montserrat',
+            primaryFont: "Montserrat",
           },
         });
       }
 
       // If we have a job ID, redirect to preview page
       if (savedJobId) {
-        router.push('/preview');
+        router.push("/preview");
         return;
       }
 
       setIsReady(true);
     } catch (error) {
-      console.error('Error parsing saved data:', error);
+      console.error("Error parsing saved data:", error);
       toast({
-        title: 'Error loading website data',
-        description: 'There was a problem with your website configuration.',
-        variant: 'destructive',
+        title: "Error loading website data",
+        description: "There was a problem with your website configuration.",
+        variant: "destructive",
       });
-      router.push('/editor');
+      router.push("/editor");
     }
   }, [router, toast]);
 
   // Redirect to preview page when ready
   useEffect(() => {
     if (isReady && !debugMode) {
-      router.push('/preview');
+      router.push("/preview");
     }
   }, [isReady, debugMode, router]);
 
@@ -100,7 +100,7 @@ export default function GeneratePage() {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
   return (
@@ -125,7 +125,8 @@ export default function GeneratePage() {
                         Building your website
                       </h2>
                       <p className="text-gray-500 text-sm">
-                        Estimated time remaining: {formatTime(estimatedTime)}
+                        This can take up to 5 minutes. Please don't reload this
+                        tab.
                       </p>
                     </div>
                   </div>

@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { GenerationProgress } from '@/components/generate/generation-progress';
-import { GenerationStep } from '@/types';
-import { useToast } from '@/components/ui/use-toast';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { GenerationProgress } from "@/components/generate/generation-progress";
+import { GenerationStep } from "@/types";
+import { useToast } from "@/components/ui/use-toast";
 
 // Helper function to generate unique job ID
 const generateJobId = () => {
@@ -40,12 +40,12 @@ export function GenerationStatus({
     totalSteps: 7,
     currentStep: GenerationStep.CREATING_SITE,
     progress: 0,
-    status: 'pending' as
-      | 'pending'
-      | 'processing'
-      | 'complete'
-      | 'error'
-      | 'cancelled',
+    status: "pending" as
+      | "pending"
+      | "processing"
+      | "complete"
+      | "error"
+      | "cancelled",
   });
 
   // Keep original generation parameters to use for retries
@@ -60,7 +60,7 @@ export function GenerationStatus({
       totalSteps: 7,
       currentStep: GenerationStep.CREATING_SITE,
       progress: 0,
-      status: 'cancelled',
+      status: "cancelled",
     });
 
     // Clear polling interval
@@ -75,8 +75,8 @@ export function GenerationStatus({
     }
 
     toast({
-      title: 'Generation cancelled',
-      description: 'Website generation has been cancelled',
+      title: "Generation cancelled",
+      description: "Website generation has been cancelled",
     });
   }, [onCancel, toast]);
 
@@ -100,11 +100,11 @@ export function GenerationStatus({
       };
 
       // Start the new job
-      console.log('Retrying with new job ID:', newJobId);
-      const response = await fetch('/api/start-job', {
-        method: 'POST',
+      console.log("Retrying with new job ID:", newJobId);
+      const response = await fetch("/api/start-job", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(newParams),
       });
@@ -112,17 +112,17 @@ export function GenerationStatus({
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.error || 'Failed to start website generation'
+          errorData.error || "Failed to start website generation"
         );
       }
 
       const data = await response.json();
       if (!data.success) {
-        throw new Error(data.error || 'Failed to start website generation');
+        throw new Error(data.error || "Failed to start website generation");
       }
 
       // Update localStorage with the new job ID
-      localStorage.setItem('webdash_job_id', newJobId);
+      localStorage.setItem("webdash_job_id", newJobId);
 
       // Tell the parent component to switch to the new job ID
       if (onRetry) {
@@ -132,11 +132,11 @@ export function GenerationStatus({
         window.location.reload();
       }
     } catch (error: any) {
-      console.error('Error retrying job:', error);
+      console.error("Error retrying job:", error);
       toast({
-        title: 'Error retrying generation',
-        description: error.message || 'Please try again later',
-        variant: 'destructive',
+        title: "Error retrying generation",
+        description: error.message || "Please try again later",
+        variant: "destructive",
       });
       setIsRetrying(false);
     }
@@ -148,13 +148,13 @@ export function GenerationStatus({
       if (!jobId) return;
 
       try {
-        console.log('Verifying job exists before polling:', jobId);
+        console.log("Verifying job exists before polling:", jobId);
         const response = await fetch(`/api/job-status?jobId=${jobId}`);
 
         if (!response.ok) {
-          console.error('Error verifying job:', response.status);
+          console.error("Error verifying job:", response.status);
           // Job doesn't exist or error fetching
-          setError('Job does not exist or cannot be accessed');
+          setError("Job does not exist or cannot be accessed");
           setIsPolling(false);
           setVerifyingJob(false);
 
@@ -167,7 +167,7 @@ export function GenerationStatus({
 
         const data = await response.json();
         if (!data.job) {
-          console.log('Job not found, may still be starting...');
+          console.log("Job not found, may still be starting...");
           // Give it a moment to appear in the database
           setTimeout(() => verifyJobExists(), 2000);
           return;
@@ -192,14 +192,14 @@ export function GenerationStatus({
         }
 
         // If the job is already failed, update the UI
-        if (data.job.status === 'failed') {
-          setError(data.job.error || 'Failed to generate website');
+        if (data.job.status === "failed") {
+          setError(data.job.error || "Failed to generate website");
           setGenerationProgress({
             step: 0,
             totalSteps: 7,
             currentStep: GenerationStep.CREATING_SITE,
             progress: 0,
-            status: 'error',
+            status: "error",
           });
           setVerifyingJob(false);
           setIsPolling(false);
@@ -207,8 +207,8 @@ export function GenerationStatus({
         }
 
         // If the job is already completed, process it immediately
-        if (data.job.status === 'complete' || data.job.status === 'completed') {
-          console.log('Job already completed:', data.job);
+        if (data.job.status === "complete" || data.job.status === "completed") {
+          console.log("Job already completed:", data.job);
 
           // Get the site URL from the response
           const siteUrl = data.job.site_url || data.job.siteUrl;
@@ -219,7 +219,7 @@ export function GenerationStatus({
               totalSteps: 7,
               currentStep: GenerationStep.FINALIZING,
               progress: 100,
-              status: 'complete',
+              status: "complete",
             });
 
             const websiteData = {
@@ -227,12 +227,12 @@ export function GenerationStatus({
               siteUrl: siteUrl,
               subdomain: data.job.subdomain,
               createdAt: new Date().toISOString(),
-              status: 'active',
+              status: "active",
               domainId: data.job.domain_id || data.job.domainId,
             };
 
             localStorage.setItem(
-              'webdash_website',
+              "webdash_website",
               JSON.stringify(websiteData)
             );
 
@@ -246,12 +246,12 @@ export function GenerationStatus({
         }
 
         // Job exists, we can start polling
-        console.log('Job verified, starting to poll:', data.job);
+        console.log("Job verified, starting to poll:", data.job);
         setIsPolling(true);
         setVerifyingJob(false);
       } catch (error) {
-        console.error('Error verifying job:', error);
-        setError('Error connecting to the server');
+        console.error("Error verifying job:", error);
+        setError("Error connecting to the server");
         setIsPolling(false);
         setVerifyingJob(false);
 
@@ -269,7 +269,7 @@ export function GenerationStatus({
     if (
       estimatedTime > 0 &&
       isPolling &&
-      generationProgress.status === 'processing'
+      generationProgress.status === "processing"
     ) {
       const timer = setTimeout(() => {
         setEstimatedTime((prev) => prev - 1);
@@ -282,7 +282,7 @@ export function GenerationStatus({
   useEffect(() => {
     if (!jobId || !isPolling) return;
 
-    console.log('Starting to poll job status for:', jobId);
+    console.log("Starting to poll job status for:", jobId);
     let retryCount = 0;
     const maxRetries = 3;
 
@@ -296,7 +296,7 @@ export function GenerationStatus({
           retryCount++;
 
           if (retryCount >= maxRetries) {
-            setError('Failed to get job status after multiple attempts');
+            setError("Failed to get job status after multiple attempts");
             setIsPolling(false);
             if (pollingTimeoutRef.current) {
               clearInterval(pollingTimeoutRef.current);
@@ -313,14 +313,14 @@ export function GenerationStatus({
         const jobData = data.job;
 
         if (!jobData) {
-          console.log('Job not found yet, waiting...');
+          console.log("Job not found yet, waiting...");
           return;
         }
 
         console.log(
-          'Job status:',
+          "Job status:",
           jobData.status,
-          'Progress:',
+          "Progress:",
           jobData.progress
         );
 
@@ -343,7 +343,7 @@ export function GenerationStatus({
         }
 
         // Update progress based on job status
-        if (jobData.status === 'processing') {
+        if (jobData.status === "processing") {
           // Map progress to steps
           let currentStep = GenerationStep.CREATING_SITE;
           let stepNumber = 0;
@@ -370,21 +370,21 @@ export function GenerationStatus({
             totalSteps: 7,
             currentStep,
             progress: jobData.progress,
-            status: 'processing',
+            status: "processing",
           });
         } else if (
-          jobData.status === 'complete' ||
-          jobData.status === 'completed'
+          jobData.status === "complete" ||
+          jobData.status === "completed"
         ) {
           // Job is complete
-          console.log('Job completed successfully:', jobData);
+          console.log("Job completed successfully:", jobData);
 
           setGenerationProgress({
             step: 7,
             totalSteps: 7,
             currentStep: GenerationStep.FINALIZING,
             progress: 100,
-            status: 'complete',
+            status: "complete",
           });
 
           // Get the site URL from the response
@@ -397,14 +397,14 @@ export function GenerationStatus({
               siteUrl: siteUrl,
               subdomain: jobData.subdomain,
               createdAt: new Date().toISOString(),
-              status: 'active',
+              status: "active",
               domainId: jobData.domain_id || jobData.domainId,
             };
 
-            console.log('Saving website data and redirecting:', websiteData);
+            console.log("Saving website data and redirecting:", websiteData);
 
             localStorage.setItem(
-              'webdash_website',
+              "webdash_website",
               JSON.stringify(websiteData)
             );
 
@@ -419,27 +419,27 @@ export function GenerationStatus({
             onComplete(websiteData);
           } else {
             console.error(
-              'Job marked as complete but no site URL found:',
+              "Job marked as complete but no site URL found:",
               jobData
             );
-            setError('Website generated but URL not found');
+            setError("Website generated but URL not found");
             setIsPolling(false);
             if (pollingTimeoutRef.current) {
               clearInterval(pollingTimeoutRef.current);
               pollingTimeoutRef.current = null;
             }
           }
-        } else if (jobData.status === 'failed') {
+        } else if (jobData.status === "failed") {
           // Job failed
           setGenerationProgress({
             step: 0,
             totalSteps: 7,
             currentStep: GenerationStep.CREATING_SITE,
             progress: 0,
-            status: 'error',
+            status: "error",
           });
 
-          setError(jobData.error || 'Failed to generate website');
+          setError(jobData.error || "Failed to generate website");
           setIsPolling(false);
           if (pollingTimeoutRef.current) {
             clearInterval(pollingTimeoutRef.current);
@@ -447,17 +447,17 @@ export function GenerationStatus({
           }
 
           toast({
-            title: 'Generation Failed',
-            description: jobData.error || 'Failed to generate website',
-            variant: 'destructive',
+            title: "Generation Failed",
+            description: jobData.error || "Failed to generate website",
+            variant: "destructive",
           });
-        } else if (jobData.status === 'cancelled') {
+        } else if (jobData.status === "cancelled") {
           setGenerationProgress({
             step: 0,
             totalSteps: 7,
             currentStep: GenerationStep.CREATING_SITE,
             progress: 0,
-            status: 'cancelled',
+            status: "cancelled",
           });
 
           setIsPolling(false);
@@ -471,11 +471,11 @@ export function GenerationStatus({
           }
         }
       } catch (error) {
-        console.error('Error polling job status:', error);
+        console.error("Error polling job status:", error);
         retryCount++;
 
         if (retryCount >= maxRetries) {
-          setError('Failed to connect to the server after multiple attempts');
+          setError("Failed to connect to the server after multiple attempts");
           setIsPolling(false);
           if (pollingTimeoutRef.current) {
             clearInterval(pollingTimeoutRef.current);
@@ -504,7 +504,7 @@ export function GenerationStatus({
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
   // Render the component based on status
@@ -534,7 +534,7 @@ export function GenerationStatus({
               totalSteps={7}
             />
           </div>
-        ) : generationProgress.status === 'error' && error ? (
+        ) : generationProgress.status === "error" && error ? (
           // Error state
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -576,7 +576,7 @@ export function GenerationStatus({
               )}
             </Button>
           </div>
-        ) : generationProgress.status === 'complete' ? (
+        ) : generationProgress.status === "complete" ? (
           // Complete state
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -599,7 +599,7 @@ export function GenerationStatus({
               totalSteps={7}
             />
           </div>
-        ) : generationProgress.status === 'cancelled' ? (
+        ) : generationProgress.status === "cancelled" ? (
           // Cancelled state
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -645,7 +645,7 @@ export function GenerationStatus({
                   Building Your Website
                 </h2>
                 <p className="text-gray-500 text-sm">
-                  Estimated time remaining: {formatTime(estimatedTime)}
+                  This can take up to 5 minutes. Please don't reload this tab.
                 </p>
               </div>
             </div>

@@ -116,7 +116,7 @@ export default function DashboardPage() {
       // If no user after auth initialized, redirect to login
       if (!user) {
         console.log("No user found, redirecting to login");
-        router.push("/auth/login?redirect=/dashboard");
+        router.push("/login");
         return;
       }
 

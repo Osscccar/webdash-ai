@@ -30,7 +30,7 @@ const stripePromise = loadStripe(
 interface TrialModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onStartTrial: (plan: "monthly" | "annual") => void;
+  onStartTrial: (plan: "monthly" | "annual", promoCode?: string) => void;
   selectedPlan: "monthly" | "annual";
   setSelectedPlan: (plan: "monthly" | "annual") => void;
 }
@@ -49,8 +49,10 @@ export function TrialModal({
           {/* Left side: Plan details */}
           <div className="md:col-span-2 bg-gray-50 p-6">
             <DialogHeader className="mb-6">
-              <DialogTitle className="text-2xl">Try 10Web Pro</DialogTitle>
-              <DialogDescription>7 days free, cancel anytime</DialogDescription>
+              <DialogTitle className="text-2xl">
+                Subscribe to WebDash
+              </DialogTitle>
+              <DialogDescription>14 day money back guarantee</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
@@ -79,13 +81,15 @@ export function TrialModal({
                   onClick={() => setSelectedPlan("annual")}
                 >
                   Annual
-                  <span className="ml-1 text-xs">${PLANS.annual.price}/yr</span>
+                  <span className="ml-1 text-xs">
+                    ${PLANS.annual.price / 12}/mo
+                  </span>
                 </Button>
               </div>
 
               {selectedPlan === "annual" && (
                 <div className="text-center text-sm bg-green-100 text-green-800 p-2 rounded">
-                  Save 50% with annual billing
+                  Save 25% with annual billing
                 </div>
               )}
 
@@ -116,7 +120,9 @@ export function TrialModal({
           <div className="md:col-span-3 p-6">
             <Elements stripe={stripePromise}>
               <PaymentForm
-                onStartTrial={() => onStartTrial(selectedPlan)}
+                onStartTrial={(promoCode) =>
+                  onStartTrial(selectedPlan, promoCode)
+                }
                 planType={selectedPlan}
                 price={PLANS[selectedPlan].price}
               />
@@ -129,7 +135,7 @@ export function TrialModal({
 }
 
 interface PaymentFormProps {
-  onStartTrial: () => void;
+  onStartTrial: (promoCode?: string) => void;
   planType: "monthly" | "annual";
   price: number;
 }
@@ -145,6 +151,8 @@ function PaymentForm({ onStartTrial, planType, price }: PaymentFormProps) {
   const [name, setName] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [isPromoApplied, setIsPromoApplied] = useState(false);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [isValidatingPromo, setIsValidatingPromo] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,22 +165,19 @@ function PaymentForm({ onStartTrial, planType, price }: PaymentFormProps) {
     setIsLoading(true);
 
     try {
-      // In a real implementation, you would validate the card and create a customer/subscription
-      // For demo purposes, we'll just call the onStartTrial callback
+      const cardElement = elements.getElement(CardElement);
 
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (!cardElement) {
+        throw new Error("Card element not found");
+      }
 
-      onStartTrial();
-
-      toast({
-        title: "Trial started successfully",
-        description: "Your 7-day free trial has begun!",
-      });
+      // In a real implementation, the card elements will be handled by Stripe Checkout
+      // We just need to pass the promo code if it's been validated
+      onStartTrial(isPromoApplied ? promoCode : undefined);
     } catch (error: any) {
       setCardError(error.message || "An error occurred");
       toast({
-        title: "Error starting trial",
+        title: "Error processing payment",
         description: error.message || "Please try again",
         variant: "destructive",
       });
@@ -181,34 +186,63 @@ function PaymentForm({ onStartTrial, planType, price }: PaymentFormProps) {
     }
   };
 
-  const handleApplyPromo = () => {
-    if (promoCode.toLowerCase() === "welcome10") {
-      setIsPromoApplied(true);
-      toast({
-        title: "Promo code applied",
-        description: "You've received 10% off your subscription!",
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return;
+
+    setIsValidatingPromo(true);
+
+    try {
+      // Call the API to validate the promo code with Stripe
+      const response = await fetch("/api/stripe/validate-promo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          promoCode,
+          planId: PLANS[planType].id,
+        }),
       });
-    } else {
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Invalid promo code");
+      }
+
+      const result = await response.json();
+
+      if (result.valid) {
+        setIsPromoApplied(true);
+        setPromoDiscount(result.discount);
+        toast({
+          title: "Promo code applied",
+          description: `You've received ${result.discount}% off your subscription!`,
+        });
+      } else {
+        throw new Error(result.message || "Invalid promo code");
+      }
+    } catch (error: any) {
       toast({
         title: "Invalid promo code",
-        description: "Please enter a valid promo code",
+        description: error.message || "Please enter a valid promo code",
         variant: "destructive",
       });
+      setIsPromoApplied(false);
+      setPromoDiscount(0);
+    } finally {
+      setIsValidatingPromo(false);
     }
   };
+
+  // Calculate discounted price
+  const discountedPrice = isPromoApplied
+    ? price - price * (promoDiscount / 100)
+    : price;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <h3 className="text-lg font-normal mb-4">Payment Information</h3>
-        <p className="text-sm text-gray-500 mb-6">
-          Your card won't be charged until your free trial ends on{" "}
-          <strong>
-            {new Date(
-              Date.now() + 7 * 24 * 60 * 60 * 1000
-            ).toLocaleDateString()}
-          </strong>
-        </p>
       </div>
 
       <div className="space-y-4">
@@ -272,7 +306,13 @@ function PaymentForm({ onStartTrial, planType, price }: PaymentFormProps) {
               id="promo"
               placeholder="Enter promo code"
               value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value)}
+              onChange={(e) => {
+                setPromoCode(e.target.value);
+                if (isPromoApplied) {
+                  setIsPromoApplied(false);
+                  setPromoDiscount(0);
+                }
+              }}
               disabled={isPromoApplied}
             />
           </div>
@@ -281,10 +321,10 @@ function PaymentForm({ onStartTrial, planType, price }: PaymentFormProps) {
               type="button"
               variant="outline"
               onClick={handleApplyPromo}
-              disabled={!promoCode || isPromoApplied}
+              disabled={!promoCode || isPromoApplied || isValidatingPromo}
               className="mb-px"
             >
-              Apply
+              {isValidatingPromo ? "Checking..." : "Apply"}
             </Button>
           </div>
         </div>
@@ -299,22 +339,13 @@ function PaymentForm({ onStartTrial, planType, price }: PaymentFormProps) {
         </div>
         {isPromoApplied && (
           <div className="flex justify-between mb-2 text-green-600">
-            <span>Promo (WELCOME10)</span>
-            <span>-{formatCurrency(price * 0.1)}</span>
+            <span>Promo ({promoCode.toUpperCase()})</span>
+            <span>-{formatCurrency(price * (promoDiscount / 100))}</span>
           </div>
         )}
         <div className="flex justify-between font-semibold text-lg">
-          <span>Due today</span>
-          <span>$0</span>
-        </div>
-        <div className="text-sm text-gray-500 mt-1">
-          {isPromoApplied
-            ? `Then ${formatCurrency(price * 0.9)}/${
-                planType === "monthly" ? "month" : "year"
-              } after trial`
-            : `Then ${formatCurrency(price)}/${
-                planType === "monthly" ? "month" : "year"
-              } after trial`}
+          <span>Total Due Today</span>
+          <span>{formatCurrency(discountedPrice)}</span>
         </div>
       </div>
 
@@ -323,16 +354,22 @@ function PaymentForm({ onStartTrial, planType, price }: PaymentFormProps) {
         className="w-full bg-[#f58327] hover:bg-[#f58327]/90 text-white"
         disabled={isLoading}
       >
-        {isLoading ? "Processing..." : "Try 10Web Pro Free for 7 Days"}
+        {isLoading ? "Processing..." : "Subscribe Now"}
       </Button>
 
       <p className="text-xs text-center text-gray-500">
-        By starting your free trial, you agree to our{" "}
-        <a href="/terms" className="text-[#f58327] hover:underline">
+        By continuing, you agree to our{" "}
+        <a
+          href="https://help.webdash.io/terms"
+          className="text-[#f58327] hover:underline"
+        >
           Terms of Service
         </a>{" "}
         and{" "}
-        <a href="/privacy" className="text-[#f58327] hover:underline">
+        <a
+          href="https://help.webdash.io/privacy-policy"
+          className="text-[#f58327] hover:underline"
+        >
           Privacy Policy
         </a>
       </p>

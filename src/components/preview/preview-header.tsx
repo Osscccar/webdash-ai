@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 // Fix the import statement
 import WebDashLogo from "../../../public/WebDash.webp";
 import Image from "next/image";
+import { Edit } from "lucide-react";
 
 interface PreviewHeaderProps {
   deviceView: "desktop" | "mobile";
@@ -31,9 +32,8 @@ export function PreviewHeader({
 
           <div className="flex items-center space-x-4">
             <PrimaryButton onClick={onEditClick}>
-              {hasActiveSubscription
-                ? "Edit Website"
-                : "Try WebDash Pro Free for 7 Days"}
+              <Edit />
+              {hasActiveSubscription ? "Edit & Publish" : "Open Dashboard"}
             </PrimaryButton>
           </div>
         </div>
