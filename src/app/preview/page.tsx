@@ -61,7 +61,7 @@ export default function PreviewPage() {
       try {
         setSiteInfo(JSON.parse(savedSiteInfo));
       } catch (e) {
-        console.error("Error parsing site info:", e);
+        console.error("Error parsing site info", e);
         router.push("/");
         return;
       }
