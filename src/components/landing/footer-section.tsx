@@ -83,7 +83,7 @@ export function FooterSection() {
             <ul className="space-y-2">
               <li>
                 <Link
-                  href="/privacy"
+                  href="https://help.webdash.io/privacy-policy"
                   className="text-gray-500 hover:text-[#f58327] text-sm"
                 >
                   Privacy Policy
@@ -91,7 +91,7 @@ export function FooterSection() {
               </li>
               <li>
                 <Link
-                  href="/terms"
+                  href="https://help.webdash.io/terms"
                   className="text-gray-500 hover:text-[#f58327] text-sm"
                 >
                   Terms of Service

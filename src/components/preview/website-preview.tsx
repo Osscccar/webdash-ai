@@ -126,6 +126,18 @@ export function WebsitePreview({
     }
   };
 
+  // Function to create iframe source URL with parameters
+  const getIframeUrl = () => {
+    if (!websiteUrl) return "";
+
+    // Add parameters to prevent caching
+    const url = new URL(websiteUrl);
+    url.searchParams.set("preview", "true");
+    url.searchParams.set("t", Date.now().toString());
+
+    return url.toString();
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -167,8 +179,11 @@ export function WebsitePreview({
   }
 
   return (
-    <div className="space-y-4" ref={containerRef}>
-      <div className="flex justify-between items-center">
+    <div
+      className="space-y-4 -mx-4 md:-mx-6 lg:-mx-8 xl:-mx-12"
+      ref={containerRef}
+    >
+      <div className="flex justify-between items-center px-4 md:px-6 lg:px-8 xl:px-12">
         <div className="flex items-center">
           <h2 className="text-xl font-semibold mr-4">Website Preview</h2>
 
@@ -178,14 +193,14 @@ export function WebsitePreview({
               <TabsTrigger
                 value="desktop"
                 onClick={() => handleDeviceViewChange("desktop")}
-                className="data-[state=active]:bg-white data-[state=active]:text-black rounded-md"
+                className="data-[state=active]:bg-white data-[state=active]:text-black rounded-md cursor-pointer"
               >
                 Desktop
               </TabsTrigger>
               <TabsTrigger
                 value="mobile"
                 onClick={() => handleDeviceViewChange("mobile")}
-                className="data-[state=active]:bg-white data-[state=active]:text-black rounded-md"
+                className="data-[state=active]:bg-white data-[state=active]:text-black rounded-md cursor-pointer"
               >
                 Mobile
               </TabsTrigger>
@@ -199,7 +214,7 @@ export function WebsitePreview({
             variant="outline"
             size="icon"
             onClick={toggleFullscreen}
-            className="text-gray-500 hover:text-gray-700 focus:ring-2 focus:ring-gray-300"
+            className="text-gray-500 hover:text-gray-700 focus:ring-2 focus:ring-gray-300 cursor-pointer"
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
           >
             {isFullscreen ? (
@@ -214,7 +229,7 @@ export function WebsitePreview({
             variant="outline"
             size="icon"
             onClick={openInNewTab}
-            className="text-gray-500 hover:text-gray-700 focus:ring-2 focus:ring-gray-300"
+            className="text-gray-500 hover:text-gray-700 focus:ring-2 focus:ring-gray-300 cursor-pointer"
             title="Open in New Tab"
           >
             <ExternalLink className="h-4 w-4" />
@@ -225,7 +240,7 @@ export function WebsitePreview({
       {currentDeviceView === "mobile" ? (
         // Mobile (iPhone) view
         <div
-          className={`mx-auto transition-all duration-300 ${
+          className={`mx-auto transition-all duration-300 px-4 md:px-6 lg:px-8 xl:px-12 ${
             isFullscreen ? "h-[calc(100vh-8rem)]" : ""
           }`}
         >
@@ -268,9 +283,13 @@ export function WebsitePreview({
 
                 <iframe
                   ref={iframeRef}
-                  src={websiteUrl}
+                  src={getIframeUrl()}
                   className="w-full h-full border-0 transition-opacity duration-300"
-                  style={{ opacity: iframeLoading ? 0.3 : 1 }}
+                  style={{
+                    opacity: iframeLoading ? 0.3 : 1,
+                    width: "100%",
+                    height: "100%",
+                  }}
                   title="Mobile Website Preview"
                   sandbox="allow-same-origin allow-scripts"
                   loading="lazy"
@@ -284,12 +303,8 @@ export function WebsitePreview({
           </div>
         </div>
       ) : (
-        // Desktop view
-        <div
-          className={`mx-auto bg-white shadow-xl overflow-hidden transition-all duration-300 w-full ${
-            isFullscreen ? "h-[calc(100vh-8rem)]" : ""
-          }`}
-        >
+        // Desktop view - FULL EDGE-TO-EDGE with NO PADDING
+        <div className="w-full overflow-hidden bg-white shadow-xl">
           <div className="w-full h-10 bg-gray-100 flex items-center px-4 border-b">
             <div className="flex items-center space-x-1.5">
               <div className="w-3 h-3 bg-red-500 rounded-full"></div>
@@ -300,14 +315,14 @@ export function WebsitePreview({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 text-gray-400"
+                className="h-6 w-6 text-gray-400 cursor-pointer"
               >
                 <ArrowLeft className="h-3 w-3" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 text-gray-400"
+                className="h-6 w-6 text-gray-400 cursor-pointer"
               >
                 <ArrowRight className="h-3 w-3" />
               </Button>
@@ -317,7 +332,8 @@ export function WebsitePreview({
             </div>
           </div>
 
-          <div className="w-full bg-white relative">
+          {/* ABSOLUTELY NO PADDING OR MARGIN CONTAINER */}
+          <div className="w-full bg-white relative p-0 m-0">
             {/* Loading spinner that disappears when iframe loads */}
             {iframeLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10">
@@ -325,13 +341,19 @@ export function WebsitePreview({
               </div>
             )}
 
+            {/* FULL EDGE-TO-EDGE IFRAME */}
             <iframe
               ref={iframeRef}
-              src={websiteUrl}
-              className={`w-full border-0 transition-opacity duration-300 ${
-                isFullscreen ? "h-[calc(100vh-12rem)]" : "h-[700px]"
-              }`}
-              style={{ opacity: iframeLoading ? 0.3 : 1 }}
+              src={getIframeUrl()}
+              className="border-0 transition-opacity duration-300 w-full"
+              style={{
+                opacity: iframeLoading ? 0.3 : 1,
+                height: isFullscreen ? "calc(100vh - 12rem)" : "700px",
+                display: "block",
+                padding: 0,
+                margin: 0,
+                border: 0,
+              }}
               title="Website Preview"
               sandbox="allow-same-origin allow-scripts"
               loading="lazy"

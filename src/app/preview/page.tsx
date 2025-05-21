@@ -276,6 +276,7 @@ export default function PreviewPage() {
                 />
               </svg>
             </div>
+
             <p className="text-sm text-amber-800">
               Your site will be deleted in 24 hours unless you upgrade.
             </p>

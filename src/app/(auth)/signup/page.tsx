@@ -306,11 +306,17 @@ function SignUpPageContent() {
 
             <p className="text-xs text-center text-gray-500">
               By creating an account, you agree to our{" "}
-              <Link href="/terms" className="text-[#f58327] hover:underline">
+              <Link
+                href="https://help.webdash.io/terms"
+                className="text-[#f58327] hover:underline"
+              >
                 Terms of Service
               </Link>{" "}
               and{" "}
-              <Link href="/privacy" className="text-[#f58327] hover:underline">
+              <Link
+                href="https://help.webdash.io/privacy-policy"
+                className="text-[#f58327] hover:underline"
+              >
                 Privacy Policy
               </Link>
             </p>
