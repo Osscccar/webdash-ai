@@ -61,21 +61,26 @@ export function PaymentCard({
     setShowPaymentForm(false);
   };
 
+  // Modified handlePaymentSuccess function in PaymentCard
   const handlePaymentSuccess = async (productId: string) => {
     try {
-      onStartTrial(productId);
+      // Process actual payment instead of starting a trial
+      // This should call your payment API and activate the subscription
+
       toast({
-        title: "Subscription started!",
+        title: "Subscription activated!",
         description: "Your subscription has been activated successfully.",
       });
+
+      // Redirect to dashboard after successful payment
       setTimeout(() => {
         router.push("/dashboard");
-      }, 100);
+      }, 1500);
     } catch (error) {
-      console.error("Error starting subscription:", error);
+      console.error("Error processing payment:", error);
       toast({
         title: "Error",
-        description: "There was a problem starting your subscription.",
+        description: "There was a problem processing your payment.",
         variant: "destructive",
       });
     }

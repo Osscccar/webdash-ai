@@ -19,7 +19,6 @@ export default function PreviewPage() {
 
   const [deviceView, setDeviceView] = useState<"desktop" | "mobile">("desktop");
   const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
-  const [hasTrialStarted, setHasTrialStarted] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | undefined>(
     undefined
   );
@@ -193,7 +192,7 @@ export default function PreviewPage() {
 
   // Updated handleEditClick function to check for subscription
   const handleEditClick = () => {
-    if (hasActiveSubscription || hasTrialStarted) {
+    if (hasActiveSubscription) {
       // If user has active subscription, redirect directly to dashboard
       router.push("/dashboard");
     } else {
@@ -203,15 +202,14 @@ export default function PreviewPage() {
   };
 
   const handleElementClick = () => {
-    if (!hasActiveSubscription && !hasTrialStarted) {
+    if (!hasActiveSubscription) {
       setIsTrialModalOpen(true);
     }
   };
 
-  const handleStartTrial = async (planId: string) => {
-    // This would normally connect to your backend to start the trial
+  const handleStartSubscription = async (planId: string) => {
+    // This would normally connect to your backend to activate subscription
     setSelectedPlan(planId);
-    setHasTrialStarted(true);
     setIsTrialModalOpen(false);
 
     toast({
@@ -248,16 +246,22 @@ export default function PreviewPage() {
   const pageBlurred =
     showAuthPopup || showGenerationPopup || showWebsiteReadyPopup;
 
+  // Check if we should show the warning banner
+  // Only show when website is complete AND user doesn't have subscription
+  const showWarningBanner =
+    !hasActiveSubscription && website && !showGenerationStatus;
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <PreviewHeader
         deviceView={deviceView}
         setDeviceView={setDeviceView}
         onEditClick={handleEditClick}
-        hasActiveSubscription={hasActiveSubscription || hasTrialStarted}
+        hasActiveSubscription={hasActiveSubscription}
       />
 
-      {!hasActiveSubscription && !hasTrialStarted && (
+      {/* Warning banner - only show when website is complete and no subscription */}
+      {showWarningBanner && (
         <div className="bg-amber-50 border border-amber-200 w-full py-2 px-4">
           <div className="container mx-auto flex items-center">
             <div className="p-1 rounded-full bg-amber-100 mr-3">
@@ -282,6 +286,18 @@ export default function PreviewPage() {
             </p>
           </div>
         </div>
+      )}
+
+      {process.env.NODE_ENV === "development" && (
+        <button
+          onClick={() => {
+            localStorage.clear();
+            window.location.reload();
+          }}
+          className="fixed bottom-4 right-4 bg-red-500 text-white p-2 rounded-md text-xs z-50"
+        >
+          Reset Storage & Reload
+        </button>
       )}
 
       <main
@@ -318,7 +334,7 @@ export default function PreviewPage() {
       <PaymentCard
         isOpen={isTrialModalOpen}
         onClose={() => setIsTrialModalOpen(false)}
-        onStartTrial={handleStartTrial}
+        onStartTrial={handleStartSubscription}
         selectedPlan={selectedPlan}
       />
     </div>

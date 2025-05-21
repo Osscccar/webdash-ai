@@ -2,19 +2,55 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { GeneratePrompt } from "@/components/landing/generate-prompt";
 import { Sparkles, Wand2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingRedirect, setIsCheckingRedirect] = useState(true);
+
+  // Check if user has an existing website and should be redirected
+  useEffect(() => {
+    const checkForRedirect = async () => {
+      // Wait for auth to load
+      if (authLoading) return;
+
+      try {
+        // Check if there's an existing generated website
+        const savedWebsite = localStorage.getItem("webdash_website");
+
+        if (savedWebsite) {
+          // User has already generated a website
+          if (user) {
+            // If signed in, redirect to dashboard
+            router.push("/dashboard");
+          } else {
+            // If not signed in, redirect to login
+            router.push("/login");
+          }
+          return;
+        }
+
+        // No redirect needed
+        setIsCheckingRedirect(false);
+      } catch (error) {
+        console.error("Error checking for redirect:", error);
+        setIsCheckingRedirect(false);
+      }
+    };
+
+    checkForRedirect();
+  }, [router, authLoading, user]);
 
   const handleGenerateWebsite = async () => {
     if (!prompt) return;
@@ -54,6 +90,18 @@ export default function OnboardingPage() {
       setIsLoading(false);
     }
   };
+
+  // Show loading state during redirect check
+  if (isCheckingRedirect) {
+    return (
+      <div className="relative flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f58327] mb-4 mx-auto"></div>
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen overflow-hidden">

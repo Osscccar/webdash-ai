@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { PrimaryButton } from "@/components/ui/custom-button";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { Edit } from "lucide-react";
+import { Edit, ChevronRight, Sparkles } from "lucide-react";
 import WebDashLogo from "../../../public/WebDash.webp";
 
 interface PreviewHeaderProps {
@@ -48,9 +48,26 @@ export function PreviewHeader({
           </Link>
 
           <div className="flex items-center space-x-4">
-            <PrimaryButton onClick={handleEditClick}>
-              <Edit className="mr-2 h-4 w-4" />
-              {hasActiveSubscription ? "Edit & Publish" : "Edit & Publish"}
+            <PrimaryButton
+              onClick={handleEditClick}
+              className="group relative overflow-hidden transition-all duration-300 hover:shadow-lg cursor-pointer"
+            >
+              {hasActiveSubscription ? (
+                <>
+                  <Edit className="mr-2 h-4 w-4" />
+                  <span>Edit & Publish</span>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center">
+                    <Sparkles className="mr-2 h-4 w-4 animate-pulse" />
+
+                    <span>Edit & Publish</span>
+                    <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </div>
+                  <span className="absolute inset-0 -z-10 bg-gradient-to-r from-orange-500/20 to-orange-600/20 opacity-0 blur-md transition-opacity group-hover:opacity-100"></span>
+                </>
+              )}
             </PrimaryButton>
           </div>
         </div>

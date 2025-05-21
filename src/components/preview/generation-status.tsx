@@ -4,9 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { GenerationProgress } from "@/components/generate/generation-progress";
-import { GenerationStep } from "@/types";
 import { useToast } from "@/components/ui/use-toast";
+import { GenerationStep } from "@/types";
 
 // Helper function to generate unique job ID
 const generateJobId = () => {
@@ -29,9 +28,8 @@ export function GenerationStatus({
   onRetry,
 }: GenerationStatusProps) {
   const { toast } = useToast();
-  const [estimatedTime, setEstimatedTime] = useState<number>(120); // 2 minutes in seconds
   const [error, setError] = useState<string | null>(null);
-  const [isPolling, setIsPolling] = useState(false); // Start false until job is verified
+  const [isPolling, setIsPolling] = useState(false);
   const [verifyingJob, setVerifyingJob] = useState(true);
   const [isRetrying, setIsRetrying] = useState(false);
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -51,9 +49,11 @@ export function GenerationStatus({
   // Keep original generation parameters to use for retries
   const [generationParams, setGenerationParams] = useState<any>(null);
 
-  // Handle local cancellation - we don't update Firestore
+  // Reference to actual API-reported progress
+  const actualProgressRef = useRef(0);
+
+  // Handle local cancellation
   const handleCancel = useCallback(() => {
-    // Just stop polling and update local state
     setIsPolling(false);
     setGenerationProgress({
       step: 0,
@@ -63,16 +63,12 @@ export function GenerationStatus({
       status: "cancelled",
     });
 
-    // Clear polling interval
     if (pollingTimeoutRef.current) {
       clearInterval(pollingTimeoutRef.current);
       pollingTimeoutRef.current = null;
     }
 
-    // Call parent cancel handler if provided
-    if (onCancel) {
-      onCancel();
-    }
+    if (onCancel) onCancel();
 
     toast({
       title: "Generation cancelled",
@@ -83,29 +79,18 @@ export function GenerationStatus({
   // Handle retry with the same parameters but a new job ID
   const handleRetry = async () => {
     if (!generationParams) {
-      // If we don't have generation parameters, just reload the page
       window.location.reload();
       return;
     }
 
     setIsRetrying(true);
     try {
-      // Generate a new job ID
       const newJobId = generateJobId();
+      const newParams = { ...generationParams, jobId: newJobId };
 
-      // Copy the saved parameters and update the job ID
-      const newParams = {
-        ...generationParams,
-        jobId: newJobId,
-      };
-
-      // Start the new job
-      console.log("Retrying with new job ID:", newJobId);
       const response = await fetch("/api/start-job", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newParams),
       });
 
@@ -121,14 +106,11 @@ export function GenerationStatus({
         throw new Error(data.error || "Failed to start website generation");
       }
 
-      // Update localStorage with the new job ID
       localStorage.setItem("webdash_job_id", newJobId);
 
-      // Tell the parent component to switch to the new job ID
       if (onRetry) {
         onRetry(newJobId);
       } else {
-        // As a fallback, reload the page
         window.location.reload();
       }
     } catch (error: any) {
@@ -153,22 +135,16 @@ export function GenerationStatus({
 
         if (!response.ok) {
           console.error("Error verifying job:", response.status);
-          // Job doesn't exist or error fetching
           setError("Job does not exist or cannot be accessed");
           setIsPolling(false);
           setVerifyingJob(false);
-
-          // Notify parent to handle the situation
-          if (onCancel) {
-            onCancel();
-          }
+          if (onCancel) onCancel();
           return;
         }
 
         const data = await response.json();
         if (!data.job) {
           console.log("Job not found, may still be starting...");
-          // Give it a moment to appear in the database
           setTimeout(() => verifyJobExists(), 2000);
           return;
         }
@@ -235,17 +211,14 @@ export function GenerationStatus({
               "webdash_website",
               JSON.stringify(websiteData)
             );
-
             setVerifyingJob(false);
             setIsPolling(false);
-
-            // Call onComplete callback with the website data
             onComplete(websiteData);
             return;
           }
         }
 
-        // Job exists, we can start polling
+        // Job exists, start polling
         console.log("Job verified, starting to poll:", data.job);
         setIsPolling(true);
         setVerifyingJob(false);
@@ -254,38 +227,87 @@ export function GenerationStatus({
         setError("Error connecting to the server");
         setIsPolling(false);
         setVerifyingJob(false);
-
-        if (onCancel) {
-          onCancel();
-        }
+        if (onCancel) onCancel();
       }
     };
 
     verifyJobExists();
-  }, [jobId, onCancel]);
+  }, [jobId, onCancel, onComplete]);
 
-  // Countdown timer for estimated time
-  useEffect(() => {
-    if (
-      estimatedTime > 0 &&
-      isPolling &&
-      generationProgress.status === "processing"
-    ) {
-      const timer = setTimeout(() => {
-        setEstimatedTime((prev) => prev - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [estimatedTime, isPolling, generationProgress.status]);
-
-  // Start polling for job status only after job is verified
+  // SIMPLER APPROACH: Evenly distribute steps across time with fixed durations
+  // Poll for job status and update the display based on real status
   useEffect(() => {
     if (!jobId || !isPolling) return;
 
-    console.log("Starting to poll job status for:", jobId);
-    let retryCount = 0;
-    const maxRetries = 3;
+    // 1. Set up display progression
+    // Assuming about 3 minutes total (180 seconds)
+    // 7 steps = ~25 seconds per step
+    const secondsPerStep = 25;
+    let startTime = Date.now();
+    let currentDisplayStep = 0;
 
+    // Function to update display based on elapsed time
+    const updateDisplayProgress = () => {
+      const elapsedSeconds = (Date.now() - startTime) / 1000;
+      const estimatedStep = Math.min(
+        Math.floor(elapsedSeconds / secondsPerStep),
+        6 // Max is step 6 (index), which is the last step
+      );
+
+      // Only move forward, never backward
+      if (estimatedStep > currentDisplayStep) {
+        currentDisplayStep = estimatedStep;
+
+        // Map step number to step name
+        let stepName;
+        switch (currentDisplayStep) {
+          case 0:
+            stepName = GenerationStep.CREATING_SITE;
+            break;
+          case 1:
+            stepName = GenerationStep.GENERATING_SITEMAP;
+            break;
+          case 2:
+            stepName = GenerationStep.DESIGNING_PAGES;
+            break;
+          case 3:
+            stepName = GenerationStep.SETTING_UP_NAVIGATION;
+            break;
+          case 4:
+            stepName = GenerationStep.OPTIMIZING_FOR_DEVICES;
+            break;
+          case 5:
+            stepName = GenerationStep.BOOSTING_SPEED;
+            break;
+          case 6:
+            stepName = GenerationStep.FINALIZING;
+            break;
+          default:
+            stepName = GenerationStep.CREATING_SITE;
+        }
+
+        // Calculate progress within step (0-100%)
+        const totalDuration = 7 * secondsPerStep;
+        const overallProgress = Math.min(
+          (elapsedSeconds / totalDuration) * 100,
+          99
+        );
+
+        // Update the display
+        setGenerationProgress({
+          step: currentDisplayStep,
+          totalSteps: 7,
+          currentStep: stepName,
+          progress: overallProgress,
+          status: "processing",
+        });
+      }
+    };
+
+    // Start display update timer
+    const displayTimer = setInterval(updateDisplayProgress, 1000);
+
+    // 2. Set up actual status polling from API
     const checkJobStatus = async () => {
       try {
         console.log(`Polling job status: ${jobId}`);
@@ -293,21 +315,8 @@ export function GenerationStatus({
 
         if (!response.ok) {
           console.error(`Error fetching job status: ${response.status}`);
-          retryCount++;
-
-          if (retryCount >= maxRetries) {
-            setError("Failed to get job status after multiple attempts");
-            setIsPolling(false);
-            if (pollingTimeoutRef.current) {
-              clearInterval(pollingTimeoutRef.current);
-              pollingTimeoutRef.current = null;
-            }
-          }
           return;
         }
-
-        // Reset retry counter on successful response
-        retryCount = 0;
 
         const data = await response.json();
         const jobData = data.job;
@@ -324,7 +333,12 @@ export function GenerationStatus({
           jobData.progress
         );
 
-        // Save the generation parameters for potential retries if they exist
+        // Store the actual progress from the API
+        if (jobData.progress) {
+          actualProgressRef.current = jobData.progress;
+        }
+
+        // Save parameters for retry if needed
         if (jobData.prompt || jobData.businessName) {
           setGenerationParams({
             jobId: jobData.jobId,
@@ -342,45 +356,13 @@ export function GenerationStatus({
           });
         }
 
-        // Update progress based on job status
-        if (jobData.status === "processing") {
-          // Map progress to steps
-          let currentStep = GenerationStep.CREATING_SITE;
-          let stepNumber = 0;
-
-          if (jobData.progress <= 20) {
-            currentStep = GenerationStep.CREATING_SITE;
-            stepNumber = 0;
-          } else if (jobData.progress <= 40) {
-            currentStep = GenerationStep.GENERATING_SITEMAP;
-            stepNumber = 1;
-          } else if (jobData.progress <= 60) {
-            currentStep = GenerationStep.DESIGNING_PAGES;
-            stepNumber = 2;
-          } else if (jobData.progress <= 80) {
-            currentStep = GenerationStep.OPTIMIZING_FOR_DEVICES;
-            stepNumber = 3;
-          } else {
-            currentStep = GenerationStep.FINALIZING;
-            stepNumber = 4;
-          }
+        // Check for completion
+        if (jobData.status === "complete" || jobData.status === "completed") {
+          // Job is complete - stop display timer and update to 100%
+          clearInterval(displayTimer);
 
           setGenerationProgress({
-            step: stepNumber,
-            totalSteps: 7,
-            currentStep,
-            progress: jobData.progress,
-            status: "processing",
-          });
-        } else if (
-          jobData.status === "complete" ||
-          jobData.status === "completed"
-        ) {
-          // Job is complete
-          console.log("Job completed successfully:", jobData);
-
-          setGenerationProgress({
-            step: 7,
+            step: 6, // Last step index
             totalSteps: 7,
             currentStep: GenerationStep.FINALIZING,
             progress: 100,
@@ -390,7 +372,6 @@ export function GenerationStatus({
           // Get the site URL from the response
           const siteUrl = jobData.site_url || jobData.siteUrl;
 
-          // Store the site URL and other data
           if (siteUrl) {
             const websiteData = {
               jobId: jobId,
@@ -400,8 +381,6 @@ export function GenerationStatus({
               status: "active",
               domainId: jobData.domain_id || jobData.domainId,
             };
-
-            console.log("Saving website data and redirecting:", websiteData);
 
             localStorage.setItem(
               "webdash_website",
@@ -430,7 +409,9 @@ export function GenerationStatus({
             }
           }
         } else if (jobData.status === "failed") {
-          // Job failed
+          // Job failed - stop display timer
+          clearInterval(displayTimer);
+
           setGenerationProgress({
             step: 0,
             totalSteps: 7,
@@ -452,6 +433,9 @@ export function GenerationStatus({
             variant: "destructive",
           });
         } else if (jobData.status === "cancelled") {
+          // Job cancelled - stop display timer
+          clearInterval(displayTimer);
+
           setGenerationProgress({
             step: 0,
             totalSteps: 7,
@@ -472,27 +456,18 @@ export function GenerationStatus({
         }
       } catch (error) {
         console.error("Error polling job status:", error);
-        retryCount++;
-
-        if (retryCount >= maxRetries) {
-          setError("Failed to connect to the server after multiple attempts");
-          setIsPolling(false);
-          if (pollingTimeoutRef.current) {
-            clearInterval(pollingTimeoutRef.current);
-            pollingTimeoutRef.current = null;
-          }
-        }
       }
     };
 
     // Immediately check status once
     checkJobStatus();
 
-    // Then set up the interval
-    pollingTimeoutRef.current = setInterval(checkJobStatus, 2000);
+    // Then set up the interval - poll every 3 seconds
+    pollingTimeoutRef.current = setInterval(checkJobStatus, 3000);
 
-    // Cleanup on unmount or when polling stops
+    // Cleanup
     return () => {
+      clearInterval(displayTimer);
       if (pollingTimeoutRef.current) {
         clearInterval(pollingTimeoutRef.current);
         pollingTimeoutRef.current = null;
@@ -500,14 +475,6 @@ export function GenerationStatus({
     };
   }, [jobId, isPolling, onComplete, onCancel, toast]);
 
-  // Format time from seconds to MM:SS
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
-
-  // Render the component based on status
   return (
     <Card className="w-full shadow-sm">
       <CardContent className="p-6 space-y-6">
@@ -520,19 +487,27 @@ export function GenerationStatus({
               </div>
               <div>
                 <h2 className="font-semibold text-gray-900">
-                  Verifying job status
+                  Building Your Website
                 </h2>
                 <p className="text-gray-500 text-sm">
-                  Please wait while we connect to your job...
+                  This can take a few minutes. Please don't reload this tab.
                 </p>
               </div>
             </div>
-            <GenerationProgress
-              progress={0}
-              currentStep={GenerationStep.CREATING_SITE}
-              step={0}
-              totalSteps={7}
-            />
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm font-normal mb-1">
+                <span className="text-gray-700">Generation Progress</span>
+                <span className="text-gray-900 font-semibold">
+                  {Math.round(generationProgress.progress)}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2">
+                <div
+                  className="bg-[#f58327] h-2 rounded-full"
+                  style={{ width: `${generationProgress.progress}%` }}
+                ></div>
+              </div>
+            </div>
           </div>
         ) : generationProgress.status === "error" && error ? (
           // Error state
@@ -559,7 +534,7 @@ export function GenerationStatus({
             </div>
 
             <Button
-              className="w-full relative"
+              className="w-full relative bg-[#f58327] hover:bg-[#f58327]/90 text-white cursor-pointer"
               onClick={handleRetry}
               disabled={isRetrying}
             >
@@ -571,7 +546,7 @@ export function GenerationStatus({
               ) : (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Try Again With Same Settings
+                  Try Again
                 </>
               )}
             </Button>
@@ -592,12 +567,60 @@ export function GenerationStatus({
                 </p>
               </div>
             </div>
-            <GenerationProgress
-              progress={100}
-              currentStep={GenerationStep.FINALIZING}
-              step={7}
-              totalSteps={7}
-            />
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm font-normal mb-1">
+                <span className="text-gray-700">Generation Progress</span>
+                <span className="text-gray-900 font-semibold">100%</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2">
+                <div className="bg-green-500 h-2 rounded-full w-full"></div>
+              </div>
+            </div>
+            <div className="space-y-6">
+              {[0, 1, 2, 3, 4, 5, 6].map((index) => {
+                const isCompleted = true;
+                let stepName;
+
+                switch (index) {
+                  case 0:
+                    stepName = GenerationStep.CREATING_SITE;
+                    break;
+                  case 1:
+                    stepName = GenerationStep.GENERATING_SITEMAP;
+                    break;
+                  case 2:
+                    stepName = GenerationStep.DESIGNING_PAGES;
+                    break;
+                  case 3:
+                    stepName = GenerationStep.SETTING_UP_NAVIGATION;
+                    break;
+                  case 4:
+                    stepName = GenerationStep.OPTIMIZING_FOR_DEVICES;
+                    break;
+                  case 5:
+                    stepName = GenerationStep.BOOSTING_SPEED;
+                    break;
+                  case 6:
+                    stepName = GenerationStep.FINALIZING;
+                    break;
+                  default:
+                    stepName = GenerationStep.CREATING_SITE;
+                }
+
+                return (
+                  <div key={index} className="flex items-center space-x-3">
+                    <div className="flex-shrink-0">
+                      <div className="bg-green-50 rounded-full p-1">
+                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{stepName}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ) : generationProgress.status === "cancelled" ? (
           // Cancelled state
@@ -616,7 +639,7 @@ export function GenerationStatus({
               </div>
             </div>
             <Button
-              className="w-full"
+              className="w-full bg-[#f58327] hover:bg-[#f58327]/90 text-white cursor-pointer"
               onClick={handleRetry}
               disabled={isRetrying}
             >
@@ -645,20 +668,101 @@ export function GenerationStatus({
                   Building Your Website
                 </h2>
                 <p className="text-gray-500 text-sm">
-                  This can take up to 5 minutes. Please don't reload this tab.
+                  This can take a few minutes. Please don't reload this tab.
                 </p>
               </div>
             </div>
-            <GenerationProgress
-              progress={generationProgress.progress}
-              currentStep={generationProgress.currentStep}
-              step={generationProgress.step}
-              totalSteps={generationProgress.totalSteps}
-            />
+
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm font-normal mb-1">
+                <span className="text-gray-700">Generation Progress</span>
+                <span className="text-gray-900 font-semibold">
+                  {Math.round(generationProgress.progress)}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2">
+                <div
+                  className="bg-[#f58327] h-2 rounded-full"
+                  style={{ width: `${generationProgress.progress}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {[0, 1, 2, 3, 4, 5, 6].map((index) => {
+                const isCompleted = index < generationProgress.step;
+                const isActive = index === generationProgress.step;
+                const isPending = index > generationProgress.step;
+                let stepName;
+
+                switch (index) {
+                  case 0:
+                    stepName = GenerationStep.CREATING_SITE;
+                    break;
+                  case 1:
+                    stepName = GenerationStep.GENERATING_SITEMAP;
+                    break;
+                  case 2:
+                    stepName = GenerationStep.DESIGNING_PAGES;
+                    break;
+                  case 3:
+                    stepName = GenerationStep.SETTING_UP_NAVIGATION;
+                    break;
+                  case 4:
+                    stepName = GenerationStep.OPTIMIZING_FOR_DEVICES;
+                    break;
+                  case 5:
+                    stepName = GenerationStep.BOOSTING_SPEED;
+                    break;
+                  case 6:
+                    stepName = GenerationStep.FINALIZING;
+                    break;
+                  default:
+                    stepName = GenerationStep.CREATING_SITE;
+                }
+
+                return (
+                  <div
+                    key={index}
+                    className={`flex items-center space-x-3 ${
+                      isPending ? "opacity-50" : ""
+                    }`}
+                  >
+                    <div className="flex-shrink-0">
+                      {isCompleted ? (
+                        <div className="bg-green-50 rounded-full p-1">
+                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        </div>
+                      ) : isActive ? (
+                        <div className="bg-blue-50 rounded-full p-1">
+                          <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-gray-200 rounded-full h-7 w-7"></div>
+                      )}
+                    </div>
+                    <div>
+                      <p
+                        className={`font-medium ${
+                          isActive
+                            ? "text-gray-900"
+                            : isCompleted
+                            ? "text-gray-900"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        {stepName}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             {onCancel && (
               <Button
                 variant="outline"
-                className="w-full"
+                className="w-full cursor-pointer"
                 onClick={handleCancel}
               >
                 Cancel Generation

@@ -2,7 +2,6 @@
 
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle, Loader2 } from "lucide-react";
-import { motion } from "framer-motion";
 import { GenerationStep } from "@/types";
 
 interface GenerationProgressProps {
@@ -18,7 +17,7 @@ export function GenerationProgress({
   step,
   totalSteps,
 }: GenerationProgressProps) {
-  // Define all steps
+  // Define all steps without substeps for simpler display
   const steps = [
     {
       name: GenerationStep.CREATING_SITE,
@@ -34,8 +33,7 @@ export function GenerationProgress({
     },
     {
       name: GenerationStep.SETTING_UP_NAVIGATION,
-      description:
-        "Ensuring visitors easily find what they need with clear menus and links",
+      description: "Ensuring visitors easily find what they need",
     },
     {
       name: GenerationStep.OPTIMIZING_FOR_DEVICES,
@@ -70,12 +68,9 @@ export function GenerationProgress({
           const isPending = index > step;
 
           return (
-            <motion.div
+            <div
               key={s.name}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className={`flex items-start space-x-4 ${
+              className={`flex items-center space-x-4 ${
                 isPending ? "opacity-50" : ""
               }`}
             >
@@ -85,24 +80,16 @@ export function GenerationProgress({
                     <CheckCircle className="h-5 w-5 text-green-600" />
                   </div>
                 ) : isActive ? (
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{
-                      repeat: Number.POSITIVE_INFINITY,
-                      duration: 2,
-                      ease: "linear",
-                    }}
-                    className="bg-gray-50 rounded-full p-1"
-                  >
-                    <Loader2 className="h-5 w-5 text-gray-600" />
-                  </motion.div>
+                  <div className="bg-blue-50 rounded-full p-1">
+                    <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
+                  </div>
                 ) : (
                   <div className="border-2 border-dashed border-gray-200 rounded-full h-7 w-7"></div>
                 )}
               </div>
               <div className="flex-1">
                 <p
-                  className={`font-normal ${
+                  className={`font-medium ${
                     isActive
                       ? "text-gray-900"
                       : isCompleted
@@ -120,7 +107,7 @@ export function GenerationProgress({
                   {s.description}
                 </p>
               </div>
-            </motion.div>
+            </div>
           );
         })}
       </div>
