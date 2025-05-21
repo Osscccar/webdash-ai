@@ -32,9 +32,18 @@ export default function DashboardLayout({
       const hasSubscription = userData?.webdashSubscription?.active || false;
 
       if (!hasSubscription) {
-        // No subscription - redirect to preview
-        router.push("/preview");
-        return;
+        // Check if user has generated a website
+        const savedWebsite = localStorage.getItem("webdash_website");
+
+        if (savedWebsite || !hasSubscription) {
+          // User has generated a website but hasn't paid - redirect to preview
+          router.push("/preview");
+          return;
+        } else {
+          // User hasn't generated a website and hasn't paid - redirect to root
+          router.push("/");
+          return;
+        }
       }
 
       // User is authenticated and has subscription - allow access

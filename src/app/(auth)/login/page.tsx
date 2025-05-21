@@ -270,7 +270,7 @@ function LoginPageContent() {
             <p className="text-sm text-gray-600">
               Don't have an account?{" "}
               <Link
-                href={`/auth/signup${
+                href={`/signup${
                   redirect && redirect !== "/dashboard"
                     ? `?redirect=${encodeURIComponent(redirect)}`
                     : ""

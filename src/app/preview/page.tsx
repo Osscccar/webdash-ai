@@ -250,6 +250,7 @@ export default function PreviewPage() {
   // Only show when website is complete AND user doesn't have subscription
   const showWarningBanner =
     !hasActiveSubscription && website && !showGenerationStatus;
+  const isGenerating = showGenerationStatus && jobId;
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
@@ -258,6 +259,7 @@ export default function PreviewPage() {
         setDeviceView={setDeviceView}
         onEditClick={handleEditClick}
         hasActiveSubscription={hasActiveSubscription}
+        isGenerating={isGenerating} // Pass the flag here
       />
 
       {/* Warning banner - only show when website is complete and no subscription */}

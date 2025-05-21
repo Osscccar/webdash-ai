@@ -84,6 +84,42 @@ export default function EditorPage() {
     },
   ]);
 
+  useEffect(() => {
+    // Check if there's an existing generated website
+    const checkForExistingWebsite = () => {
+      const savedWebsite = localStorage.getItem("webdash_website");
+
+      if (savedWebsite) {
+        // User has already generated a website - redirect to preview
+        toast({
+          title: "Website Already Generated",
+          description:
+            "Your website has already been generated. You can view and manage it from the preview page.",
+          variant: "info",
+        });
+
+        router.push("/preview");
+        return true;
+      }
+
+      return false;
+    };
+
+    const hasExistingWebsite = checkForExistingWebsite();
+
+    if (!hasExistingWebsite) {
+      setIsLoading(false);
+    }
+  }, [router, toast]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f58327]"></div>
+      </div>
+    );
+  }
+
   // Initial sections for the visual page tree
   const [sections, setSections] = useState([
     // Home page sections

@@ -189,11 +189,11 @@ export function WebsitePreview({
 
           {/* Responsiveness Tabs */}
           <Tabs value={currentDeviceView} className="w-auto">
-            <TabsList className="grid w-auto grid-cols-2 h-9 bg-gray-100">
+            <TabsList className="grid w-auto grid-cols-2 h-fit bg-gray-100">
               <TabsTrigger
                 value="desktop"
                 onClick={() => handleDeviceViewChange("desktop")}
-                className="data-[state=active]:bg-white data-[state=active]:text-black rounded-md cursor-pointer"
+                className="flx data-[state=active]:bg-white  data-[state=active]:text-black rounded-md cursor-pointer"
               >
                 Desktop
               </TabsTrigger>
