@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PreviewHeader } from "@/components/preview/preview-header";
 import { WebsitePreview } from "@/components/preview/website-preview";
@@ -13,21 +13,31 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/use-toast";
 
 export default function PreviewPage() {
-  const router = useRouter();
-  const { user, userData, loading: authLoading } = useAuth();
-  const { toast } = useToast();
+  // Debug hook call order
+  console.log("PreviewPage: Starting render");
 
+  // 1. Router hook
+  const router = useRouter();
+  console.log("PreviewPage: useRouter called");
+
+  // 2. Toast hook
+  const { toast } = useToast();
+  console.log("PreviewPage: useToast called");
+
+  // 3. Auth hook
+  const { user, userData, loading: authLoading } = useAuth();
+  console.log("PreviewPage: useAuth called", { user: !!user, authLoading });
+
+  // 4. All useState hooks in the same order every time
   const [deviceView, setDeviceView] = useState<"desktop" | "mobile">("desktop");
   const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | undefined>(
     undefined
   );
   const [isLoading, setIsLoading] = useState(true);
-  const [shouldRedirect, setShouldRedirect] = useState(false);
-
-  // Website and generation state
   const [website, setWebsite] = useState<any>(null);
   const [siteInfo, setSiteInfo] = useState<any>(null);
+  const [initComplete, setInitComplete] = useState(false);
   const [generationState, setGenerationState] = useState<{
     showAuthPopup: boolean;
     showGenerationPopup: boolean;
@@ -42,96 +52,155 @@ export default function PreviewPage() {
     jobId: null,
   });
 
-  // Check if the user has an active subscription
-  const hasActiveSubscription = userData?.webdashSubscription?.active || false;
+  // 5. useRef hook
+  const mountedRef = useRef(true);
+  const initRef = useRef(false);
 
-  // Handle redirect outside of render
+  console.log("PreviewPage: All hooks called");
+
+  // 6. useEffect hook - always called in the same position
   useEffect(() => {
-    if (shouldRedirect) {
-      router.push("/");
+    console.log("PreviewPage: useEffect triggered");
+
+    // Prevent double initialization
+    if (initRef.current) {
+      console.log("PreviewPage: Already initialized, skipping");
+      return;
     }
-  }, [shouldRedirect, router]);
+    initRef.current = true;
 
-  // Initial data load
-  useEffect(() => {
     async function initialize() {
-      // Check if there's a website information in progress
-      const savedSiteInfo = localStorage.getItem("webdash_site_info");
-      if (!savedSiteInfo) {
-        toast({
-          title: "No website in progress",
-          description: "Please generate a website first",
-        });
-        setShouldRedirect(true);
-        return;
-      }
+      console.log("PreviewPage: Starting initialization");
 
       try {
-        setSiteInfo(JSON.parse(savedSiteInfo));
-      } catch (e) {
-        console.error("Error parsing site info", e);
-        setShouldRedirect(true);
-        return;
-      }
+        // Step 1: Check for site info
+        const savedSiteInfo = localStorage.getItem("webdash_site_info");
+        if (!savedSiteInfo) {
+          console.log("PreviewPage: No site info found, redirecting to home");
+          if (mountedRef.current) {
+            toast({
+              title: "No website in progress",
+              description: "Please generate a website first",
+            });
+            router.push("/");
+          }
+          return;
+        }
 
-      // Check for existing website first
-      const savedWebsite = localStorage.getItem("webdash_website");
-      if (savedWebsite) {
+        // Step 2: Parse site info
+        let parsedSiteInfo;
         try {
-          const websiteData = JSON.parse(savedWebsite);
-          if (websiteData?.siteUrl) {
-            // We have a completed website, no need for generation
-            setWebsite(websiteData);
+          parsedSiteInfo = JSON.parse(savedSiteInfo);
+          console.log("PreviewPage: Site info parsed successfully");
+          if (mountedRef.current) {
+            setSiteInfo(parsedSiteInfo);
+          }
+        } catch (e) {
+          console.error("PreviewPage: Error parsing site info", e);
+          if (mountedRef.current) {
+            router.push("/");
+          }
+          return;
+        }
+
+        // Step 3: Check for existing website
+        const savedWebsite = localStorage.getItem("webdash_website");
+        if (savedWebsite) {
+          try {
+            const websiteData = JSON.parse(savedWebsite);
+            if (websiteData?.siteUrl) {
+              console.log("PreviewPage: Existing website found");
+              if (mountedRef.current) {
+                setWebsite(websiteData);
+                setGenerationState({
+                  showAuthPopup: false,
+                  showGenerationPopup: false,
+                  showGenerationStatus: false,
+                  showWebsiteReadyPopup: false,
+                  jobId: null,
+                });
+                setIsLoading(false);
+                setInitComplete(true);
+              }
+              return;
+            }
+          } catch (e) {
+            console.error("PreviewPage: Error parsing website data:", e);
+          }
+        }
+
+        // Step 4: Wait for auth to complete
+        if (authLoading) {
+          console.log("PreviewPage: Auth still loading, waiting...");
+          // Don't proceed until auth is complete
+          return;
+        }
+
+        console.log("PreviewPage: Auth complete, user:", !!user);
+
+        // Step 5: Set appropriate state based on auth
+        if (mountedRef.current) {
+          if (!user) {
+            console.log("PreviewPage: No user, showing auth popup");
             setGenerationState({
-              showAuthPopup: false,
+              showAuthPopup: true,
               showGenerationPopup: false,
               showGenerationStatus: false,
               showWebsiteReadyPopup: false,
               jobId: null,
             });
-            setIsLoading(false);
-            return;
+          } else {
+            console.log(
+              "PreviewPage: User authenticated, showing generation popup"
+            );
+            setGenerationState({
+              showAuthPopup: false,
+              showGenerationPopup: true,
+              showGenerationStatus: false,
+              showWebsiteReadyPopup: false,
+              jobId: null,
+            });
+            // Clear any existing job ID
+            localStorage.removeItem("webdash_job_id");
           }
-        } catch (e) {
-          console.error("Error parsing website data:", e);
+          setIsLoading(false);
+          setInitComplete(true);
+        }
+      } catch (error) {
+        console.error("PreviewPage: Error in initialization:", error);
+        if (mountedRef.current) {
+          setIsLoading(false);
+          setInitComplete(true);
         }
       }
-
-      // Set the appropriate state based on auth
-      if (!authLoading) {
-        if (!user) {
-          // Need authentication first
-          setGenerationState({
-            showAuthPopup: true,
-            showGenerationPopup: false,
-            showGenerationStatus: false,
-            showWebsiteReadyPopup: false,
-            jobId: null,
-          });
-        } else {
-          // User is authenticated, always start with generation popup
-          // (We won't check for saved jobId because it may be stale)
-          setGenerationState({
-            showAuthPopup: false,
-            showGenerationPopup: true,
-            showGenerationStatus: false,
-            showWebsiteReadyPopup: false,
-            jobId: null,
-          });
-
-          // Clear any existing job ID to prevent stale references
-          localStorage.removeItem("webdash_job_id");
-        }
-      }
-
-      setIsLoading(false);
     }
 
     initialize();
-  }, [user, authLoading, router, toast]);
 
-  // Function to handle successful authentication
+    return () => {
+      console.log("PreviewPage: useEffect cleanup");
+      mountedRef.current = false;
+    };
+  }, [user, authLoading, router, toast]); // Stable dependencies
+
+  // Derived state (computed after all hooks)
+  const hasActiveSubscription = userData?.webdashSubscription?.active || false;
+  const {
+    showAuthPopup,
+    showGenerationPopup,
+    showGenerationStatus,
+    showWebsiteReadyPopup,
+    jobId,
+  } = generationState;
+  const pageBlurred =
+    showAuthPopup || showGenerationPopup || showWebsiteReadyPopup;
+  const showWarningBanner =
+    !hasActiveSubscription && website && !showGenerationStatus;
+  const isGenerating = showGenerationStatus && jobId;
+
+  // Handler functions (defined after all hooks)
   const handleAuthSuccess = () => {
+    console.log("PreviewPage: Auth success");
     setGenerationState((prev) => ({
       ...prev,
       showAuthPopup: false,
@@ -139,9 +208,8 @@ export default function PreviewPage() {
     }));
   };
 
-  // Function to handle job start
   const handleJobStart = (jobId: string) => {
-    console.log("Job started with ID:", jobId);
+    console.log("PreviewPage: Job started with ID:", jobId);
     setGenerationState((prev) => ({
       ...prev,
       showGenerationPopup: false,
@@ -150,22 +218,17 @@ export default function PreviewPage() {
     }));
   };
 
-  // Function to handle generation completion
   const handleGenerationComplete = (websiteData: any) => {
-    console.log("Generation complete:", websiteData);
+    console.log("PreviewPage: Generation complete:", websiteData);
     setWebsite(websiteData);
-
     setGenerationState((prev) => ({
       ...prev,
       showGenerationStatus: false,
       showWebsiteReadyPopup: true,
       jobId: null,
     }));
-
-    // Clear job ID from localStorage
     localStorage.removeItem("webdash_job_id");
 
-    // Hide the "website ready" popup after 5 seconds
     setTimeout(() => {
       setGenerationState((prev) => ({
         ...prev,
@@ -174,37 +237,28 @@ export default function PreviewPage() {
     }, 5000);
   };
 
-  // Function to handle cancellation
   const handleGenerationCancel = () => {
-    // Just clean up the UI state
+    console.log("PreviewPage: Generation cancelled");
     setGenerationState((prev) => ({
       ...prev,
       showGenerationStatus: false,
       jobId: null,
     }));
-
-    // Clear job ID from localStorage
     localStorage.removeItem("webdash_job_id");
   };
 
-  // Function to handle retry with a new job ID
   const handleGenerationRetry = (newJobId: string) => {
-    console.log("Retrying generation with new job ID:", newJobId);
+    console.log("PreviewPage: Retrying generation with new job ID:", newJobId);
     setGenerationState((prev) => ({
       ...prev,
       jobId: newJobId,
     }));
-
-    // The status component will automatically start polling the new job
   };
 
-  // Updated handleEditClick function to check for subscription
   const handleEditClick = () => {
     if (hasActiveSubscription) {
-      // If user has active subscription, redirect directly to dashboard
       router.push("/dashboard");
     } else {
-      // Otherwise, show payment card
       setIsTrialModalOpen(true);
     }
   };
@@ -216,23 +270,26 @@ export default function PreviewPage() {
   };
 
   const handleStartSubscription = async (planId: string) => {
-    // This would normally connect to your backend to activate subscription
     setSelectedPlan(planId);
     setIsTrialModalOpen(false);
-
     toast({
       title: "Subscription started!",
       description: "Your subscription has been activated successfully.",
     });
-
-    // In a real implementation, this would also update the user's subscription status in Firebase
     setTimeout(() => {
       router.push("/dashboard");
     }, 1500);
   };
 
-  // Show loading state while checking authentication or initializing
-  if (isLoading || authLoading || shouldRedirect) {
+  console.log(
+    "PreviewPage: About to render, isLoading:",
+    isLoading,
+    "authLoading:",
+    authLoading
+  );
+
+  // Render loading state if still initializing
+  if (isLoading || authLoading || !initComplete) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center space-y-4">
@@ -243,23 +300,9 @@ export default function PreviewPage() {
     );
   }
 
-  const {
-    showAuthPopup,
-    showGenerationPopup,
-    showGenerationStatus,
-    showWebsiteReadyPopup,
-    jobId,
-  } = generationState;
+  console.log("PreviewPage: Rendering main content");
 
-  const pageBlurred =
-    showAuthPopup || showGenerationPopup || showWebsiteReadyPopup;
-
-  // Check if we should show the warning banner
-  // Only show when website is complete AND user doesn't have subscription
-  const showWarningBanner =
-    !hasActiveSubscription && website && !showGenerationStatus;
-  const isGenerating = showGenerationStatus && jobId;
-
+  // Main render
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <PreviewHeader
@@ -270,7 +313,6 @@ export default function PreviewPage() {
         isGenerating={isGenerating}
       />
 
-      {/* Warning banner - only show when website is complete and no subscription */}
       {showWarningBanner && (
         <div className="bg-amber-50 border border-amber-200 w-full py-2 px-4">
           <div className="container mx-auto flex items-center">
@@ -290,7 +332,6 @@ export default function PreviewPage() {
                 />
               </svg>
             </div>
-
             <p className="text-sm text-amber-800">
               Your site will be deleted in 24 hours unless you upgrade.
             </p>

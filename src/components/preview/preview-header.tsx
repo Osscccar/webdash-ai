@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { PrimaryButton } from "@/components/ui/custom-button";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { Edit, ChevronRight, Sparkles, DiscordLogo } from "lucide-react";
+import {
+  Edit,
+  ChevronRight,
+  Sparkles,
+  DiscordLogo,
+  LayoutDashboard,
+  HomeIcon,
+} from "lucide-react";
 import WebDashLogo from "../../../public/WebDash.webp";
 
 interface PreviewHeaderProps {
@@ -92,8 +99,8 @@ export function PreviewHeader({
               >
                 {hasActiveSubscription ? (
                   <>
-                    <Edit className="mr-2 h-4 w-4" />
-                    <span>Edit & Publish</span>
+                    <HomeIcon className="mr-2 h-4 w-4" />
+                    <span>Dashboard</span>
                   </>
                 ) : (
                   <>

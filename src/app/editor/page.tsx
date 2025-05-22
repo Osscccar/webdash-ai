@@ -22,8 +22,18 @@ type Stage = "business-info" | "design" | "pages";
 type EditingSection = "none" | "business-info" | "design" | "page-details";
 
 export default function EditorPage() {
+  // ===== ALL HOOKS MUST BE CALLED AT THE TOP LEVEL =====
+  console.log("EditorPage: Starting render");
+
+  // 1. Router hook
   const router = useRouter();
+  console.log("EditorPage: useRouter called");
+
+  // 2. Toast hook
   const { toast } = useToast();
+  console.log("EditorPage: useToast called");
+
+  // 3. All useState hooks in consistent order
   const [prompt, setPrompt] = useState("");
   const [currentStage, setCurrentStage] = useState<Stage>("business-info");
   const [editingSection, setEditingSection] =
@@ -34,9 +44,9 @@ export default function EditorPage() {
   const [aiGenerationStep, setAiGenerationStep] = useState(0);
   const [animatingField, setAnimatingField] = useState<string | null>(null);
   const [showTreeAnimation, setShowTreeAnimation] = useState(false);
-
-  const infoFormRef = useRef<HTMLDivElement>(null);
-  const colorFormRef = useRef<HTMLDivElement>(null);
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [animatedPages, setAnimatedPages] = useState<string[]>([]);
+  const [animatedSections, setAnimatedSections] = useState<string[]>([]);
 
   // Default site info state
   const [siteInfo, setSiteInfo] = useState({
@@ -84,42 +94,6 @@ export default function EditorPage() {
     },
   ]);
 
-  useEffect(() => {
-    // Check if there's an existing generated website
-    const checkForExistingWebsite = () => {
-      const savedWebsite = localStorage.getItem("webdash_website");
-
-      if (savedWebsite) {
-        // User has already generated a website - redirect to preview
-        toast({
-          title: "Website Already Generated",
-          description:
-            "Your website has already been generated. You can view and manage it from the preview page.",
-          variant: "info",
-        });
-
-        router.push("/preview");
-        return true;
-      }
-
-      return false;
-    };
-
-    const hasExistingWebsite = checkForExistingWebsite();
-
-    if (!hasExistingWebsite) {
-      setIsLoading(false);
-    }
-  }, [router, toast]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f58327]"></div>
-      </div>
-    );
-  }
-
   // Initial sections for the visual page tree
   const [sections, setSections] = useState([
     // Home page sections
@@ -147,7 +121,6 @@ export default function EditorPage() {
       type: "section" as const,
       parentId: "home",
     },
-
     // About page sections
     {
       id: "about-header",
@@ -167,7 +140,6 @@ export default function EditorPage() {
       type: "section" as const,
       parentId: "about",
     },
-
     // Services page sections
     {
       id: "services-header",
@@ -187,7 +159,6 @@ export default function EditorPage() {
       type: "section" as const,
       parentId: "services",
     },
-
     // Contact page sections
     {
       id: "contact-header",
@@ -209,9 +180,14 @@ export default function EditorPage() {
     },
   ]);
 
-  const [selectedNode, setSelectedNode] = useState<any>(null);
-  const [animatedPages, setAnimatedPages] = useState<string[]>([]);
-  const [animatedSections, setAnimatedSections] = useState<string[]>([]);
+  // 4. useRef hooks
+  const infoFormRef = useRef<HTMLDivElement>(null);
+  const colorFormRef = useRef<HTMLDivElement>(null);
+  const initializeRef = useRef(false);
+
+  console.log("EditorPage: All hooks called");
+
+  // ===== ALL HOOKS CALLED BY THIS POINT =====
 
   // Function to convert AI-generated pages to our page/section format
   const convertAIPages = (aiPages: any[]) => {
@@ -272,7 +248,6 @@ export default function EditorPage() {
 
       // Simulate typing for business name
       setAnimatingField("businessName");
-      let tempSiteInfo = { ...siteInfo };
 
       const typeBusinessName = async () => {
         for (let i = 0; i <= content.businessName.length; i++) {
@@ -461,61 +436,101 @@ export default function EditorPage() {
     }
   };
 
+  // 5. useEffect hooks - ALWAYS called in the same order
   useEffect(() => {
-    // Get the prompt from localStorage
-    const savedPrompt = localStorage.getItem("webdash_prompt");
-    if (!savedPrompt) {
-      // If no prompt exists, redirect back to homepage
-      router.push("/");
+    console.log("EditorPage: useEffect triggered");
+
+    // Prevent double initialization
+    if (initializeRef.current) {
+      console.log("EditorPage: Already initialized, skipping");
       return;
     }
+    initializeRef.current = true;
 
-    setPrompt(savedPrompt);
+    async function initialize() {
+      console.log("EditorPage: Starting initialization");
 
-    // Get the site info if it exists
-    const savedSiteInfo = localStorage.getItem("webdash_site_info");
-    if (savedSiteInfo) {
       try {
-        const parsedSiteInfo = JSON.parse(savedSiteInfo);
-        setSiteInfo(parsedSiteInfo);
-        if (!completedStages.includes("business-info")) {
-          setCompletedStages([...completedStages, "business-info"]);
+        // Check if there's an existing generated website
+        const savedWebsite = localStorage.getItem("webdash_website");
+
+        if (savedWebsite) {
+          // User has already generated a website - redirect to preview
+          toast({
+            title: "Website Already Generated",
+            description:
+              "Your website has already been generated. You can view and manage it from the preview page.",
+            variant: "info",
+          });
+          router.push("/preview");
+          return;
         }
+
+        // Get the prompt from localStorage
+        const savedPrompt = localStorage.getItem("webdash_prompt");
+        if (!savedPrompt) {
+          // If no prompt exists, redirect back to homepage
+          router.push("/");
+          return;
+        }
+
+        setPrompt(savedPrompt);
+
+        // Get the site info if it exists
+        const savedSiteInfo = localStorage.getItem("webdash_site_info");
+        if (savedSiteInfo) {
+          try {
+            const parsedSiteInfo = JSON.parse(savedSiteInfo);
+            setSiteInfo(parsedSiteInfo);
+            if (!completedStages.includes("business-info")) {
+              setCompletedStages([...completedStages, "business-info"]);
+            }
+          } catch (error) {
+            console.error("Error parsing site info:", error);
+          }
+        }
+
+        // Get the colors and fonts if they exist
+        const savedColorsAndFonts = localStorage.getItem(
+          "webdash_colors_fonts"
+        );
+        if (savedColorsAndFonts) {
+          try {
+            const parsedData = JSON.parse(savedColorsAndFonts);
+            setColorAndFontData(parsedData);
+            if (!completedStages.includes("design")) {
+              setCompletedStages([...completedStages, "design"]);
+            }
+          } catch (error) {
+            console.error("Error parsing colors and fonts:", error);
+          }
+        }
+
+        // Check if we should generate AI content
+        const shouldGenerateAI = localStorage.getItem(
+          "webdash_generate_ai_content"
+        );
+        if (shouldGenerateAI === "true" && savedPrompt) {
+          // Remove the flag
+          localStorage.removeItem("webdash_generate_ai_content");
+
+          // Generate AI content after a short delay
+          setTimeout(() => {
+            generateAIContent(savedPrompt);
+          }, 1000);
+        }
+
+        setIsLoading(false);
       } catch (error) {
-        console.error("Error parsing site info:", error);
+        console.error("EditorPage: Error in initialization:", error);
+        setIsLoading(false);
       }
     }
 
-    // Get the colors and fonts if they exist
-    const savedColorsAndFonts = localStorage.getItem("webdash_colors_fonts");
-    if (savedColorsAndFonts) {
-      try {
-        const parsedData = JSON.parse(savedColorsAndFonts);
-        setColorAndFontData(parsedData);
-        if (!completedStages.includes("design")) {
-          setCompletedStages([...completedStages, "design"]);
-        }
-      } catch (error) {
-        console.error("Error parsing colors and fonts:", error);
-      }
-    }
+    initialize();
+  }, [router, toast]); // Removed completedStages from dependencies to prevent infinite loop
 
-    // Check if we should generate AI content
-    const shouldGenerateAI = localStorage.getItem(
-      "webdash_generate_ai_content"
-    );
-    if (shouldGenerateAI === "true" && savedPrompt) {
-      // Remove the flag
-      localStorage.removeItem("webdash_generate_ai_content");
-
-      // Generate AI content after a short delay
-      setTimeout(() => {
-        // Use the function defined in this component
-        generateAIContent(savedPrompt);
-      }, 1000);
-    }
-  }, [router, completedStages]);
-
+  // Handler functions (defined after all hooks)
   const handleSaveSiteInfo = () => {
     localStorage.setItem("webdash_site_info", JSON.stringify(siteInfo));
     if (!completedStages.includes("business-info")) {
@@ -548,7 +563,6 @@ export default function EditorPage() {
     setEditingSection("page-details");
   };
 
-  // src/app/editor/page.tsx (continued)
   const handleAddPage = () => {
     const newPageId = `page-${Date.now()}`;
     const newPage = {
@@ -660,6 +674,18 @@ export default function EditorPage() {
     }
   };
 
+  // Show loading if still initializing
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f58327]"></div>
+      </div>
+    );
+  }
+
+  console.log("EditorPage: About to render main content");
+
+  // Sidebar content function
   const renderSidebarContent = () => {
     return (
       <div className="space-y-6">
@@ -699,14 +725,8 @@ export default function EditorPage() {
               </AnimatePresence>
               <motion.span
                 className="absolute inset-0 w-full bg-gradient-to-r from-transparent via-blue-200 to-transparent"
-                animate={{
-                  x: ["0%", "100%"],
-                }}
-                transition={{
-                  repeat: Infinity,
-                  duration: 1.5,
-                  ease: "linear",
-                }}
+                animate={{ x: ["0%", "100%"] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
                 style={{ opacity: 0.5 }}
               />
             </p>
@@ -890,10 +910,7 @@ export default function EditorPage() {
                           )
                         );
                       }
-                      setSelectedNode({
-                        ...selectedNode,
-                        description,
-                      });
+                      setSelectedNode({ ...selectedNode, description });
                     }}
                     disabled={isGeneratingAI}
                   />
@@ -997,7 +1014,7 @@ export default function EditorPage() {
     );
   };
 
-  // Fixed layout to match the reference image exactly
+  // Main render - Fixed layout to match the reference image exactly
   return (
     <div className="flex min-h-screen">
       {/* Sidebar on the left */}

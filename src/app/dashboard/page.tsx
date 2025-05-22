@@ -68,6 +68,9 @@ export default function DashboardPage() {
   const [selectedWebsite, setSelectedWebsite] = useState<UserWebsite | null>(
     null
   );
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+  const [screenshotKey, setScreenshotKey] = useState<number>(Date.now());
+  const [isLoadingScreenshot, setIsLoadingScreenshot] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("main");
@@ -144,6 +147,64 @@ export default function DashboardPage() {
 
     checkAccess();
   }, [router, user, userData, authLoading]);
+
+  useEffect(() => {
+    // Get the site info and website data from localStorage
+    const savedInfo = localStorage.getItem("webdash_site_info");
+    const savedWebsite = localStorage.getItem("webdash_website");
+    const savedSubdomain = localStorage.getItem("webdash_subdomain");
+
+    setIsLoadingScreenshot(true);
+
+    if (savedInfo) {
+      try {
+        setSiteInfo(JSON.parse(savedInfo));
+      } catch (e) {
+        console.error("Error parsing site info:", e);
+      }
+    }
+
+    // Try to get the website URL from various sources
+    let siteUrl = null;
+    if (savedWebsite) {
+      try {
+        const websiteData = JSON.parse(savedWebsite);
+        siteUrl = websiteData.siteUrl;
+        setWebsiteUrl(siteUrl);
+      } catch (e) {
+        console.error("Error parsing website data:", e);
+      }
+    } else if (savedSubdomain) {
+      // Construct URL from subdomain if website object not available
+      siteUrl = `https://${savedSubdomain}.webdash.site`;
+      setWebsiteUrl(siteUrl);
+    }
+
+    // Generate screenshot URL if we have a website URL using our API route
+    if (siteUrl) {
+      const apiUrl = `/api/screenshot?url=${encodeURIComponent(
+        siteUrl
+      )}&key=${screenshotKey}`;
+      setScreenshotUrl(apiUrl);
+
+      // Set a timer to hide the loading spinner after a reasonable time
+      // This helps ensure we don't show the spinner indefinitely if the image loads quickly
+      const timer = setTimeout(() => {
+        setIsLoadingScreenshot(false);
+      }, 1500);
+
+      return () => clearTimeout(timer);
+    } else {
+      setScreenshotUrl(null);
+      setIsLoadingScreenshot(false);
+    }
+  }, [screenshotKey]);
+
+  const refreshScreenshot = () => {
+    setIsLoadingScreenshot(true);
+    // Update the key to force a refresh
+    setScreenshotKey(Date.now());
+  };
 
   // Auth check and website loading
   useEffect(() => {
@@ -770,25 +831,45 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Website Preview */}
-                        <div className="relative">
-                          <div className="aspect-video bg-gray-100 p-4 flex items-center justify-center">
-                            <div className="w-full">
-                              <div className="h-2 bg-gray-200 rounded w-1/2 mb-2"></div>
-                              <div className="h-1 bg-gray-200 rounded mb-1 w-3/4"></div>
-                              <div className="h-1 bg-gray-200 rounded mb-1 w-5/6"></div>
-                              <div className="h-1 bg-gray-200 rounded w-2/3"></div>
-                            </div>
+                        <div className="relative w-full max-w-md h-32 overflow-hidden rounded-lg">
+                          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                            {isLoadingScreenshot ? (
+                              <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#f58327]"></div>
+                              </div>
+                            ) : screenshotUrl ? (
+                              <div className="relative w-full h-full">
+                                <img
+                                  src={screenshotUrl}
+                                  alt="Website Preview"
+                                  className="w-full h-full object-cover object-top rounded-sm"
+                                  onLoad={() => setIsLoadingScreenshot(false)}
+                                  onError={(e) => {
+                                    console.error(
+                                      "Error loading screenshot",
+                                      e
+                                    );
+                                    setIsLoadingScreenshot(false);
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              // Fallback when no URL is available
+                              <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-xs text-center p-3 rounded-lg">
+                                <p>Website preview</p>
+                              </div>
+                            )}
                           </div>
 
                           {/* Hover Overlay */}
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center rounded-lg">
                             <div className="flex space-x-2">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   window.open(website.siteUrl, "_blank");
                                 }}
-                                className="bg-white text-gray-800 hover:bg-white/90 px-3 py-1 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
+                                className="bg-white text-gray-800 hover:bg-white/90 px-2 py-1 rounded text-xs font-normal flex items-center space-x-1 cursor-pointer transition-colors duration-200"
                               >
                                 <ExternalLink className="h-3 w-3" />
                                 <span>Visit</span>
@@ -796,7 +877,6 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </div>
-
                         {/* Website Info */}
                         <div className="p-4 space-y-3">
                           <div className="flex justify-between text-sm">
