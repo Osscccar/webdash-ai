@@ -64,15 +64,16 @@ export function PaymentCard({
   // Modified handlePaymentSuccess function in PaymentCard
   const handlePaymentSuccess = async (productId: string) => {
     try {
-      // Process actual payment instead of starting a trial
-      // This should call your payment API and activate the subscription
+      // ✅ Set flag that user just purchased subscription
+      sessionStorage.setItem("webdash_just_purchased", "true");
 
       toast({
         title: "Subscription activated!",
         description: "Your subscription has been activated successfully.",
       });
 
-      // Redirect to dashboard after successful payment
+      // ✅ UPDATED: Redirect to dashboard after successful payment
+      // The dashboard will auto-reload when it detects the purchase flag
       setTimeout(() => {
         router.push("/dashboard");
       }, 1500);

@@ -58,6 +58,39 @@ export default function PreviewPage() {
 
   console.log("PreviewPage: All hooks called");
 
+  useEffect(() => {
+    const handlePreviewReload = () => {
+      const justPurchased = sessionStorage.getItem(
+        "webdash_just_purchased_on_preview"
+      );
+
+      if (justPurchased) {
+        console.log("🔄 Preview auto-reload: User just purchased subscription");
+        sessionStorage.removeItem("webdash_just_purchased_on_preview");
+
+        // Reload to refresh subscription status
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      }
+    };
+
+    handlePreviewReload();
+
+    // Check when page becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        handlePreviewReload();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
   // 6. useEffect hook - always called in the same position
   useEffect(() => {
     console.log("PreviewPage: useEffect triggered");
@@ -218,16 +251,36 @@ export default function PreviewPage() {
     }));
   };
 
+  // src/app/preview/page.tsx - Fixed handleGenerationComplete function
+
   const handleGenerationComplete = (websiteData: any) => {
     console.log("PreviewPage: Generation complete:", websiteData);
-    setWebsite(websiteData);
+
+    // ✅ FIXED: Don't immediately clear localStorage or assume this replaces existing websites
+    // Instead, store with a unique identifier and let dashboard handle the merge
+
+    // Add a timestamp to ensure uniqueness
+    const uniqueWebsiteData = {
+      ...websiteData,
+      id: websiteData.id || `website-${Date.now()}`,
+      createdAt: websiteData.createdAt || new Date().toISOString(),
+    };
+
+    // Store in localStorage with unique key to prevent conflicts
+    localStorage.setItem("webdash_website", JSON.stringify(uniqueWebsiteData));
+
+    // Set local state
+    setWebsite(uniqueWebsiteData);
+
     setGenerationState((prev) => ({
       ...prev,
       showGenerationStatus: false,
       showWebsiteReadyPopup: true,
       jobId: null,
     }));
-    localStorage.removeItem("webdash_job_id");
+
+    // ✅ FIXED: Don't remove job ID immediately - let dashboard handle cleanup
+    // localStorage.removeItem("webdash_job_id");
 
     setTimeout(() => {
       setGenerationState((prev) => ({
@@ -272,15 +325,20 @@ export default function PreviewPage() {
   const handleStartSubscription = async (planId: string) => {
     setSelectedPlan(planId);
     setIsTrialModalOpen(false);
+
+    // ✅ Set flag for preview page reload
+    sessionStorage.setItem("webdash_just_purchased_on_preview", "true");
+
     toast({
-      title: "Subscription started!",
+      title: "Subscription activated!",
       description: "Your subscription has been activated successfully.",
     });
+
+    // ✅ Reload preview page after subscription
     setTimeout(() => {
-      router.push("/dashboard");
+      window.location.reload();
     }, 1500);
   };
-
   console.log(
     "PreviewPage: About to render, isLoading:",
     isLoading,

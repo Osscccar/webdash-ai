@@ -158,6 +158,8 @@ export const FirestoreService = {
   },
 
   // Helper method to transfer localStorage website data to Firestore
+  // src/lib/firestore-service.ts - Fixed transferLocalStorageToFirestore method
+
   async transferLocalStorageToFirestore(userId: string): Promise<boolean> {
     try {
       // Get website data from localStorage
@@ -165,6 +167,16 @@ export const FirestoreService = {
       const siteInfo = localStorage.getItem("webdash_site_info");
       const subdomain = localStorage.getItem("webdash_subdomain");
       const domainId = localStorage.getItem("webdash_domain_id");
+
+      // ✅ FIXED: Get existing user data first to check for existing websites
+      const userRef = doc(db, "users", userId);
+      const userDoc = await getDoc(userRef);
+
+      let existingWebsites: UserWebsite[] = [];
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        existingWebsites = userData.websites || [];
+      }
 
       // Check if we have enough data to create a website
       if (subdomain) {
@@ -191,7 +203,10 @@ export const FirestoreService = {
           // Update title and description from siteInfo if available
           if (siteInfo) {
             const parsedSiteInfo = JSON.parse(siteInfo);
-            website.title = parsedSiteInfo.businessName || website.title;
+            website.title =
+              parsedSiteInfo.websiteTitle ||
+              parsedSiteInfo.businessName ||
+              website.title;
             website.description =
               parsedSiteInfo.businessDescription || website.description;
 
@@ -213,13 +228,42 @@ export const FirestoreService = {
         // Add userId if not present
         website.userId = userId;
 
-        // Save to Firestore
-        await this.createWebsite(website);
+        // ✅ FIXED: Check if website already exists before adding
+        const websiteExists = existingWebsites.some(
+          (w) =>
+            w.id === website.id ||
+            w.subdomain === website.subdomain ||
+            w.siteUrl === website.siteUrl
+        );
 
-        // Also add to user's websites array
-        await this.addWebsiteToUser(userId, website);
+        if (!websiteExists) {
+          console.log("Adding new website to Firestore:", website.id);
 
-        return true;
+          // Save to websites collection
+          await this.createWebsite(website);
+
+          // Add to user's websites array (arrayUnion prevents duplicates)
+          await this.addWebsiteToUser(userId, website);
+
+          // ✅ FIXED: Clear localStorage after successful save
+          localStorage.removeItem("webdash_website");
+          localStorage.removeItem("webdash_site_info");
+          localStorage.removeItem("webdash_subdomain");
+          localStorage.removeItem("webdash_domain_id");
+          localStorage.removeItem("webdash_job_id");
+
+          console.log("Successfully transferred new website to Firestore");
+          return true;
+        } else {
+          console.log("Website already exists in Firestore, skipping");
+          // Still clear localStorage since the website exists
+          localStorage.removeItem("webdash_website");
+          localStorage.removeItem("webdash_site_info");
+          localStorage.removeItem("webdash_subdomain");
+          localStorage.removeItem("webdash_domain_id");
+          localStorage.removeItem("webdash_job_id");
+          return true;
+        }
       }
 
       return false;

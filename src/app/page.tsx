@@ -26,11 +26,27 @@ export default function OnboardingPage() {
       if (authLoading) return;
 
       try {
+        // Check if user is intentionally creating a new website
+        const isCreatingNew =
+          localStorage.getItem("webdash_creating_new") === "true";
+        const urlParams = new URLSearchParams(window.location.search);
+        const isNewWebsite = urlParams.get("new") === "true";
+
+        // If user is creating a new website, allow them to proceed
+        if (isCreatingNew || isNewWebsite) {
+          console.log(
+            "User is creating a new website, allowing access to homepage"
+          );
+          localStorage.removeItem("webdash_creating_new"); // Clean up the flag
+          setIsCheckingRedirect(false);
+          return;
+        }
+
         // Check if there's an existing generated website
         const savedWebsite = localStorage.getItem("webdash_website");
 
         if (savedWebsite) {
-          // User has already generated a website
+          // User has already generated a website and is not creating a new one
           if (user) {
             // If signed in, redirect to dashboard
             router.push("/dashboard");

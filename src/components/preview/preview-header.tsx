@@ -32,9 +32,14 @@ export function PreviewHeader({
 }: PreviewHeaderProps) {
   const router = useRouter();
 
-  // Handle edit click based on subscription status
   const handleEditClick = () => {
     if (hasActiveSubscription) {
+      // ✅ Set flag that user just generated a website and is going to dashboard
+      const hasWebsite = localStorage.getItem("webdash_website");
+      if (hasWebsite) {
+        sessionStorage.setItem("webdash_just_generated", "true");
+      }
+
       // If user has an active subscription, redirect directly to dashboard
       router.push("/dashboard");
     } else {

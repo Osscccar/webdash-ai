@@ -61,6 +61,7 @@ import {
   getAdditionalWebsitePricing,
   validateAdditionalWebsitePricing,
 } from "@/config/stripe";
+import { WebsiteDebugPanel } from "@/components/debug/website-debug";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -276,7 +277,13 @@ export default function DashboardPage() {
     null
   );
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
-  const [screenshotKey, setScreenshotKey] = useState<number>(Date.now());
+  const [websiteScreenshots, setWebsiteScreenshots] = useState<{
+    [websiteId: string]: {
+      url: string | null;
+      loading: boolean;
+      key: number;
+    };
+  }>({});
   const [isLoadingScreenshot, setIsLoadingScreenshot] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -344,6 +351,32 @@ export default function DashboardPage() {
     return { plan: "business", limit: userData?.websiteLimit || 1 };
   };
 
+  const refreshWebsiteScreenshot = (websiteId: string, siteUrl: string) => {
+    const newKey = Date.now() + Math.random();
+    const apiUrl = `/api/screenshot?url=${encodeURIComponent(
+      siteUrl
+    )}&key=${newKey}&refresh=true`;
+
+    setWebsiteScreenshots((prev) => ({
+      ...prev,
+      [websiteId]: {
+        url: apiUrl,
+        loading: true,
+        key: newKey,
+      },
+    }));
+  };
+
+  const handleScreenshotLoad = (websiteId: string) => {
+    setWebsiteScreenshots((prev) => ({
+      ...prev,
+      [websiteId]: {
+        ...prev[websiteId],
+        loading: false,
+      },
+    }));
+  };
+
   useEffect(() => {
     // Check for authentication and subscription status
     const checkAccess = async () => {
@@ -390,64 +423,132 @@ export default function DashboardPage() {
   }, [router, user, userData, authLoading]);
 
   useEffect(() => {
-    // Get the site info and website data from localStorage
-    const savedInfo = localStorage.getItem("webdash_site_info");
-    const savedWebsite = localStorage.getItem("webdash_website");
-    const savedSubdomain = localStorage.getItem("webdash_subdomain");
+    const handleAutoReload = () => {
+      const hasNewWebsite = localStorage.getItem("webdash_website");
+      const justGenerated = sessionStorage.getItem("webdash_just_generated");
+      const justPurchased = sessionStorage.getItem("webdash_just_purchased");
+      const justPurchasedAdditional = sessionStorage.getItem(
+        "webdash_just_purchased_additional"
+      );
 
-    setIsLoadingScreenshot(true);
+      // Scenario 1: User just generated a website
+      if (hasNewWebsite && justGenerated) {
+        console.log("🔄 Auto-reload: User just generated a website");
+        sessionStorage.removeItem("webdash_just_generated");
 
-    if (savedInfo) {
-      try {
-        setSiteInfo(JSON.parse(savedInfo));
-      } catch (e) {
-        console.error("Error parsing site info:", e);
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+        return;
       }
-    }
 
-    // Try to get the website URL from various sources
-    let siteUrl = null;
-    if (savedWebsite) {
-      try {
-        const websiteData = JSON.parse(savedWebsite);
-        siteUrl = websiteData.siteUrl;
-        setWebsiteUrl(siteUrl);
-      } catch (e) {
-        console.error("Error parsing website data:", e);
+      // Scenario 2: User just purchased a subscription
+      if (justPurchased) {
+        console.log("🔄 Auto-reload: User just purchased subscription");
+        sessionStorage.removeItem("webdash_just_purchased");
+
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+        return;
       }
-    } else if (savedSubdomain) {
-      // Construct URL from subdomain if website object not available
-      siteUrl = `https://${savedSubdomain}.webdash.site`;
-      setWebsiteUrl(siteUrl);
-    }
 
-    // Generate screenshot URL if we have a website URL using our API route
-    if (siteUrl) {
-      const apiUrl = `/api/screenshot?url=${encodeURIComponent(
-        siteUrl
-      )}&key=${screenshotKey}`;
-      setScreenshotUrl(apiUrl);
+      // Scenario 3: User just purchased additional website
+      if (justPurchasedAdditional) {
+        console.log("🔄 Auto-reload: User just purchased additional website");
+        sessionStorage.removeItem("webdash_just_purchased_additional");
 
-      // Set a timer to hide the loading spinner after a reasonable time
-      // This helps ensure we don't show the spinner indefinitely if the image loads quickly
-      const timer = setTimeout(() => {
-        setIsLoadingScreenshot(false);
-      }, 1500);
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+        return;
+      }
+    };
 
-      return () => clearTimeout(timer);
-    } else {
-      setScreenshotUrl(null);
-      setIsLoadingScreenshot(false);
-    }
-  }, [screenshotKey]);
+    // Check immediately on mount
+    handleAutoReload();
 
-  const refreshScreenshot = () => {
-    setIsLoadingScreenshot(true);
-    // Update the key to force a refresh
-    setScreenshotKey(Date.now());
-  };
+    // Also check when page becomes visible (tab switching)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        handleAutoReload();
+      }
+    };
+
+    // Listen for storage changes from other tabs
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "webdash_website" && e.newValue) {
+        console.log("🔄 Auto-reload: New website detected via storage event");
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  // ✅ NEW: Clear any stale session flags on unmount
+  useEffect(() => {
+    return () => {
+      // Clean up any stale flags when component unmounts
+      sessionStorage.removeItem("webdash_just_generated");
+      sessionStorage.removeItem("webdash_just_purchased");
+      sessionStorage.removeItem("webdash_just_purchased_additional");
+    };
+  }, []);
+
+  useEffect(() => {
+    // Check if user just purchased a subscription
+    const checkForNewSubscription = () => {
+      const justPurchased = sessionStorage.getItem("webdash_just_purchased");
+
+      if (justPurchased) {
+        console.log("User just purchased subscription, reloading dashboard...");
+
+        // Clear the flag
+        sessionStorage.removeItem("webdash_just_purchased");
+
+        // Reload after short delay
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      }
+    };
+
+    checkForNewSubscription();
+  }, []);
+
+  useEffect(() => {
+    // Generate screenshot URLs for all websites
+    websites.forEach((website) => {
+      if (website.siteUrl && !websiteScreenshots[website.id]) {
+        const key = Date.now() + Math.random(); // Unique key for each website
+        const apiUrl = `/api/screenshot?url=${encodeURIComponent(
+          website.siteUrl
+        )}&key=${key}`;
+
+        setWebsiteScreenshots((prev) => ({
+          ...prev,
+          [website.id]: {
+            url: apiUrl,
+            loading: true,
+            key: key,
+          },
+        }));
+      }
+    });
+  }, [websites]); // Depend on websites array
 
   // Auth check and website loading
+  // src/app/dashboard/page.tsx - Fixed useEffect section (around line 680)
+
   useEffect(() => {
     const checkAuth = async () => {
       // Wait for auth to initialize
@@ -473,88 +574,107 @@ export default function DashboardPage() {
           const userData = userDoc.data();
           console.log("User data from Firestore:", userData);
 
-          // Check for websites in the user document
+          // ✅ FIXED: Always load existing websites first
+          let existingWebsites: UserWebsite[] = [];
           if (
             userData.websites &&
             Array.isArray(userData.websites) &&
             userData.websites.length > 0
           ) {
             console.log("Found websites in user document:", userData.websites);
-            setWebsites(userData.websites);
-          } else {
-            console.log(
-              "No websites found in user document, checking localStorage"
-            );
+            existingWebsites = userData.websites;
+          }
 
-            // Check localStorage
-            const websiteData = localStorage.getItem("webdash_website");
-            const siteInfo = localStorage.getItem("webdash_site_info");
-            const subdomain = localStorage.getItem("webdash_subdomain");
-            const domainId = localStorage.getItem("webdash_domain_id");
+          // Check localStorage for NEW website data
+          const websiteData = localStorage.getItem("webdash_website");
+          const siteInfo = localStorage.getItem("webdash_site_info");
+          const subdomain = localStorage.getItem("webdash_subdomain");
+          const domainId = localStorage.getItem("webdash_domain_id");
 
-            if (websiteData) {
-              try {
-                console.log("Found website in localStorage:", websiteData);
-                const parsedWebsite = JSON.parse(websiteData);
+          if (websiteData) {
+            try {
+              console.log("Found NEW website in localStorage:", websiteData);
+              const parsedWebsite = JSON.parse(websiteData);
 
-                // Add user ID if missing
-                parsedWebsite.userId = user.uid;
+              // Add user ID if missing
+              parsedWebsite.userId = user.uid;
 
-                // Add to user's websites array in Firestore
+              // ✅ FIXED: Check if this website already exists
+              const websiteExists = existingWebsites.some(
+                (w) =>
+                  w.id === parsedWebsite.id ||
+                  w.subdomain === parsedWebsite.subdomain
+              );
+
+              if (!websiteExists) {
+                console.log("Adding new website to existing collection");
+
+                // Add to existing websites array
+                const updatedWebsites = [...existingWebsites, parsedWebsite];
+
+                // Update Firestore with ALL websites
                 await updateDoc(userRef, {
-                  websites: arrayUnion(parsedWebsite),
+                  websites: updatedWebsites,
                   updatedAt: serverTimestamp(),
                 });
 
-                console.log("Added website from localStorage to Firestore");
+                console.log("Added new website to Firestore");
+                setWebsites(updatedWebsites);
 
-                setWebsites([parsedWebsite]);
-              } catch (error) {
-                console.error(
-                  "Error parsing website data from localStorage:",
-                  error
-                );
+                // ✅ FIXED: Clear localStorage after successful addition
+                localStorage.removeItem("webdash_website");
+                localStorage.removeItem("webdash_site_info");
+                localStorage.removeItem("webdash_subdomain");
+                localStorage.removeItem("webdash_domain_id");
+              } else {
+                console.log("Website already exists, using existing websites");
+                setWebsites(existingWebsites);
               }
-            } else if (siteInfo && subdomain) {
-              // We have site info but no complete website - create dummy for display
-              console.log("Creating website from incomplete localStorage data");
-
-              try {
-                const parsedInfo = JSON.parse(siteInfo);
-
-                // Create a website entry
-                const dummyWebsite: UserWebsite = {
-                  id: `website-${Date.now()}`,
-                  userId: user.uid,
-                  domainId: domainId ? Number.parseInt(domainId) : Date.now(),
-                  subdomain: subdomain,
-                  siteUrl: `https://${subdomain}.webdash.site`,
-                  title:
-                    parsedInfo.websiteTitle ||
-                    parsedInfo.businessName ||
-                    "My Website",
-                  description:
-                    parsedInfo.businessDescription || "AI-generated website",
-                  createdAt: new Date().toISOString(),
-                  lastModified: new Date().toISOString(),
-                  status: "active",
-                };
-
-                // Add to user's websites array in Firestore
-                await updateDoc(userRef, {
-                  websites: arrayUnion(dummyWebsite),
-                  updatedAt: serverTimestamp(),
-                });
-
-                console.log("Added dummy website to Firestore");
-
-                setWebsites([dummyWebsite]);
-              } catch (error) {
-                console.error("Error creating dummy website:", error);
-              }
-            } else {
-              console.log("No website data found in localStorage");
+            } catch (error) {
+              console.error(
+                "Error parsing website data from localStorage:",
+                error
+              );
+              setWebsites(existingWebsites);
             }
+          } else if (siteInfo && subdomain && existingWebsites.length === 0) {
+            // Only create dummy website if NO existing websites
+            console.log("Creating website from incomplete localStorage data");
+
+            try {
+              const parsedInfo = JSON.parse(siteInfo);
+              const dummyWebsite: UserWebsite = {
+                id: `website-${Date.now()}`,
+                userId: user.uid,
+                domainId: domainId ? Number.parseInt(domainId) : Date.now(),
+                subdomain: subdomain,
+                siteUrl: `https://${subdomain}.webdash.site`,
+                title:
+                  parsedInfo.websiteTitle ||
+                  parsedInfo.businessName ||
+                  "My Website",
+                description:
+                  parsedInfo.businessDescription || "AI-generated website",
+                createdAt: new Date().toISOString(),
+                lastModified: new Date().toISOString(),
+                status: "active",
+              };
+
+              // Add to user's websites array in Firestore
+              await updateDoc(userRef, {
+                websites: arrayUnion(dummyWebsite),
+                updatedAt: serverTimestamp(),
+              });
+
+              console.log("Added dummy website to Firestore");
+              setWebsites([dummyWebsite]);
+            } catch (error) {
+              console.error("Error creating dummy website:", error);
+              setWebsites(existingWebsites);
+            }
+          } else {
+            console.log("No new website data, using existing websites");
+            setWebsites(existingWebsites);
           }
         } else {
           console.error("User document not found in Firestore");
@@ -638,6 +758,7 @@ export default function DashboardPage() {
   };
 
   // Function to handle adding a new website
+  // Function to handle adding a new website
   const handleAddWebsite = () => {
     const currentWebsiteCount = websites.length;
 
@@ -655,8 +776,22 @@ export default function DashboardPage() {
       setShowUpgradeModal(true);
     } else {
       console.log("User can create more websites, redirecting to root");
+
+      // Clear the existing website data from localStorage so user can create a new one
+      localStorage.removeItem("webdash_website");
+      localStorage.removeItem("webdash_site_info");
+      localStorage.removeItem("webdash_colors_fonts");
+      localStorage.removeItem("webdash_subdomain");
+      localStorage.removeItem("webdash_domain_id");
+      localStorage.removeItem("webdash_pages_meta");
+      localStorage.removeItem("webdash_prompt");
+      localStorage.removeItem("webdash_job_id");
+
+      // Add a flag to indicate this is a new website creation
+      localStorage.setItem("webdash_creating_new", "true");
+
       // User can add more websites
-      router.push("/");
+      router.push("/?new=true");
     }
   };
 
@@ -676,29 +811,53 @@ export default function DashboardPage() {
   // Function to handle successful additional website purchase
   const handleAdditionalWebsiteSuccess = async () => {
     try {
-      // Update user's website limit in Firestore
-      const userRef = doc(db, "users", user!.uid);
-      await updateDoc(userRef, {
-        websiteLimit: websiteLimit + 1,
-        updatedAt: serverTimestamp(),
+      console.log("Processing additional website purchase success");
+
+      // ✅ Set flag for auto-reload after additional website purchase
+      sessionStorage.setItem("webdash_just_purchased_additional", "true");
+
+      // Call the API to update the website limit
+      const response = await fetch("/api/user/update-website-limit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user!.uid,
+          increment: 1,
+        }),
       });
 
-      setWebsiteLimit(websiteLimit + 1);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update website limit");
+      }
+
+      const result = await response.json();
+      console.log("Website limit update result:", result);
+
       setShowPaymentModal(false);
 
       toast({
         title: "Additional website purchased",
-        description: "You can now create one more website!",
+        description: `You can now create ${result.newLimit} websites total!`,
       });
 
-      // Redirect to create new website
-      router.push("/");
+      // ✅ UPDATED: Reload page after additional website purchase
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+
+      // Then redirect to create new website
+      setTimeout(() => {
+        router.push("/");
+      }, 2000);
     } catch (error) {
       console.error("Error updating website limit:", error);
       toast({
         title: "Error",
         description:
-          "Failed to update your website limit. Please contact support.",
+          "Payment succeeded but failed to update your website limit. Please contact support.",
         variant: "destructive",
       });
     }
@@ -1111,104 +1270,144 @@ export default function DashboardPage() {
                 {/* Website Cards */}
                 {filteredWebsites.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredWebsites.map((website) => (
-                      <div
-                        key={website.id}
-                        className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
-                        onClick={() => handleWebsiteClick(website)}
-                      >
-                        {/* Card Header */}
-                        <div className="p-4 border-b border-gray-100 flex justify-between items-start">
-                          <div>
-                            <h3 className="font-medium text-lg truncate">
-                              {website.title || "My Website"}
-                            </h3>
-                            <div className="flex items-center mt-1">
-                              <span className="inline-block h-2 w-2 rounded-full bg-green-500 mr-2"></span>
-                              <span className="text-sm text-gray-500 capitalize">
-                                {website.status || "active"}
-                              </span>
+                    {filteredWebsites.map((website) => {
+                      // ✅ Get individual screenshot data for this website
+                      const screenshotData = websiteScreenshots[website.id];
+                      const isLoadingScreenshot =
+                        screenshotData?.loading ?? true;
+                      const screenshotUrl = screenshotData?.url ?? null;
+
+                      return (
+                        <div
+                          key={website.id}
+                          className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
+                          onClick={() => handleWebsiteClick(website)}
+                        >
+                          {/* Card Header */}
+                          <div className="p-4 border-b border-gray-100 flex justify-between items-start">
+                            <div>
+                              <h3 className="font-medium text-lg truncate">
+                                {website.title || "My Website"}
+                              </h3>
+                              <div className="flex items-center mt-1">
+                                <span className="inline-block h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+                                <span className="text-sm text-gray-500 capitalize">
+                                  {website.status || "active"}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                          <div className="relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Add dropdown functionality
-                              }}
-                              className="text-gray-400 hover:text-gray-600 cursor-pointer"
-                            >
-                              <MoreVertical className="h-5 w-5" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Website Preview */}
-                        <div className="relative w-full max-w-md h-32 overflow-hidden rounded-lg">
-                          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                            {isLoadingScreenshot ? (
-                              <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#f58327]"></div>
-                              </div>
-                            ) : screenshotUrl ? (
-                              <div className="relative w-full h-full">
-                                <img
-                                  src={screenshotUrl}
-                                  alt="Website Preview"
-                                  className="w-full h-full object-cover object-top rounded-sm"
-                                  onLoad={() => setIsLoadingScreenshot(false)}
-                                  onError={(e) => {
-                                    console.error(
-                                      "Error loading screenshot",
-                                      e
-                                    );
-                                    setIsLoadingScreenshot(false);
-                                  }}
-                                />
-                              </div>
-                            ) : (
-                              // Fallback when no URL is available
-                              <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-xs text-center p-3 rounded-lg">
-                                <p>Website preview</p>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Hover Overlay */}
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center rounded-lg">
-                            <div className="flex space-x-2">
+                            <div className="relative">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  window.open(website.siteUrl, "_blank");
+                                  // Add dropdown functionality
                                 }}
-                                className="bg-white text-gray-800 hover:bg-white/90 px-2 py-1 rounded text-xs font-normal flex items-center space-x-1 cursor-pointer transition-colors duration-200"
+                                className="text-gray-400 hover:text-gray-600 cursor-pointer"
                               >
-                                <ExternalLink className="h-3 w-3" />
-                                <span>Visit</span>
+                                <MoreVertical className="h-5 w-5" />
                               </button>
                             </div>
                           </div>
-                        </div>
-                        {/* Website Info */}
-                        <div className="p-4 space-y-3">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">URL</span>
-                            <a
-                              href={website.siteUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[#f58327] hover:underline truncate max-w-[200px] flex items-center"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {website.siteUrl?.replace(/^https?:\/\//, "") ||
-                                "website.webdash.site"}
-                              <ExternalLink className="h-3 w-3 ml-1" />
-                            </a>
+
+                          {/* Website Preview - ✅ UPDATED to use individual screenshots */}
+                          <div className="relative w-full max-w-md h-32 overflow-hidden rounded-lg">
+                            <div className="w-full h-full bg-gray-100 flex items-center justify-center relative">
+                              {isLoadingScreenshot ? (
+                                <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#f58327]"></div>
+                                </div>
+                              ) : screenshotUrl ? (
+                                <div className="relative w-full h-full">
+                                  <img
+                                    src={screenshotUrl}
+                                    alt={`Preview of ${website.title}`}
+                                    className="w-full h-full object-cover object-top rounded-sm"
+                                    onLoad={() =>
+                                      handleScreenshotLoad(website.id)
+                                    }
+                                    onError={(e) => {
+                                      console.error(
+                                        "Error loading screenshot for",
+                                        website.id,
+                                        e
+                                      );
+                                      handleScreenshotLoad(website.id);
+                                    }}
+                                  />
+                                  {/* ✅ ADD: Refresh screenshot button */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      refreshWebsiteScreenshot(
+                                        website.id,
+                                        website.siteUrl
+                                      );
+                                    }}
+                                    className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                    title="Refresh screenshot"
+                                  >
+                                    <RefreshCw className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ) : (
+                                // Fallback when no URL is available
+                                <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-xs text-center p-3 rounded-lg">
+                                  <div>
+                                    <p className="mb-2">Website preview</p>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        refreshWebsiteScreenshot(
+                                          website.id,
+                                          website.siteUrl
+                                        );
+                                      }}
+                                      className="text-[#f58327] hover:underline cursor-pointer"
+                                    >
+                                      Generate screenshot
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Hover Overlay */}
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center rounded-lg">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(website.siteUrl, "_blank");
+                                  }}
+                                  className="bg-white text-gray-800 hover:bg-white/90 px-2 py-1 rounded text-xs font-normal flex items-center space-x-1 cursor-pointer transition-colors duration-200"
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                  <span>Visit</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Website Info */}
+                          <div className="p-4 space-y-3">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-500">URL</span>
+                              <a
+                                href={website.siteUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#f58327] hover:underline truncate max-w-[200px] flex items-center"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {website.siteUrl?.replace(/^https?:\/\//, "") ||
+                                  "website.webdash.site"}
+                                <ExternalLink className="h-3 w-3 ml-1" />
+                              </a>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center">
@@ -1697,6 +1896,7 @@ export default function DashboardPage() {
           Reset Storage & Reload
         </button>
       )}
+      {process.env.NODE_ENV === "development" && <WebsiteDebugPanel />}
     </div>
   );
 }
