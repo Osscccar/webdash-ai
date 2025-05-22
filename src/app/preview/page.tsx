@@ -23,6 +23,7 @@ export default function PreviewPage() {
     undefined
   );
   const [isLoading, setIsLoading] = useState(true);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
   // Website and generation state
   const [website, setWebsite] = useState<any>(null);
@@ -44,6 +45,13 @@ export default function PreviewPage() {
   // Check if the user has an active subscription
   const hasActiveSubscription = userData?.webdashSubscription?.active || false;
 
+  // Handle redirect outside of render
+  useEffect(() => {
+    if (shouldRedirect) {
+      router.push("/");
+    }
+  }, [shouldRedirect, router]);
+
   // Initial data load
   useEffect(() => {
     async function initialize() {
@@ -54,7 +62,7 @@ export default function PreviewPage() {
           title: "No website in progress",
           description: "Please generate a website first",
         });
-        router.push("/");
+        setShouldRedirect(true);
         return;
       }
 
@@ -62,7 +70,7 @@ export default function PreviewPage() {
         setSiteInfo(JSON.parse(savedSiteInfo));
       } catch (e) {
         console.error("Error parsing site info", e);
-        router.push("/");
+        setShouldRedirect(true);
         return;
       }
 
@@ -223,8 +231,8 @@ export default function PreviewPage() {
     }, 1500);
   };
 
-  // Use a loading state while checking authentication
-  if (isLoading || authLoading) {
+  // Show loading state while checking authentication or initializing
+  if (isLoading || authLoading || shouldRedirect) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center space-y-4">
@@ -259,7 +267,7 @@ export default function PreviewPage() {
         setDeviceView={setDeviceView}
         onEditClick={handleEditClick}
         hasActiveSubscription={hasActiveSubscription}
-        isGenerating={isGenerating} // Pass the flag here
+        isGenerating={isGenerating}
       />
 
       {/* Warning banner - only show when website is complete and no subscription */}
@@ -288,18 +296,6 @@ export default function PreviewPage() {
             </p>
           </div>
         </div>
-      )}
-
-      {process.env.NODE_ENV === "development" && (
-        <button
-          onClick={() => {
-            localStorage.clear();
-            window.location.reload();
-          }}
-          className="fixed bottom-4 right-4 bg-red-500 text-white p-2 rounded-md text-xs z-50"
-        >
-          Reset Storage & Reload
-        </button>
       )}
 
       <main

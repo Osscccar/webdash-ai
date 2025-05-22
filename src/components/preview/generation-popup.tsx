@@ -213,20 +213,6 @@ export function GenerationPopup({ siteInfo, onSuccess }: GenerationPopupProps) {
                 >
                   <Sparkles className="text-[#f58327] mx-2 h-5 w-5" />
                 </motion.div>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.8 }}
-                >
-                  <Sparkles className="text-[#f58327] mx-2 h-5 w-5" />
-                </motion.div>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 1.1 }}
-                >
-                  <Sparkles className="text-[#f58327] mx-2 h-5 w-5" />
-                </motion.div>
               </div>
             </div>
           </CardContent>

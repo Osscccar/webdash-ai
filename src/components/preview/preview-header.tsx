@@ -74,7 +74,7 @@ export function PreviewHeader({
                   </div>
                 </div>
                 <a
-                  href="https://discord.gg/webdash"
+                  href="https://discord.gg/wGAC9EZRXz"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-colors"

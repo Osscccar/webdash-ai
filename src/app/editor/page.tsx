@@ -631,7 +631,7 @@ export default function EditorPage() {
 
     setTimeout(() => {
       router.push("/preview");
-    }, 1000);
+    }, 1500);
   };
 
   // AI Loading Step Information

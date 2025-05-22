@@ -134,6 +134,18 @@ export default function OnboardingPage() {
         />
       </div>
 
+      {process.env.NODE_ENV === "development" && (
+        <button
+          onClick={() => {
+            localStorage.clear();
+            window.location.reload();
+          }}
+          className="fixed bottom-4 right-4 bg-red-500 text-white p-2 rounded-md text-xs z-50 cursor-pointer"
+        >
+          Reset Storage & Reload
+        </button>
+      )}
+
       <div className="container relative z-10 px-4 py-10 mx-auto">
         <div className="flex flex-col items-center max-w-3xl mx-auto">
           {/* Main card */}
