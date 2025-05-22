@@ -179,15 +179,112 @@ export const getPlanById = (productId: string) => {
 
 // Helper function to get additional website pricing by plan type
 export const getAdditionalWebsitePricing = (planType: string) => {
-  return ADDITIONAL_WEBSITE_PRICING[
-    planType as keyof typeof ADDITIONAL_WEBSITE_PRICING
-  ];
+  console.log("getAdditionalWebsitePricing called with planType:", planType);
+  console.log(
+    "Available pricing configs:",
+    Object.keys(ADDITIONAL_WEBSITE_PRICING)
+  );
+
+  const pricing =
+    ADDITIONAL_WEBSITE_PRICING[
+      planType as keyof typeof ADDITIONAL_WEBSITE_PRICING
+    ];
+
+  if (!pricing) {
+    console.error(
+      `No additional website pricing found for plan type: ${planType}`
+    );
+    console.log("Falling back to business pricing");
+    return ADDITIONAL_WEBSITE_PRICING.business;
+  }
+
+  return pricing;
 };
 
-// Helper function to determine plan type from product/price ID
+// Helper function to determine plan type from product/price ID - IMPROVED VERSION
 export const getPlanTypeFromId = (id: string): string => {
-  if (id.includes("business")) return "business";
-  if (id.includes("agency")) return "agency";
-  if (id.includes("enterprise")) return "enterprise";
+  console.log("getPlanTypeFromId called with:", id);
+
+  // Check against known product IDs first
+  if (
+    id === PRODUCT_IDS.BUSINESS ||
+    id.includes("business") ||
+    id.includes("BUSINESS")
+  ) {
+    return "business";
+  }
+  if (
+    id === PRODUCT_IDS.AGENCY ||
+    id.includes("agency") ||
+    id.includes("AGENCY")
+  ) {
+    return "agency";
+  }
+  if (
+    id === PRODUCT_IDS.ENTERPRISE ||
+    id.includes("enterprise") ||
+    id.includes("ENTERPRISE")
+  ) {
+    return "enterprise";
+  }
+
+  // Check against known price IDs
+  const businessPriceIds = [
+    PRICE_IDS.BUSINESS_MONTHLY,
+    PRICE_IDS.BUSINESS_ANNUAL,
+  ];
+  const agencyPriceIds = [PRICE_IDS.AGENCY_MONTHLY, PRICE_IDS.AGENCY_ANNUAL];
+  const enterprisePriceIds = [
+    PRICE_IDS.ENTERPRISE_MONTHLY,
+    PRICE_IDS.ENTERPRISE_ANNUAL,
+  ];
+
+  if (businessPriceIds.includes(id)) {
+    return "business";
+  }
+  if (agencyPriceIds.includes(id)) {
+    return "agency";
+  }
+  if (enterprisePriceIds.includes(id)) {
+    return "enterprise";
+  }
+
+  console.log("Could not determine plan type from ID, defaulting to business");
   return "business"; // Default fallback
+};
+
+// Add a new helper function to get plan type from subscription data
+export const getPlanTypeFromSubscription = (subscription: any): string => {
+  console.log("getPlanTypeFromSubscription called with:", subscription);
+
+  // First, try the planType field if it exists
+  if (subscription.planType) {
+    return subscription.planType;
+  }
+
+  // Then try productId
+  if (subscription.productId) {
+    return getPlanTypeFromId(subscription.productId);
+  }
+
+  // Then try planId (which might be a price ID)
+  if (subscription.planId) {
+    return getPlanTypeFromId(subscription.planId);
+  }
+
+  // Finally, try subscriptionId if it contains plan info
+  if (subscription.subscriptionId) {
+    return getPlanTypeFromId(subscription.subscriptionId);
+  }
+
+  console.log(
+    "Could not determine plan type from subscription, defaulting to business"
+  );
+  return "business";
+};
+
+// Add validation function for additional website pricing
+export const validateAdditionalWebsitePricing = (planType: string): boolean => {
+  const validPlanTypes = Object.keys(ADDITIONAL_WEBSITE_PRICING);
+  return validPlanTypes.includes(planType);
 };

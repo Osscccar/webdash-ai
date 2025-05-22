@@ -54,6 +54,13 @@ import { Button } from "@/components/ui/button";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { PaymentForm } from "@/components/payment/payment-form";
+import {
+  PLANS,
+  ADDITIONAL_WEBSITE_PRICING,
+  getPlanTypeFromSubscription,
+  getAdditionalWebsitePricing,
+  validateAdditionalWebsitePricing,
+} from "@/config/stripe";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -66,19 +73,19 @@ const WORKSPACES = [{ id: "1", name: "WebDash's Workspace", role: "Owner" }];
 const PLAN_CONFIGS = {
   business: {
     includedWebsites: 1,
-    additionalWebsitePrice: 18,
+    additionalWebsitePrice: ADDITIONAL_WEBSITE_PRICING.business.amount,
     canUpgrade: true,
     upgradeToPlans: ["agency", "enterprise"],
   },
   agency: {
     includedWebsites: 3,
-    additionalWebsitePrice: 15,
+    additionalWebsitePrice: ADDITIONAL_WEBSITE_PRICING.agency.amount,
     canUpgrade: true,
     upgradeToPlans: ["enterprise"],
   },
   enterprise: {
     includedWebsites: 5,
-    additionalWebsitePrice: 12,
+    additionalWebsitePrice: ADDITIONAL_WEBSITE_PRICING.enterprise.amount,
     canUpgrade: false,
     upgradeToPlans: [],
   },
@@ -167,45 +174,62 @@ function AdditionalWebsitePayment({
   onSuccess,
 }: AdditionalWebsitePaymentProps) {
   const { user, userData } = useAuth();
-  const planConfig = PLAN_CONFIGS[planType as keyof typeof PLAN_CONFIGS];
-  const priceId =
-    ADDITIONAL_WEBSITE_PRICE_IDS[
-      planType as keyof typeof ADDITIONAL_WEBSITE_PRICE_IDS
-    ];
 
-  if (!planConfig || !priceId) return null;
+  console.log("AdditionalWebsitePayment - planType:", planType);
+
+  // Validate plan type first
+  if (!validateAdditionalWebsitePricing(planType)) {
+    console.error(`Invalid plan type for additional website: ${planType}`);
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-md">
+          <div className="p-6 text-center">
+            <h3 className="text-lg font-medium text-red-600 mb-4">
+              Invalid Plan Type
+            </h3>
+            <p className="text-gray-600 mb-4">
+              The plan type "<strong>{planType}</strong>" is not valid for
+              additional website purchase.
+            </p>
+            <div className="text-sm text-gray-500 mb-4">
+              <p>Valid plan types:</p>
+              <ul className="list-disc list-inside">
+                {Object.keys(ADDITIONAL_WEBSITE_PRICING).map((key) => (
+                  <li key={key}>{key}</li>
+                ))}
+              </ul>
+            </div>
+            <Button onClick={onClose} className="mt-4 cursor-pointer">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Get the additional website pricing (with fallback)
+  const additionalPricing = getAdditionalWebsitePricing(planType);
+
+  console.log("Using additional pricing:", additionalPricing);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <Elements stripe={stripePromise}>
           <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Purchase Additional Website
-            </h3>
-
-            <div className="bg-gray-50 p-4 rounded-lg mb-6">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Additional Website</span>
-                <span className="font-semibold">
-                  ${planConfig.additionalWebsitePrice}/month
-                </span>
-              </div>
-              <p className="text-sm text-gray-500 mt-1">
-                Add one more website to your {planType} plan
-              </p>
-            </div>
-
             <PaymentForm
-              productId={priceId}
+              productId={additionalPricing.priceId}
               interval="monthly"
               customerData={{
                 email: userData?.email || user?.email || "",
                 name: `${userData?.firstName || ""} ${
                   userData?.lastName || ""
-                }`,
+                }`.trim(),
               }}
               onSuccess={onSuccess}
+              isAdditionalWebsite={true}
+              planType={planType}
             />
           </div>
         </Elements>
@@ -213,6 +237,28 @@ function AdditionalWebsitePayment({
     </Dialog>
   );
 }
+// Also update the getUserPlanInfo function to be more robust:
+const getUserPlanInfo = () => {
+  const subscription = userData?.webdashSubscription;
+
+  console.log("getUserPlanInfo - subscription:", subscription);
+
+  if (!subscription?.active) {
+    console.log("No active subscription, defaulting to business plan");
+    return { plan: "business", limit: 1 };
+  }
+
+  // Use the new helper function from stripe config
+  const planType = getPlanTypeFromSubscription(subscription);
+
+  console.log("Determined plan type:", planType);
+
+  const limit =
+    userData?.websiteLimit ||
+    (planType === "enterprise" ? 5 : planType === "agency" ? 3 : 1);
+
+  return { plan: planType, limit };
+};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -322,14 +368,17 @@ export default function DashboardPage() {
           router.push("/preview");
           return;
         } else {
-          // User hasn't generated a website and hasn't paid - redirect to root
-          router.push("/");
+          // Only redirect to root if they're not already there
+          if (window.location.pathname !== "/") {
+            router.push("/");
+          }
           return;
         }
       }
 
       // Get user plan info and set website limit
       const planInfo = getUserPlanInfo();
+      console.log("Setting current plan from planInfo:", planInfo);
       setCurrentPlan(planInfo.plan);
       setWebsiteLimit(planInfo.limit);
 
@@ -592,10 +641,20 @@ export default function DashboardPage() {
   const handleAddWebsite = () => {
     const currentWebsiteCount = websites.length;
 
+    console.log("handleAddWebsite - Current count:", currentWebsiteCount);
+    console.log("handleAddWebsite - Website limit:", websiteLimit);
+    console.log(
+      "handleAddWebsite - Can create more?",
+      currentWebsiteCount < websiteLimit
+    );
+
+    // FIXED: Changed from >= to > so users can create websites up to their limit
     if (currentWebsiteCount >= websiteLimit) {
+      console.log("Reached website limit, showing upgrade modal");
       // User has reached their limit
       setShowUpgradeModal(true);
     } else {
+      console.log("User can create more websites, redirecting to root");
       // User can add more websites
       router.push("/");
     }
@@ -1612,6 +1671,32 @@ export default function DashboardPage() {
         planType={currentPlan}
         onSuccess={handleAdditionalWebsiteSuccess}
       />
+
+      {process.env.NODE_ENV === "development" && (
+        <div className="fixed bottom-4 right-4 bg-black text-white p-2 rounded text-xs max-w-xs z-50">
+          <div>Current Plan: {currentPlan}</div>
+          <div>Website Limit: {websiteLimit}</div>
+          <div>Websites Count: {websites.length}</div>
+          <div>
+            Can Create More: {websites.length < websiteLimit ? "Yes" : "No"}
+          </div>
+          <div>
+            Subscription Active:{" "}
+            {userData?.webdashSubscription?.active ? "Yes" : "No"}
+          </div>
+        </div>
+      )}
+      {process.env.NODE_ENV === "development" && (
+        <button
+          onClick={() => {
+            localStorage.clear();
+            window.location.reload();
+          }}
+          className="fixed bottom-30 right-4 bg-red-500 text-white p-2 rounded-md text-xs z-50 cursor-pointer"
+        >
+          Reset Storage & Reload
+        </button>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerStripe } from "@/config/stripe";
 import { adminDb } from "@/config/firebase-admin";
+import { FieldValue } from "firebase-admin/firestore"; // Import FieldValue separately
 import { AdminAuthService } from "@/lib/admin-auth-service";
 import { UserService } from "@/lib/user-service";
 import { ADDITIONAL_WEBSITE_PRICING } from "@/config/stripe";
@@ -18,8 +19,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { paymentMethodId, planType, customerEmail, customerName, userId } =
-      await request.json();
+    const {
+      paymentMethodId,
+      planType,
+      customerEmail,
+      customerName,
+      userId,
+      promoCode, // Added promo code support
+    } = await request.json();
+
+    console.log("Purchase additional website request:", {
+      paymentMethodId: !!paymentMethodId,
+      planType,
+      customerEmail,
+      customerName,
+      userId,
+      promoCode: !!promoCode,
+    });
 
     if (!paymentMethodId || !planType || !customerEmail || !userId) {
       return NextResponse.json(
@@ -40,12 +56,22 @@ export async function POST(request: NextRequest) {
         planType as keyof typeof ADDITIONAL_WEBSITE_PRICING
       ];
     if (!additionalWebsitePricing) {
+      console.error(`Invalid plan type: ${planType}`);
+      console.error(
+        "Available plan types:",
+        Object.keys(ADDITIONAL_WEBSITE_PRICING)
+      );
       return NextResponse.json({ error: "Invalid plan type" }, { status: 400 });
     }
+
+    console.log("Using additional website pricing:", additionalWebsitePricing);
 
     // Check if user can purchase additional websites (validate their current plan)
     const userPlanType = await UserService.getUserPlanType(userId);
     if (userPlanType !== planType) {
+      console.error(
+        `Plan type mismatch. User plan: ${userPlanType}, Requested: ${planType}`
+      );
       return NextResponse.json(
         { error: "Plan type mismatch" },
         { status: 400 }
@@ -88,8 +114,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create the subscription for the additional website
-    const subscription = await stripe.subscriptions.create({
+    console.log("Customer created/found:", customer.id);
+
+    // Prepare subscription params
+    const subscriptionParams: any = {
       customer: customer.id,
       items: [
         {
@@ -105,7 +133,47 @@ export async function POST(request: NextRequest) {
         planType: planType,
         purchaseType: "additional_website",
       },
-    });
+    };
+
+    // Apply promo code if provided
+    if (promoCode) {
+      try {
+        // Find the promotion code in Stripe
+        const promotionCodes = await stripe.promotionCodes.list({
+          code: promoCode,
+          active: true,
+          limit: 1,
+        });
+
+        if (promotionCodes.data.length > 0) {
+          // Add the promotion code to the subscription parameters
+          subscriptionParams.promotion_code = promotionCodes.data[0].id;
+          console.log(
+            "Applied promotion code to additional website:",
+            promotionCodes.data[0].id
+          );
+        } else {
+          console.log(
+            "Promo code not found for additional website:",
+            promoCode
+          );
+          // Don't fail the purchase if promo code is invalid, just log it
+        }
+      } catch (err) {
+        console.error("Error applying promo code to additional website:", err);
+        // Continue without the promo code if there's an error
+      }
+    }
+
+    // Create the subscription for the additional website
+    console.log("Creating subscription with params:", subscriptionParams);
+    const subscription = await stripe.subscriptions.create(subscriptionParams);
+    console.log(
+      "Subscription created:",
+      subscription.id,
+      "Status:",
+      subscription.status
+    );
 
     // If payment is successful, update the user's website limit
     if (
@@ -123,16 +191,32 @@ export async function POST(request: NextRequest) {
 
     // Update user document with additional website subscription info
     const userRef = adminDb.collection("users").doc(userId);
+    const subscriptionData: any = {
+      subscriptionId: subscription.id,
+      priceId: additionalWebsitePricing.priceId,
+      amount: additionalWebsitePricing.amount,
+      status: subscription.status,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Add promo code info if applied
+    if (promoCode && subscriptionParams.promotion_code) {
+      subscriptionData.promoCode = promoCode;
+      subscriptionData.promotionCodeId = subscriptionParams.promotion_code;
+    }
+
+    console.log(
+      "Updating user document with subscription data:",
+      subscriptionData
+    );
+
+    // Use the correctly imported FieldValue
     await userRef.update({
-      additionalWebsiteSubscriptions: adminDb.FieldValue.arrayUnion({
-        subscriptionId: subscription.id,
-        priceId: additionalWebsitePricing.priceId,
-        amount: additionalWebsitePricing.amount,
-        status: subscription.status,
-        createdAt: new Date().toISOString(),
-      }),
+      additionalWebsiteSubscriptions: FieldValue.arrayUnion(subscriptionData),
       updatedAt: new Date(),
     });
+
+    console.log("User document updated successfully");
 
     // Return the client secret to complete the payment process
     return NextResponse.json({
@@ -141,6 +225,7 @@ export async function POST(request: NextRequest) {
         ?.client_secret,
       status: subscription.status,
       amount: additionalWebsitePricing.amount,
+      promoCodeApplied: !!promoCode && !!subscriptionParams.promotion_code,
     });
   } catch (error: any) {
     console.error("Error purchasing additional website:", error);

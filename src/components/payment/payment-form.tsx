@@ -12,7 +12,7 @@ import { PrimaryButton } from "@/components/ui/custom-button";
 import {
   PLANS,
   getPlanById,
-  getAdditionalWebsitePricing,
+  ADDITIONAL_WEBSITE_PRICING,
 } from "@/config/stripe";
 import { useAuth } from "@/hooks/use-auth";
 import { doc, updateDoc } from "firebase/firestore";
@@ -63,12 +63,16 @@ export function PaymentForm({
     }
   }, [customerData.email]);
 
-  // Get plan/pricing details
+  // Get plan/pricing details with improved logic
   let plan, priceInfo, basePrice, displayName;
 
   if (isAdditionalWebsite && planType) {
-    // Additional website purchase
-    const additionalPricing = getAdditionalWebsitePricing(planType);
+    // Additional website purchase - use the ADDITIONAL_WEBSITE_PRICING
+    const additionalPricing =
+      ADDITIONAL_WEBSITE_PRICING[
+        planType as keyof typeof ADDITIONAL_WEBSITE_PRICING
+      ];
+
     if (additionalPricing) {
       basePrice = additionalPricing.amount;
       displayName = additionalPricing.name;
@@ -76,27 +80,71 @@ export function PaymentForm({
         id: additionalPricing.priceId,
         amount: additionalPricing.amount,
       };
+    } else {
+      console.error(
+        `No additional website pricing found for plan type: ${planType}`
+      );
+      // Fallback to business plan pricing
+      const fallbackPricing = ADDITIONAL_WEBSITE_PRICING.business;
+      basePrice = fallbackPricing.amount;
+      displayName = fallbackPricing.name;
+      priceInfo = {
+        id: fallbackPricing.priceId,
+        amount: fallbackPricing.amount,
+      };
     }
   } else {
     // Regular plan purchase
     plan = getPlanById(productId);
-    priceInfo = plan ? plan.prices[interval] : null;
-    basePrice = priceInfo
-      ? interval === "annual"
-        ? priceInfo.yearlyTotal
-        : priceInfo.amount
-      : 0;
-    displayName = plan?.name;
+
+    if (plan) {
+      priceInfo = plan.prices[interval];
+      basePrice = priceInfo
+        ? interval === "annual"
+          ? priceInfo.yearlyTotal
+          : priceInfo.amount
+        : 0;
+      displayName = plan?.name;
+    } else {
+      console.error(`No plan found for productId: ${productId}`);
+      // This should not happen, but provide a fallback
+      priceInfo = null;
+      basePrice = 0;
+      displayName = "Unknown Plan";
+    }
   }
 
-  // Calculate discounted price (only for regular plans, not additional websites)
-  const discountedPrice =
-    !isAdditionalWebsite && isPromoApplied
-      ? basePrice - basePrice * (promoDiscount / 100)
-      : basePrice;
+  // Early return if we don't have valid pricing info
+  if (!priceInfo) {
+    return (
+      <div className="text-center p-6">
+        <h3 className="text-lg font-semibold text-red-600 mb-2">
+          Invalid Plan Configuration
+        </h3>
+        <p className="text-gray-600 mb-4">
+          {isAdditionalWebsite
+            ? `Unable to find pricing for additional website on ${planType} plan.`
+            : `Unable to find pricing for the selected plan: ${productId}`}
+        </p>
+        <div className="text-sm text-gray-500">
+          <p>Debug Info:</p>
+          <p>Product ID: {productId}</p>
+          <p>Plan Type: {planType || "N/A"}</p>
+          <p>Is Additional Website: {isAdditionalWebsite ? "Yes" : "No"}</p>
+          <p>Interval: {interval}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate discounted price (now works for both regular plans AND additional websites)
+  const discountedPrice = isPromoApplied
+    ? basePrice - basePrice * (promoDiscount / 100)
+    : basePrice;
 
   const handleApplyPromo = async () => {
-    if (!promoCode.trim() || !priceInfo || isAdditionalWebsite) return;
+    // REMOVED the condition that prevented promo codes on additional websites
+    if (!promoCode.trim() || !priceInfo) return;
 
     setIsValidatingPromo(true);
 
@@ -125,7 +173,9 @@ export function PaymentForm({
         setPromoDiscount(result.discount);
         toast({
           title: "Promo code applied",
-          description: `You've received ${result.discount}% off your subscription!`,
+          description: `You've received ${result.discount}% off your ${
+            isAdditionalWebsite ? "additional website" : "subscription"
+          }!`,
         });
       } else {
         throw new Error(result.message || "Invalid promo code");
@@ -247,7 +297,7 @@ export function PaymentForm({
       let response;
 
       if (isAdditionalWebsite && planType) {
-        // Purchase additional website
+        // Purchase additional website - NOW WITH PROMO CODE SUPPORT
         response = await fetch("/api/stripe/purchase-additional-website", {
           method: "POST",
           headers: {
@@ -259,6 +309,7 @@ export function PaymentForm({
             customerEmail: email,
             customerName: customerData.name,
             userId: user?.uid,
+            promoCode: isPromoApplied ? promoCode : undefined, // Added promo code support
           }),
         });
       } else {
@@ -308,10 +359,6 @@ export function PaymentForm({
     }).format(amount);
   };
 
-  if (!priceInfo) {
-    return <div>Invalid plan selected</div>;
-  }
-
   return (
     <div className="max-w-md mx-auto">
       <h2 className="text-xl font-semibold mb-6">
@@ -340,7 +387,8 @@ export function PaymentForm({
               : "year"}
           </span>
         </div>
-        {!isAdditionalWebsite && isPromoApplied && (
+        {/* Show discount for both regular plans AND additional websites */}
+        {isPromoApplied && (
           <div className="flex justify-between items-center text-green-600 mb-2">
             <span>Discount ({promoCode.toUpperCase()}):</span>
             <span>-{formatCurrency(basePrice * (promoDiscount / 100))}</span>
@@ -379,7 +427,7 @@ export function PaymentForm({
                 variant="ghost"
                 onClick={handleUpdateEmail}
                 disabled={isUpdatingEmail}
-                className="h-9 w-9"
+                className="h-9 w-9 cursor-pointer"
               >
                 {isUpdatingEmail ? (
                   <div className="h-4 w-4 border-2 border-t-transparent border-[#f58327] rounded-full animate-spin"></div>
@@ -393,7 +441,7 @@ export function PaymentForm({
                 variant="ghost"
                 onClick={handleCancelEmailEdit}
                 disabled={isUpdatingEmail}
-                className="h-9 w-9"
+                className="h-9 w-9 cursor-pointer"
               >
                 <X className="h-4 w-4 text-red-500" />
               </Button>
@@ -408,7 +456,7 @@ export function PaymentForm({
                 size="sm"
                 variant="ghost"
                 onClick={handleEditEmail}
-                className="h-7 px-2 text-gray-500 hover:text-[#f58327]"
+                className="h-7 px-2 text-gray-500 hover:text-[#f58327] cursor-pointer"
               >
                 <Pencil className="h-3.5 w-3.5 mr-1" />
                 <span className="text-xs">Edit</span>
@@ -446,40 +494,46 @@ export function PaymentForm({
           )}
         </div>
 
-        {/* Only show promo code for regular plans, not additional websites */}
-        {!isAdditionalWebsite && (
-          <div className="space-y-2">
-            <Label htmlFor="promo">Promo Code</Label>
-            <div className="flex gap-2">
-              <Input
-                id="promo"
-                placeholder="Enter promo code"
-                value={promoCode}
-                onChange={(e) => {
-                  setPromoCode(e.target.value);
-                  if (isPromoApplied) {
-                    setIsPromoApplied(false);
-                    setPromoDiscount(0);
-                  }
-                }}
-                disabled={isPromoApplied}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleApplyPromo}
-                disabled={!promoCode || isPromoApplied || isValidatingPromo}
-              >
-                {isValidatingPromo
-                  ? "Checking..."
-                  : isPromoApplied
-                  ? "Applied"
-                  : "Apply"}
-              </Button>
-            </div>
+        {/* Promo code section - NOW AVAILABLE FOR BOTH REGULAR AND ADDITIONAL WEBSITES */}
+        <div className="space-y-2">
+          <Label htmlFor="promo">
+            Promo Code
+            {isAdditionalWebsite && (
+              <span className="text-xs text-gray-500 ml-1">
+                (Available for additional websites too!)
+              </span>
+            )}
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              id="promo"
+              placeholder="Enter promo code"
+              value={promoCode}
+              onChange={(e) => {
+                setPromoCode(e.target.value);
+                if (isPromoApplied) {
+                  setIsPromoApplied(false);
+                  setPromoDiscount(0);
+                }
+              }}
+              disabled={isPromoApplied}
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleApplyPromo}
+              disabled={!promoCode || isPromoApplied || isValidatingPromo}
+              className="cursor-pointer"
+            >
+              {isValidatingPromo
+                ? "Checking..."
+                : isPromoApplied
+                ? "Applied"
+                : "Apply"}
+            </Button>
           </div>
-        )}
+        </div>
 
         <PrimaryButton
           type="submit"
