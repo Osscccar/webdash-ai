@@ -1,3 +1,5 @@
+// src/types/index.ts
+
 // Core user type that's compatible with existing data structure
 export interface UserData {
   id?: string;
@@ -11,9 +13,26 @@ export interface UserData {
   webdashSubscription?: SubscriptionStatus;
   websites?: UserWebsite[];
   stripeCustomerId?: string;
+  // Website limit management
+  websiteLimit?: number; // Number of websites user can create
+  planType?: string; // Current plan type (business, agency, enterprise)
+  additionalWebsiteSubscriptions?: AdditionalWebsiteSubscription[]; // Track additional website purchases
   createdAt?: string;
   updatedAt?: string;
   authProvider?: string;
+}
+
+// Additional website subscription tracking
+export interface AdditionalWebsiteSubscription {
+  subscriptionId: string;
+  priceId: string;
+  planType: string;
+  amount: number;
+  status: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 // Website generation types
@@ -54,11 +73,14 @@ export interface UserWebsite {
 export interface SubscriptionStatus {
   active: boolean;
   planId?: string;
+  productId?: string;
+  planType?: string; // business, agency, enterprise
   trialEnd?: string;
   currentPeriodEnd?: string;
   cancelAtPeriodEnd?: boolean;
   customerId?: string;
   subscriptionId?: string;
+  status?: string;
 }
 
 // Website generation progress
@@ -122,12 +144,22 @@ export interface Section {
   section_title: string;
 }
 
+// Plan configuration interface
+export interface PlanConfig {
+  includedWebsites: number;
+  additionalWebsitePrice: number;
+  canUpgrade: boolean;
+  upgradeToPlans: string[];
+}
+
 // Pricing plans
 export interface PricingPlan {
   id: string;
   name: string;
   price: number;
   interval: "month" | "year";
+  websiteLimit: number;
+  additionalWebsitePrice: number;
   features: string[];
   limits: {
     aiCredits: string | number;

@@ -9,7 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { PrimaryButton } from "@/components/ui/custom-button";
-import { PLANS, getPlanById } from "@/config/stripe";
+import {
+  PLANS,
+  getPlanById,
+  getAdditionalWebsitePricing,
+} from "@/config/stripe";
 import { useAuth } from "@/hooks/use-auth";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
@@ -17,19 +21,23 @@ import { Pencil, Check, X, LockIcon } from "lucide-react";
 
 interface PaymentFormProps {
   productId: string;
-  interval: "monthly" | "annual";
+  interval?: "monthly" | "annual";
   customerData: {
     email: string;
     name: string;
   };
   onSuccess: (productId: string) => void;
+  isAdditionalWebsite?: boolean;
+  planType?: string;
 }
 
 export function PaymentForm({
   productId,
-  interval,
+  interval = "monthly",
   customerData,
   onSuccess,
+  isAdditionalWebsite = false,
+  planType,
 }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
@@ -55,22 +63,40 @@ export function PaymentForm({
     }
   }, [customerData.email]);
 
-  // Get plan details
-  const plan = getPlanById(productId);
-  const priceInfo = plan ? plan.prices[interval] : null;
+  // Get plan/pricing details
+  let plan, priceInfo, basePrice, displayName;
 
-  // Calculate discounted price
-  const basePrice = priceInfo
-    ? interval === "annual"
-      ? priceInfo.yearlyTotal
-      : priceInfo.amount
-    : 0;
-  const discountedPrice = isPromoApplied
-    ? basePrice - basePrice * (promoDiscount / 100)
-    : basePrice;
+  if (isAdditionalWebsite && planType) {
+    // Additional website purchase
+    const additionalPricing = getAdditionalWebsitePricing(planType);
+    if (additionalPricing) {
+      basePrice = additionalPricing.amount;
+      displayName = additionalPricing.name;
+      priceInfo = {
+        id: additionalPricing.priceId,
+        amount: additionalPricing.amount,
+      };
+    }
+  } else {
+    // Regular plan purchase
+    plan = getPlanById(productId);
+    priceInfo = plan ? plan.prices[interval] : null;
+    basePrice = priceInfo
+      ? interval === "annual"
+        ? priceInfo.yearlyTotal
+        : priceInfo.amount
+      : 0;
+    displayName = plan?.name;
+  }
+
+  // Calculate discounted price (only for regular plans, not additional websites)
+  const discountedPrice =
+    !isAdditionalWebsite && isPromoApplied
+      ? basePrice - basePrice * (promoDiscount / 100)
+      : basePrice;
 
   const handleApplyPromo = async () => {
-    if (!promoCode.trim() || !priceInfo) return;
+    if (!promoCode.trim() || !priceInfo || isAdditionalWebsite) return;
 
     setIsValidatingPromo(true);
 
@@ -204,13 +230,12 @@ export function PaymentForm({
         throw new Error("Card element not found");
       }
 
-      // In a real implementation, we would create a payment method
-      // and attach it to the customer using the Stripe API
+      // Create payment method
       const { error, paymentMethod } = await stripe.createPaymentMethod({
         type: "card",
         card: cardElement,
         billing_details: {
-          email: email, // Use the potentially updated email
+          email: email,
           name: customerData.name,
         },
       });
@@ -219,26 +244,45 @@ export function PaymentForm({
         throw error;
       }
 
-      // Create subscription
-      const response = await fetch("/api/stripe/create-subscription", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          paymentMethodId: paymentMethod.id,
-          priceId: priceInfo.id,
-          productId: productId,
-          interval: interval,
-          customerEmail: email, // Use the potentially updated email
-          customerName: customerData.name,
-          promoCode: isPromoApplied ? promoCode : undefined,
-        }),
-      });
+      let response;
+
+      if (isAdditionalWebsite && planType) {
+        // Purchase additional website
+        response = await fetch("/api/stripe/purchase-additional-website", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            paymentMethodId: paymentMethod.id,
+            planType: planType,
+            customerEmail: email,
+            customerName: customerData.name,
+            userId: user?.uid,
+          }),
+        });
+      } else {
+        // Create regular subscription
+        response = await fetch("/api/stripe/create-subscription", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            paymentMethodId: paymentMethod.id,
+            priceId: priceInfo.id,
+            productId: productId,
+            interval: interval,
+            customerEmail: email,
+            customerName: customerData.name,
+            promoCode: isPromoApplied ? promoCode : undefined,
+          }),
+        });
+      }
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create subscription");
+        throw new Error(errorData.error || "Failed to process payment");
       }
 
       // Success - call onSuccess callback
@@ -264,29 +308,39 @@ export function PaymentForm({
     }).format(amount);
   };
 
-  if (!plan || !priceInfo) {
+  if (!priceInfo) {
     return <div>Invalid plan selected</div>;
   }
 
   return (
     <div className="max-w-md mx-auto">
-      <h2 className="text-xl font-semibold mb-6">Complete your subscription</h2>
+      <h2 className="text-xl font-semibold mb-6">
+        {isAdditionalWebsite
+          ? "Purchase Additional Website"
+          : "Complete your subscription"}
+      </h2>
 
       <div className="bg-gray-50 p-4 rounded-lg mb-6">
         <div className="flex justify-between items-center mb-2">
-          <span className="font-medium">Selected plan:</span>
+          <span className="font-medium">
+            {isAdditionalWebsite ? "Product:" : "Selected plan:"}
+          </span>
           <span className="font-semibold">
-            {plan.name} ({interval})
+            {displayName} {!isAdditionalWebsite && `(${interval})`}
           </span>
         </div>
         <div className="flex justify-between items-center mb-2">
           <span className="text-gray-600">Amount:</span>
           <span>
             {formatCurrency(basePrice)}/
-            {interval === "monthly" ? "month" : "year"}
+            {isAdditionalWebsite
+              ? "month"
+              : interval === "monthly"
+              ? "month"
+              : "year"}
           </span>
         </div>
-        {isPromoApplied && (
+        {!isAdditionalWebsite && isPromoApplied && (
           <div className="flex justify-between items-center text-green-600 mb-2">
             <span>Discount ({promoCode.toUpperCase()}):</span>
             <span>-{formatCurrency(basePrice * (promoDiscount / 100))}</span>
@@ -296,7 +350,11 @@ export function PaymentForm({
           <span>Total:</span>
           <span>
             {formatCurrency(discountedPrice)}/
-            {interval === "monthly" ? "month" : "year"}
+            {isAdditionalWebsite
+              ? "month"
+              : interval === "monthly"
+              ? "month"
+              : "year"}
           </span>
         </div>
       </div>
@@ -388,37 +446,40 @@ export function PaymentForm({
           )}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="promo">Promo Code</Label>
-          <div className="flex gap-2">
-            <Input
-              id="promo"
-              placeholder="Enter promo code"
-              value={promoCode}
-              onChange={(e) => {
-                setPromoCode(e.target.value);
-                if (isPromoApplied) {
-                  setIsPromoApplied(false);
-                  setPromoDiscount(0);
-                }
-              }}
-              disabled={isPromoApplied}
-              className="flex-1"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleApplyPromo}
-              disabled={!promoCode || isPromoApplied || isValidatingPromo}
-            >
-              {isValidatingPromo
-                ? "Checking..."
-                : isPromoApplied
-                ? "Applied"
-                : "Apply"}
-            </Button>
+        {/* Only show promo code for regular plans, not additional websites */}
+        {!isAdditionalWebsite && (
+          <div className="space-y-2">
+            <Label htmlFor="promo">Promo Code</Label>
+            <div className="flex gap-2">
+              <Input
+                id="promo"
+                placeholder="Enter promo code"
+                value={promoCode}
+                onChange={(e) => {
+                  setPromoCode(e.target.value);
+                  if (isPromoApplied) {
+                    setIsPromoApplied(false);
+                    setPromoDiscount(0);
+                  }
+                }}
+                disabled={isPromoApplied}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleApplyPromo}
+                disabled={!promoCode || isPromoApplied || isValidatingPromo}
+              >
+                {isValidatingPromo
+                  ? "Checking..."
+                  : isPromoApplied
+                  ? "Applied"
+                  : "Apply"}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
 
         <PrimaryButton
           type="submit"

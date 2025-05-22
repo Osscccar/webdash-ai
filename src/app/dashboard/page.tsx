@@ -49,9 +49,170 @@ import Image from "next/image";
 import WebDashLogo from "../../../public/WebDash.webp";
 import { VisitorStatistics } from "@/components/dashboard/visitor-statistics";
 import { PrimaryButton } from "@/components/ui/custom-button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+import { PaymentForm } from "@/components/payment/payment-form";
+
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+);
 
 // Mock workspaces data
 const WORKSPACES = [{ id: "1", name: "WebDash's Workspace", role: "Owner" }];
+
+// Plan configurations with website limits and additional website pricing
+const PLAN_CONFIGS = {
+  business: {
+    includedWebsites: 1,
+    additionalWebsitePrice: 18,
+    canUpgrade: true,
+    upgradeToPlans: ["agency", "enterprise"],
+  },
+  agency: {
+    includedWebsites: 3,
+    additionalWebsitePrice: 15,
+    canUpgrade: true,
+    upgradeToPlans: ["enterprise"],
+  },
+  enterprise: {
+    includedWebsites: 5,
+    additionalWebsitePrice: 12,
+    canUpgrade: false,
+    upgradeToPlans: [],
+  },
+};
+
+// Additional website price IDs for Stripe
+const ADDITIONAL_WEBSITE_PRICE_IDS = {
+  business: "price_additional_business_website", // Replace with actual Stripe price ID
+  agency: "price_additional_agency_website", // Replace with actual Stripe price ID
+  enterprise: "price_additional_enterprise_website", // Replace with actual Stripe price ID
+};
+
+interface UpgradeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentPlan: string;
+  websiteLimit: number;
+  currentWebsiteCount: number;
+  onUpgrade: () => void;
+  onBuyAdditional: () => void;
+}
+
+function UpgradeModal({
+  isOpen,
+  onClose,
+  currentPlan,
+  websiteLimit,
+  currentWebsiteCount,
+  onUpgrade,
+  onBuyAdditional,
+}: UpgradeModalProps) {
+  const planConfig = PLAN_CONFIGS[currentPlan as keyof typeof PLAN_CONFIGS];
+
+  if (!planConfig) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <div className="p-6 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 mb-4">
+            <ShoppingCart className="h-6 w-6 text-orange-600" />
+          </div>
+
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Website Limit Reached
+          </h3>
+
+          <p className="text-sm text-gray-500 mb-6">
+            You've reached your limit of {websiteLimit} website
+            {websiteLimit > 1 ? "s" : ""} on the{" "}
+            {currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)} plan.
+          </p>
+
+          <div className="space-y-3">
+            {planConfig.canUpgrade && (
+              <PrimaryButton onClick={onUpgrade} className="w-full">
+                Upgrade Plan
+              </PrimaryButton>
+            )}
+
+            <button
+              onClick={onBuyAdditional}
+              className="text-sm text-[#f58327] hover:underline cursor-pointer"
+            >
+              Buy an additional website (+${planConfig.additionalWebsitePrice}
+              /month)
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface AdditionalWebsitePaymentProps {
+  isOpen: boolean;
+  onClose: () => void;
+  planType: string;
+  onSuccess: () => void;
+}
+
+function AdditionalWebsitePayment({
+  isOpen,
+  onClose,
+  planType,
+  onSuccess,
+}: AdditionalWebsitePaymentProps) {
+  const { user, userData } = useAuth();
+  const planConfig = PLAN_CONFIGS[planType as keyof typeof PLAN_CONFIGS];
+  const priceId =
+    ADDITIONAL_WEBSITE_PRICE_IDS[
+      planType as keyof typeof ADDITIONAL_WEBSITE_PRICE_IDS
+    ];
+
+  if (!planConfig || !priceId) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <Elements stripe={stripePromise}>
+          <div className="p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Purchase Additional Website
+            </h3>
+
+            <div className="bg-gray-50 p-4 rounded-lg mb-6">
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Additional Website</span>
+                <span className="font-semibold">
+                  ${planConfig.additionalWebsitePrice}/month
+                </span>
+              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                Add one more website to your {planType} plan
+              </p>
+            </div>
+
+            <PaymentForm
+              productId={priceId}
+              interval="monthly"
+              customerData={{
+                email: userData?.email || user?.email || "",
+                name: `${userData?.firstName || ""} ${
+                  userData?.lastName || ""
+                }`,
+              }}
+              onSuccess={onSuccess}
+            />
+          </div>
+        </Elements>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -76,6 +237,12 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("main");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeWebsiteId, setActiveWebsiteId] = useState<string | null>(null);
+
+  // New state for website limits and modals
+  const [websiteLimit, setWebsiteLimit] = useState(1);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState("business");
 
   // Mock data for analytics
   const mockAnalytics = {
@@ -111,6 +278,26 @@ export default function DashboardPage() {
     },
   ];
 
+  // Function to get user's plan type and website limit
+  const getUserPlanInfo = () => {
+    const subscription = userData?.webdashSubscription;
+    if (!subscription?.active) return { plan: "business", limit: 1 };
+
+    // Determine plan based on productId or priceId
+    const productId = subscription.productId || subscription.planId;
+    if (!productId) return { plan: "business", limit: 1 };
+
+    if (productId.includes("business")) {
+      return { plan: "business", limit: userData?.websiteLimit || 1 };
+    } else if (productId.includes("agency")) {
+      return { plan: "agency", limit: userData?.websiteLimit || 3 };
+    } else if (productId.includes("enterprise")) {
+      return { plan: "enterprise", limit: userData?.websiteLimit || 5 };
+    }
+
+    return { plan: "business", limit: userData?.websiteLimit || 1 };
+  };
+
   useEffect(() => {
     // Check for authentication and subscription status
     const checkAccess = async () => {
@@ -140,6 +327,11 @@ export default function DashboardPage() {
           return;
         }
       }
+
+      // Get user plan info and set website limit
+      const planInfo = getUserPlanInfo();
+      setCurrentPlan(planInfo.plan);
+      setWebsiteLimit(planInfo.limit);
 
       // User is authenticated and has subscription - allow access
       setIsLoading(false);
@@ -385,11 +577,72 @@ export default function DashboardPage() {
 
   const handleWebsiteClick = (website: UserWebsite) => {
     setSelectedWebsite(website);
+    // Automatically collapse sidebar when viewing website details
+    setSidebarCollapsed(true);
   };
 
   const handleBackToWebsites = () => {
     setSelectedWebsite(null);
     setActiveTab("main");
+    // Automatically expand sidebar when going back to websites list
+    setSidebarCollapsed(false);
+  };
+
+  // Function to handle adding a new website
+  const handleAddWebsite = () => {
+    const currentWebsiteCount = websites.length;
+
+    if (currentWebsiteCount >= websiteLimit) {
+      // User has reached their limit
+      setShowUpgradeModal(true);
+    } else {
+      // User can add more websites
+      router.push("/");
+    }
+  };
+
+  // Function to handle upgrade
+  const handleUpgrade = () => {
+    setShowUpgradeModal(false);
+    // Redirect to preview page with payment card
+    router.push("/preview");
+  };
+
+  // Function to handle buying additional website
+  const handleBuyAdditional = () => {
+    setShowUpgradeModal(false);
+    setShowPaymentModal(true);
+  };
+
+  // Function to handle successful additional website purchase
+  const handleAdditionalWebsiteSuccess = async () => {
+    try {
+      // Update user's website limit in Firestore
+      const userRef = doc(db, "users", user!.uid);
+      await updateDoc(userRef, {
+        websiteLimit: websiteLimit + 1,
+        updatedAt: serverTimestamp(),
+      });
+
+      setWebsiteLimit(websiteLimit + 1);
+      setShowPaymentModal(false);
+
+      toast({
+        title: "Additional website purchased",
+        description: "You can now create one more website!",
+      });
+
+      // Redirect to create new website
+      router.push("/");
+    } catch (error) {
+      console.error("Error updating website limit:", error);
+      toast({
+        title: "Error",
+        description:
+          "Failed to update your website limit. Please contact support.",
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredWebsites = websites.filter(
@@ -780,7 +1033,8 @@ export default function DashboardPage() {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
                   <div>
                     <p className="text-gray-500 text-sm">
-                      {activeWorkspace.name} • {websites.length} websites
+                      {activeWorkspace.name} • {websites.length}/{websiteLimit}{" "}
+                      websites
                     </p>
                   </div>
                   <div className="flex items-center space-x-3 w-full md:w-auto">
@@ -788,7 +1042,7 @@ export default function DashboardPage() {
                       <Plus className="h-4 w-4" />
                       <span>Add Collaborators</span>
                     </PrimaryButton>
-                    <PrimaryButton>
+                    <PrimaryButton onClick={handleAddWebsite}>
                       <Plus className="h-4 w-4" />
                       <span>Add Website</span>
                     </PrimaryButton>
@@ -913,7 +1167,7 @@ export default function DashboardPage() {
                         </p>
                       )}
                       <button
-                        onClick={() => router.push("/")}
+                        onClick={handleAddWebsite}
                         className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-4 py-2 rounded-md font-normal mt-2 cursor-pointer"
                       >
                         Create Your First Website
@@ -1339,6 +1593,25 @@ export default function DashboardPage() {
           </main>
         )}
       </div>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        currentPlan={currentPlan}
+        websiteLimit={websiteLimit}
+        currentWebsiteCount={websites.length}
+        onUpgrade={handleUpgrade}
+        onBuyAdditional={handleBuyAdditional}
+      />
+
+      {/* Additional Website Payment Modal */}
+      <AdditionalWebsitePayment
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        planType={currentPlan}
+        onSuccess={handleAdditionalWebsiteSuccess}
+      />
     </div>
   );
 }

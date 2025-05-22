@@ -32,7 +32,6 @@ export const PRODUCT_IDS = {
 };
 
 // Price IDs for all plans
-// Replace these with your actual Stripe price IDs
 export const PRICE_IDS = {
   BUSINESS_MONTHLY: "price_1RQp4cBUIdTRY5XzIaoa4ooq",
   BUSINESS_ANNUAL: "price_1RQp5vBUIdTRY5Xz6iPoigCK",
@@ -42,12 +41,43 @@ export const PRICE_IDS = {
   ENTERPRISE_ANNUAL: "price_1RQp5vBUIdTRY5Xz6iPoigCK",
 };
 
-// Subscription plans with detailed information
+// Additional website price IDs - You need to create these in your Stripe dashboard
+export const ADDITIONAL_WEBSITE_PRICE_IDS = {
+  BUSINESS: "price_1RRRA7BUIdTRY5Xzgm97tt8m", // $18/month - Replace with actual Stripe price ID
+  AGENCY: "price_1RRRAUBUIdTRY5XzJ4VsHqEy", // $15/month - Replace with actual Stripe price ID
+  ENTERPRISE: "price_1RRRAuBUIdTRY5Xz2GUGjE9k", // $12/month - Replace with actual Stripe price ID
+};
+
+// Additional website pricing information
+export const ADDITIONAL_WEBSITE_PRICING = {
+  business: {
+    priceId: ADDITIONAL_WEBSITE_PRICE_IDS.BUSINESS,
+    amount: 18,
+    name: "Additional Business Website",
+    description: "Add one more website to your Business plan",
+  },
+  agency: {
+    priceId: ADDITIONAL_WEBSITE_PRICE_IDS.AGENCY,
+    amount: 15,
+    name: "Additional Agency Website",
+    description: "Add one more website to your Agency plan",
+  },
+  enterprise: {
+    priceId: ADDITIONAL_WEBSITE_PRICE_IDS.ENTERPRISE,
+    amount: 12,
+    name: "Additional Enterprise Website",
+    description: "Add one more website to your Enterprise plan",
+  },
+};
+
+// Subscription plans with detailed information including website limits
 export const PLANS = {
   business: {
     id: PRODUCT_IDS.BUSINESS,
     name: "Business",
     description: "Perfect for small businesses and individuals",
+    websiteLimit: 1,
+    additionalWebsitePrice: 18,
     prices: {
       monthly: {
         id: PRICE_IDS.BUSINESS_MONTHLY,
@@ -78,6 +108,8 @@ export const PLANS = {
     name: "Agency",
     description: "For growing agencies and businesses",
     popular: true,
+    websiteLimit: 3,
+    additionalWebsitePrice: 15,
     prices: {
       monthly: {
         id: PRICE_IDS.AGENCY_MONTHLY,
@@ -105,6 +137,8 @@ export const PLANS = {
     id: PRODUCT_IDS.ENTERPRISE,
     name: "Enterprise",
     description: "For large organizations with multiple websites",
+    websiteLimit: 5,
+    additionalWebsitePrice: 12,
     prices: {
       monthly: {
         id: PRICE_IDS.ENTERPRISE_MONTHLY,
@@ -141,4 +175,19 @@ export const getPlanPrice = (
 // Helper function to get plan by product ID
 export const getPlanById = (productId: string) => {
   return Object.values(PLANS).find((plan) => plan.id === productId);
+};
+
+// Helper function to get additional website pricing by plan type
+export const getAdditionalWebsitePricing = (planType: string) => {
+  return ADDITIONAL_WEBSITE_PRICING[
+    planType as keyof typeof ADDITIONAL_WEBSITE_PRICING
+  ];
+};
+
+// Helper function to determine plan type from product/price ID
+export const getPlanTypeFromId = (id: string): string => {
+  if (id.includes("business")) return "business";
+  if (id.includes("agency")) return "agency";
+  if (id.includes("enterprise")) return "enterprise";
+  return "business"; // Default fallback
 };
