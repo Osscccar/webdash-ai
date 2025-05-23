@@ -1,4 +1,11 @@
-// src/types/index.ts
+// src/types/index.ts (Updated with workspace support)
+
+// Import workspace types
+import type {
+  Workspace,
+  WorkspaceCollaborator,
+  WorkspaceInvite,
+} from "./workspace";
 
 // Core user type that's compatible with existing data structure
 export interface UserData {
@@ -17,6 +24,12 @@ export interface UserData {
   websiteLimit?: number; // Number of websites user can create
   planType?: string; // Current plan type (business, agency, enterprise)
   additionalWebsiteSubscriptions?: AdditionalWebsiteSubscription[]; // Track additional website purchases
+
+  // NEW: Workspace management
+  workspaces?: string[]; // Array of workspace IDs the user has access to
+  defaultWorkspaceId?: string; // The user's default workspace
+  workspaceInvites?: WorkspaceInvite[]; // Pending workspace invitations
+
   createdAt?: string;
   updatedAt?: string;
   authProvider?: string;
@@ -54,10 +67,11 @@ export interface WebsiteGenerationParams {
   websiteKeyphrase?: string;
 }
 
-// src/types/index.ts (modification for UserWebsite)
+// Updated UserWebsite to include workspace association
 export interface UserWebsite {
   id: string;
   userId: string; // Make sure this is required
+  workspaceId: string; // NEW: Associate website with workspace
   domainId: number;
   subdomain: string;
   siteUrl: string;
@@ -173,3 +187,14 @@ export interface PricingPlan {
     pageSpeed: boolean;
   };
 }
+
+// Re-export workspace types for convenience
+export type {
+  Workspace,
+  WorkspaceCollaborator,
+  WorkspaceInvite,
+  CollaboratorRole,
+  CollaboratorStatus,
+  WorkspacePermissions,
+  PlanLimits,
+} from "./workspace";
