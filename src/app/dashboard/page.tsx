@@ -270,7 +270,7 @@ export default function DashboardPage() {
   const [selectedWebsite, setSelectedWebsite] = useState<UserWebsite | null>(
     null
   );
-  
+
   // Use the workspace from the hook
   const activeWorkspace = hookActiveWorkspace;
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
@@ -294,7 +294,7 @@ export default function DashboardPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [currentPlan, setCurrentPlan] = useState("business");
   const [showWorkspaceManager, setShowWorkspaceManager] = useState(false);
-  
+
   // Remove unused ref since we're using modal now
 
   // Mock data for analytics
@@ -373,42 +373,73 @@ export default function DashboardPage() {
     console.log("activeWorkspace:", activeWorkspace);
     console.log("user:", user?.uid);
     console.log("workspaces loaded:", workspaces?.length);
-    
+
     if (!activeWorkspace || !user) {
       console.log("No active workspace or user, returning empty array");
       return [];
     }
-    
-    const userCollaborator = activeWorkspace.collaborators.find(c => c.userId === user.uid);
+
+    const userCollaborator = activeWorkspace.collaborators.find(
+      (c) => c.userId === user.uid
+    );
     console.log("userCollaborator found:", userCollaborator);
-    
+
     if (!userCollaborator) {
-      console.log("User not found in workspace collaborators, returning empty array");
+      console.log(
+        "User not found in workspace collaborators, returning empty array"
+      );
       console.log("Workspace collaborators:", activeWorkspace.collaborators);
       return [];
     }
-    
+
     // First filter by workspace - only show websites that belong to current workspace
-    const workspaceWebsites = websites.filter(website => 
-      website.workspaceId === activeWorkspace.id
+    const workspaceWebsites = websites.filter(
+      (website) => website.workspaceId === activeWorkspace.id
     );
-    
-    console.log(`Filtering ${websites.length} total websites for workspace ${activeWorkspace.id} (${activeWorkspace.name}):`);
-    console.log(`Found ${workspaceWebsites.length} websites in current workspace`);
-    console.log("All websites:", websites.map(w => ({ id: w.id, title: w.title, workspaceId: w.workspaceId, userId: w.userId })));
-    console.log("Workspace websites:", workspaceWebsites.map(w => ({ id: w.id, title: w.title, workspaceId: w.workspaceId, userId: w.userId })));
-    
+
+    console.log(
+      `Filtering ${websites.length} total websites for workspace ${activeWorkspace.id} (${activeWorkspace.name}):`
+    );
+    console.log(
+      `Found ${workspaceWebsites.length} websites in current workspace`
+    );
+    console.log(
+      "All websites:",
+      websites.map((w) => ({
+        id: w.id,
+        title: w.title,
+        workspaceId: w.workspaceId,
+        userId: w.userId,
+      }))
+    );
+    console.log(
+      "Workspace websites:",
+      workspaceWebsites.map((w) => ({
+        id: w.id,
+        title: w.title,
+        workspaceId: w.workspaceId,
+        userId: w.userId,
+      }))
+    );
+
     // If user is client, only show allowed websites within this workspace
-    if (userCollaborator.role === "client" && userCollaborator.allowedWebsites) {
-      const clientWebsites = workspaceWebsites.filter(website => 
+    if (
+      userCollaborator.role === "client" &&
+      userCollaborator.allowedWebsites
+    ) {
+      const clientWebsites = workspaceWebsites.filter((website) =>
         userCollaborator.allowedWebsites?.includes(website.id)
       );
-      console.log(`User is client, showing ${clientWebsites.length} allowed websites`);
+      console.log(
+        `User is client, showing ${clientWebsites.length} allowed websites`
+      );
       return clientWebsites;
     }
-    
+
     // For other roles, show all websites in the current workspace
-    console.log(`User role: ${userCollaborator.role}, showing all ${workspaceWebsites.length} workspace websites`);
+    console.log(
+      `User role: ${userCollaborator.role}, showing all ${workspaceWebsites.length} workspace websites`
+    );
     console.log("=== End Debug ===");
     return workspaceWebsites;
   };
@@ -417,10 +448,10 @@ export default function DashboardPage() {
   const handleWorkspaceChange = (workspace: Workspace) => {
     changeActiveWorkspace(workspace);
     console.log("Active workspace changed to:", workspace.name);
-    
+
     // Clear selected website since it might not be available in new workspace
     setSelectedWebsite(null);
-    
+
     // Close workspace manager modal if open
     setShowWorkspaceManager(false);
   };
@@ -458,7 +489,8 @@ export default function DashboardPage() {
 
       // Check if the user has an active subscription OR is a collaborator in any workspace
       const hasSubscription = userData?.webdashSubscription?.active || false;
-      const hasWorkspaceAccess = userData?.workspaces && userData.workspaces.length > 0;
+      const hasWorkspaceAccess =
+        userData?.workspaces && userData.workspaces.length > 0;
 
       if (!hasSubscription && !hasWorkspaceAccess) {
         // Check if user has generated a website
@@ -643,26 +675,26 @@ export default function DashboardPage() {
 
         // ✅ SECURE: Use API endpoint to load workspace websites
         console.log("Loading workspace websites via secure API...");
-        
+
         let existingWebsites: UserWebsite[] = [];
-        
+
         try {
           // Get user's Firebase ID token for API authentication
           console.log("Getting Firebase ID token...");
           const idToken = await user.getIdToken();
           console.log("ID token obtained, calling API...");
-          
+
           // Call secure API endpoint to load workspace websites
           const response = await fetch("/api/workspaces/websites", {
             method: "GET",
             headers: {
-              "Authorization": `Bearer ${idToken}`,
+              Authorization: `Bearer ${idToken}`,
               "Content-Type": "application/json",
             },
           });
-          
+
           console.log(`API response status: ${response.status}`);
-          
+
           if (response.ok) {
             const data = await response.json();
             console.log("API response data:", data);
@@ -671,15 +703,21 @@ export default function DashboardPage() {
             console.log(`Loaded ${existingWebsites.length} websites via API`);
           } else {
             const errorText = await response.text();
-            console.error("Failed to load websites via API:", response.status, errorText);
+            console.error(
+              "Failed to load websites via API:",
+              response.status,
+              errorText
+            );
             // Fallback: try to load from user's own document
             const userRef = doc(db, "users", user.uid);
             const userDoc = await getDoc(userRef);
-            
+
             if (userDoc.exists()) {
               const userData = userDoc.data();
               existingWebsites = userData.websites || [];
-              console.log(`Fallback: loaded ${existingWebsites.length} websites from user document`);
+              console.log(
+                `Fallback: loaded ${existingWebsites.length} websites from user document`
+              );
             }
           }
         } catch (error) {
@@ -687,11 +725,13 @@ export default function DashboardPage() {
           // Fallback: try to load from user's own document
           const userRef = doc(db, "users", user.uid);
           const userDoc = await getDoc(userRef);
-          
+
           if (userDoc.exists()) {
             const userData = userDoc.data();
             existingWebsites = userData.websites || [];
-            console.log(`Fallback: loaded ${existingWebsites.length} websites from user document`);
+            console.log(
+              `Fallback: loaded ${existingWebsites.length} websites from user document`
+            );
           }
         }
 
@@ -700,7 +740,9 @@ export default function DashboardPage() {
         const siteInfo = localStorage.getItem("webdash_site_info");
         const subdomain = localStorage.getItem("webdash_subdomain");
         const domainId = localStorage.getItem("webdash_domain_id");
-        const storedWorkspaceId = localStorage.getItem("webdash_current_workspace");
+        const storedWorkspaceId = localStorage.getItem(
+          "webdash_current_workspace"
+        );
 
         if (websiteData) {
           try {
@@ -709,14 +751,18 @@ export default function DashboardPage() {
 
             // Add user ID and workspace ID if missing
             parsedWebsite.userId = user.uid;
-            
+
             // ✅ Handle pending workspace assignment for new users
             if (parsedWebsite.workspaceId === "pending-workspace-assignment") {
               // Assign to user's default workspace
-              parsedWebsite.workspaceId = activeWorkspace?.id || `workspace-${user.uid}-default`;
-              console.log(`Assigning pending website to default workspace: ${parsedWebsite.workspaceId}`);
+              parsedWebsite.workspaceId =
+                activeWorkspace?.id || `workspace-${user.uid}-default`;
+              console.log(
+                `Assigning pending website to default workspace: ${parsedWebsite.workspaceId}`
+              );
             } else {
-              parsedWebsite.workspaceId = storedWorkspaceId || activeWorkspace?.id || "default-workspace";
+              parsedWebsite.workspaceId =
+                storedWorkspaceId || activeWorkspace?.id || "default-workspace";
             }
 
             // ✅ FIXED: Check if this website already exists
@@ -738,7 +784,7 @@ export default function DashboardPage() {
                 const response = await fetch("/api/workspaces/websites", {
                   method: "POST",
                   headers: {
-                    "Authorization": `Bearer ${idToken}`,
+                    Authorization: `Bearer ${idToken}`,
                     "Content-Type": "application/json",
                   },
                   body: JSON.stringify({
@@ -855,10 +901,10 @@ export default function DashboardPage() {
   // Check if user can create websites based on role
   const canCreateWebsites = () => {
     if (!activeWorkspace || !user) return false;
-    
+
     const role = safeGetUserRole(activeWorkspace);
     if (!role) return false;
-    
+
     const permissions = ROLE_PERMISSIONS[role];
     return permissions.canCreateWebsites;
   };
@@ -869,7 +915,8 @@ export default function DashboardPage() {
     if (!canCreateWebsites()) {
       toast({
         title: "Permission denied",
-        description: "Only workspace owners and admins can create new websites.",
+        description:
+          "Only workspace owners and admins can create new websites.",
         variant: "destructive",
       });
       return;
@@ -903,7 +950,7 @@ export default function DashboardPage() {
 
       // Add a flag to indicate this is a new website creation
       localStorage.setItem("webdash_creating_new", "true");
-      
+
       // Store the current workspace ID so the new website gets assigned to it
       if (activeWorkspace) {
         localStorage.setItem("webdash_current_workspace", activeWorkspace.id);
@@ -1037,545 +1084,606 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Main Sidebar */}
-      <div
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-100 transition-all duration-300 ease-in-out",
-          sidebarCollapsed ? "-translate-x-full md:translate-x-0 md:w-20" : "",
-          selectedWebsite ? "-translate-x-full md:translate-x-0" : ""
-        )}
-      >
-        {/* Sidebar Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <div className="flex items-center space-x-3">
-            <Image
-              src={WebDashLogo}
-              alt="WebDash Logo"
-              width={40}
-              height={40}
-            />
-          </div>
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="text-gray-400 hover:text-gray-600 cursor-pointer"
+    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
+      {/* Beta Notification Bar */}
+      <div className="bg-gradient-to-r from-orange-400 to-orange-500 text-white px-4 py-2 text-center text-sm">
+        <div className="flex items-center justify-center space-x-1">
+          <span>Found a bug or have feedback?</span>
+          <a
+            href="https://discord.gg/wGAC9EZRXz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-blue-200 transition-colors cursor-pointer font-medium"
           >
-            {sidebarCollapsed ? (
-              <ChevronRight className="h-5 w-5" />
-            ) : (
-              <ChevronLeft className="h-5 w-5" />
-            )}
-          </button>
-        </div>
-
-        {/* Workspace Selector */}
-        {!sidebarCollapsed && (
-          <div className="p-4 border-b border-gray-100">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-normal text-gray-400 uppercase tracking-wider">
-                WORKSPACE
-              </span>
-              <button
-                onClick={() => setShowWorkspaceManager(!showWorkspaceManager)}
-                className="text-gray-400 hover:text-gray-600 cursor-pointer"
-              >
-                <Settings className="h-4 w-4" />
-              </button>
-            </div>
-            
-            {activeWorkspace && (
-              <div className="flex items-center space-x-2 p-2 rounded-md bg-gray-50">
-                <div className="h-6 w-6 rounded bg-gray-200 flex items-center justify-center text-xs font-medium">
-                  {activeWorkspace.name.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">
-                    {activeWorkspace.name}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {safeGetUserRole(activeWorkspace)} • {activeWorkspace?.collaborators?.length || 0} member{(activeWorkspace?.collaborators?.length || 0) !== 1 ? "s" : ""}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Quick Workspace Info */}
-            <div className="mt-4 text-xs text-gray-500">
-              {workspaces.length > 1 ? (
-                <span>{workspaces.length} workspaces available</span>
-              ) : (
-                <span>Click settings to manage workspaces</span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Sidebar Navigation */}
-        <div className="p-2 overflow-y-auto h-[calc(100vh-8rem)]">
-          {/* Workspaces List */}
-          {!sidebarCollapsed && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between px-3 mb-2">
-                <p className="text-xs font-normal text-gray-400 uppercase tracking-wider">WORKSPACES</p>
-                <button 
-                  onClick={() => setShowWorkspaceManager(true)}
-                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-              
-              {/* Show loading state while workspaces load */}
-              {workspacesLoading ? (
-                <div className="px-3 py-2">
-                  <div className="animate-pulse space-y-2">
-                    <div className="h-8 bg-gray-200 rounded"></div>
-                    <div className="h-8 bg-gray-200 rounded"></div>
-                  </div>
-                </div>
-              ) : (
-                <ul className="space-y-1">
-                  {workspaces.map((workspace) => (
-                    <li key={workspace.id}>
-                      <button
-                        onClick={() => handleWorkspaceChange(workspace)}
-                        className={cn(
-                          "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left cursor-pointer",
-                          activeWorkspace?.id === workspace.id ? "bg-gray-100" : ""
-                        )}
-                      >
-                        <div className="h-6 w-6 rounded-md bg-gray-200 flex items-center justify-center text-xs font-normal">
-                          {workspace.name.charAt(0)}
-                          {workspace.name.split(" ")[1]?.charAt(0) || ""}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2">
-                            <span className="truncate">{workspace.name}</span>
-                            {safeGetUserRole(workspace) === "owner" && (
-                              <Crown className="h-3 w-3 text-yellow-500 flex-shrink-0" />
-                            )}
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            {safeGetUserRole(workspace)} • {workspace.collaborators?.length || 0} members
-                          </span>
-                        </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {/* Collapsed state - show current workspace or cycle through */}
-          {sidebarCollapsed && !workspacesLoading && (
-            <div className="mb-4">
-              {workspaces.length > 1 ? (
-                <div className="space-y-2">
-                  {workspaces.map((workspace) => (
-                    <div 
-                      key={workspace.id}
-                      className={cn(
-                        "h-8 w-8 rounded-md flex items-center justify-center text-xs font-normal mx-auto cursor-pointer transition-colors",
-                        activeWorkspace?.id === workspace.id 
-                          ? "bg-gray-300 ring-2 ring-blue-500" 
-                          : "bg-gray-200 hover:bg-gray-300"
-                      )}
-                      onClick={() => handleWorkspaceChange(workspace)}
-                      title={`${workspace.name} (${safeGetUserRole(workspace)})`}
-                    >
-                      {workspace.name.charAt(0)}
-                    </div>
-                  ))}
-                </div>
-              ) : activeWorkspace ? (
-                <div 
-                  className="h-8 w-8 rounded-md bg-gray-200 flex items-center justify-center text-xs font-normal mx-auto cursor-pointer hover:bg-gray-300 transition-colors"
-                  onClick={() => setSidebarCollapsed(false)}
-                  title={activeWorkspace.name}
-                >
-                  {activeWorkspace.name.charAt(0)}
-                </div>
-              ) : null}
-            </div>
-          )}
-        </div>
-
-        {/* Sidebar Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100 bg-white">
-          <button
-            onClick={handleSignOut}
-            className={cn(
-              "flex items-center space-x-3 w-full px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors cursor-pointer",
-              sidebarCollapsed ? "justify-center" : ""
-            )}
-          >
-            <LogOut className="h-5 w-5" />
-            {!sidebarCollapsed && <span>Sign Out</span>}
-          </button>
+            Join our Discord
+          </a>
+          <span>to report it.</span>
         </div>
       </div>
 
-      {/* Website Detail Sidebar - Only visible when a website is selected */}
-      {selectedWebsite && (
-        <div className="fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-100 transition-all duration-300 ease-in-out md:left-20">
-          {/* Website Sidebar Header */}
+      {/* Main Dashboard Content */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Main Sidebar */}
+        <div
+          className={cn(
+            "fixed top-10 bottom-0 left-0 z-50 w-64 bg-white border-r border-gray-100 transition-all duration-300 ease-in-out",
+            sidebarCollapsed
+              ? "-translate-x-full md:translate-x-0 md:w-20"
+              : "",
+            selectedWebsite ? "-translate-x-full md:translate-x-0" : ""
+          )}
+        >
+          {/* Sidebar Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <div className="flex items-center space-x-3">
+              <Image
+                src={WebDashLogo}
+                alt="WebDash Logo"
+                width={40}
+                height={40}
+              />
+            </div>
             <button
-              onClick={handleBackToWebsites}
-              className="flex items-center space-x-2 text-gray-700 hover:text-[#f58327] transition-colors cursor-pointer"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="text-gray-400 hover:text-gray-600 cursor-pointer"
             >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="font-normal">Back</span>
+              {sidebarCollapsed ? (
+                <ChevronRight className="h-5 w-5" />
+              ) : (
+                <ChevronLeft className="h-5 w-5" />
+              )}
             </button>
           </div>
 
-          {/* Website Info */}
-          <div className="p-4 border-b border-gray-100">
-            <h2 className="font-medium text-lg truncate">
-              {selectedWebsite.title}
-            </h2>
-            <div className="flex items-center mt-1">
-              <span className="inline-block h-2 w-2 rounded-full bg-green-500 mr-2"></span>
-              <span className="text-sm text-gray-500 capitalize">
-                {selectedWebsite.status || "active"}
-              </span>
-            </div>
-          </div>
-
-          {/* Website Navigation */}
-          <div className="p-2">
-            <p className="text-xs font-normal text-gray-400 px-3 mb-2">
-              WEBSITE
-            </p>
-            <ul className="space-y-1">
-              <li>
+          {/* Workspace Selector */}
+          {!sidebarCollapsed && (
+            <div className="p-4 border-b border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-normal text-gray-400 uppercase tracking-wider">
+                  WORKSPACE
+                </span>
                 <button
-                  onClick={() => setActiveTab("main")}
-                  className={cn(
-                    "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
-                    activeTab === "main" ? "bg-gray-100 text-[#f58327]" : ""
-                  )}
+                  onClick={() => setShowWorkspaceManager(!showWorkspaceManager)}
+                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
                 >
-                  <Home className="h-5 w-5" />
-                  <span>Main</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setActiveTab("analytics")}
-                  className={cn(
-                    "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
-                    activeTab === "analytics"
-                      ? "bg-gray-100 text-[#f58327]"
-                      : ""
-                  )}
-                >
-                  <BarChart3 className="h-5 w-5" />
-                  <span>Analytics</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setActiveTab("domain")}
-                  className={cn(
-                    "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
-                    activeTab === "domain" ? "bg-gray-100 text-[#f58327]" : ""
-                  )}
-                >
-                  <Globe className="h-5 w-5" />
-                  <span>Domain</span>
-                </button>
-              </li>
-              <li>
-                <button className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left">
-                  <ShoppingCart className="h-5 w-5" />
-                  <span>Ecommerce</span>
-                  <ExternalLink className="h-3 w-3 ml-auto" />
-                </button>
-              </li>
-            </ul>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <div
-        className={cn(
-          "flex-1 overflow-auto transition-all duration-300 ease-in-out",
-          sidebarCollapsed ? "md:ml-20" : "md:ml-64",
-          selectedWebsite ? "md:ml-[336px]" : ""
-        )}
-      >
-        {/* Header */}
-        <header className="bg-white border-b border-gray-100 sticky top-0 z-30">
-          <div className="px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                  className="text-gray-500 md:hidden cursor-pointer"
-                >
-                  <Menu className="h-6 w-6" />
+                  <Settings className="h-4 w-4" />
                 </button>
               </div>
 
-              {/* Desktop Navigation */}
-              <div className="hidden md:flex items-center space-x-4">
-                <button className="text-gray-500 hover:text-gray-700 cursor-pointer">
-                  <HelpCircle className="h-5 w-5" />
-                </button>
-                <button className="text-gray-500 hover:text-gray-700 relative cursor-pointer">
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
-                </button>
-
-                <div className="relative group">
-                  <button className="flex items-center space-x-2 cursor-pointer">
-                    <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-normal">
-                      {userInitials}
+              {activeWorkspace && (
+                <div className="flex items-center space-x-2 p-2 rounded-md bg-gray-50">
+                  <div className="h-6 w-6 rounded bg-gray-200 flex items-center justify-center text-xs font-medium">
+                    {activeWorkspace.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {activeWorkspace.name}
                     </div>
-                  </button>
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                    <div className="p-3 border-b border-gray-100">
-                      <p className="text-sm font-normal">{userFullName}</p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {user?.email}
-                      </p>
-                    </div>
-                    <div className="p-2">
-                      <button
-                        onClick={() => router.push("/dashboard")}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
-                      >
-                        Dashboard
-                      </button>
-                      <button
-                        onClick={() => router.push("/dashboard/settings")}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
-                      >
-                        Settings
-                      </button>
-                      <button
-                        onClick={handleSignOut}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
-                      >
-                        Sign out
-                      </button>
+                    <div className="text-xs text-gray-500">
+                      {safeGetUserRole(activeWorkspace)} •{" "}
+                      {activeWorkspace?.collaborators?.length || 0} member
+                      {(activeWorkspace?.collaborators?.length || 0) !== 1
+                        ? "s"
+                        : ""}
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Mobile Menu Button */}
-              <button
-                className="md:hidden text-gray-600 cursor-pointer"
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              >
-                {isMobileMenuOpen ? (
-                  <X className="h-6 w-6" />
+              {/* Quick Workspace Info */}
+              <div className="mt-4 text-xs text-gray-500">
+                {workspaces.length > 1 ? (
+                  <span>{workspaces.length} workspaces available</span>
                 ) : (
-                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-normal">
-                    {userInitials}
-                  </div>
+                  <span>Click settings to manage workspaces</span>
                 )}
-              </button>
+              </div>
             </div>
+          )}
 
-            {/* Mobile Menu */}
-            {isMobileMenuOpen && (
-              <div className="md:hidden mt-4 pb-4 space-y-4">
-                <Link
-                  href="/dashboard"
-                  className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/dashboard/settings"
-                  className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Settings
-                </Link>
-                <div className="pt-2 border-t border-gray-200">
-                  <div className="flex items-center pb-2">
-                    <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-                      <span className="text-sm font-normal">
-                        {userInitials}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-normal">{userFullName}</p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {user?.email}
-                      </p>
-                    </div>
-                  </div>
+          {/* Sidebar Navigation */}
+          <div className="p-2 overflow-y-auto h-[calc(100vh-8rem)]">
+            {/* Workspaces List */}
+            {!sidebarCollapsed && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between px-3 mb-2">
+                  <p className="text-xs font-normal text-gray-400 uppercase tracking-wider">
+                    WORKSPACES
+                  </p>
                   <button
-                    className="w-full text-left py-2 text-gray-600 hover:text-[#f58327] cursor-pointer"
-                    onClick={() => {
-                      handleSignOut();
-                      setIsMobileMenuOpen(false);
-                    }}
+                    onClick={() => setShowWorkspaceManager(true)}
+                    className="text-gray-400 hover:text-gray-600 cursor-pointer"
                   >
-                    Sign out
+                    <Plus className="h-4 w-4" />
                   </button>
                 </div>
+
+                {/* Show loading state while workspaces load */}
+                {workspacesLoading ? (
+                  <div className="px-3 py-2">
+                    <div className="animate-pulse space-y-2">
+                      <div className="h-8 bg-gray-200 rounded"></div>
+                      <div className="h-8 bg-gray-200 rounded"></div>
+                    </div>
+                  </div>
+                ) : (
+                  <ul className="space-y-1">
+                    {workspaces.map((workspace) => (
+                      <li key={workspace.id}>
+                        <button
+                          onClick={() => handleWorkspaceChange(workspace)}
+                          className={cn(
+                            "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left cursor-pointer",
+                            activeWorkspace?.id === workspace.id
+                              ? "bg-gray-100"
+                              : ""
+                          )}
+                        >
+                          <div className="h-6 w-6 rounded-md bg-gray-200 flex items-center justify-center text-xs font-normal">
+                            {workspace.name.charAt(0)}
+                            {workspace.name.split(" ")[1]?.charAt(0) || ""}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2">
+                              <span className="truncate">{workspace.name}</span>
+                              {safeGetUserRole(workspace) === "owner" && (
+                                <Crown className="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-500">
+                              {safeGetUserRole(workspace)} •{" "}
+                              {workspace.collaborators?.length || 0} members
+                            </span>
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* Collapsed state - show current workspace or cycle through */}
+            {sidebarCollapsed && !workspacesLoading && (
+              <div className="mb-4">
+                {workspaces.length > 1 ? (
+                  <div className="space-y-2">
+                    {workspaces.map((workspace) => (
+                      <div
+                        key={workspace.id}
+                        className={cn(
+                          "h-8 w-8 rounded-md flex items-center justify-center text-xs font-normal mx-auto cursor-pointer transition-colors",
+                          activeWorkspace?.id === workspace.id
+                            ? "bg-gray-300 ring-2 ring-blue-500"
+                            : "bg-gray-200 hover:bg-gray-300"
+                        )}
+                        onClick={() => handleWorkspaceChange(workspace)}
+                        title={`${workspace.name} (${safeGetUserRole(
+                          workspace
+                        )})`}
+                      >
+                        {workspace.name.charAt(0)}
+                      </div>
+                    ))}
+                  </div>
+                ) : activeWorkspace ? (
+                  <div
+                    className="h-8 w-8 rounded-md bg-gray-200 flex items-center justify-center text-xs font-normal mx-auto cursor-pointer hover:bg-gray-300 transition-colors"
+                    onClick={() => setSidebarCollapsed(false)}
+                    title={activeWorkspace.name}
+                  >
+                    {activeWorkspace.name.charAt(0)}
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
-        </header>
 
-        {/* Main Dashboard Content */}
-        {!selectedWebsite ? (
-          <main className="p-6">
-            <div className="max-w-7xl mx-auto">
-              {/* Welcome Message */}
-              <motion.section
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="bg-white rounded-lg shadow-sm p-6 border border-gray-100"
-              >
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                  <div className="space-y-2 mb-4 md:mb-0">
-                    <h1 className="text-2xl md:text-3xl font-medium">
-                      {greeting}, {userName}!
-                    </h1>
-                    <p className="text-gray-500">
-                      Welcome to your WebDash dashboard. Here you can manage
-                      your AI-generated websites.
-                    </p>
+          {/* Discord Card */}
+          {!sidebarCollapsed && (
+            <div className="absolute bottom-20 left-0 right-0 p-4">
+              <div className="bg-[#5865F2] rounded-lg p-4 text-white">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.196.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"
+                        fill="#5865F2"
+                      />
+                    </svg>
                   </div>
-                  <div className="flex items-center space-x-2 text-sm">
-                    <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-3 py-1.5 rounded-full">
-                      <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                      <span>All systems operational</span>
+                  <div>
+                    <div className="text-sm font-medium">Join our Discord</div>
+                    <div className="text-xs text-blue-100">
+                      Get help & updates
                     </div>
                   </div>
                 </div>
-              </motion.section>
+                <a
+                  href="https://discord.gg/wGAC9EZRXz"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full bg-white text-[#5865F2] text-center py-2 px-3 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  Join Discord
+                </a>
+              </div>
+            </div>
+          )}
 
-              {/* Websites Section */}
-              <div className="mt-8">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
-                  <div>
-                    <p className="text-gray-500 text-sm">
-                      {activeWorkspace?.name || "Loading..."} • {visibleWebsites.length} website{visibleWebsites.length !== 1 ? 's' : ''}
-                      {/* Only show limits for workspace owners, not collaborators */}
-                      {activeWorkspace && safeGetUserRole(activeWorkspace) === 'owner' && websiteLimit && (
-                        <span> • {websites.length}/{websiteLimit} total limit</span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-3 w-full md:w-auto">
-                    <PrimaryButton 
-                      onClick={() => setShowWorkspaceManager(true)}
-                      className="relative font-normal border-neutral-100 border-2 hover:bg-neutral-100 hover:shadow-none text-base bg-white text-black rounded-[16px] transition-all shadow-none"
-                    >
-                      <Users className="h-4 w-4" />
-                      <span>Manage Workspace</span>
-                    </PrimaryButton>
-                    <PrimaryButton 
-                      onClick={handleAddWebsite}
-                      disabled={!canCreateWebsites()}
-                      className={!canCreateWebsites() ? "opacity-50 cursor-not-allowed" : ""}
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>Add Website</span>
-                    </PrimaryButton>
+          {/* Sidebar Footer */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100 bg-white">
+            <button
+              onClick={handleSignOut}
+              className={cn(
+                "flex items-center space-x-3 w-full px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors cursor-pointer",
+                sidebarCollapsed ? "justify-center" : ""
+              )}
+            >
+              <LogOut className="h-5 w-5" />
+              {!sidebarCollapsed && <span>Sign Out</span>}
+            </button>
+          </div>
+        </div>
+
+        {/* Website Detail Sidebar - Only visible when a website is selected */}
+        {selectedWebsite && (
+          <div className="fixed top-10 bottom-0 left-0 z-40 w-64 bg-white border-r border-gray-100 transition-all duration-300 ease-in-out md:left-20">
+            {/* Website Sidebar Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <button
+                onClick={handleBackToWebsites}
+                className="flex items-center space-x-2 text-gray-700 hover:text-[#f58327] transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="font-normal">Back</span>
+              </button>
+            </div>
+
+            {/* Website Info */}
+            <div className="p-4 border-b border-gray-100">
+              <h2 className="font-medium text-lg truncate">
+                {selectedWebsite.title}
+              </h2>
+              <div className="flex items-center mt-1">
+                <span className="inline-block h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+                <span className="text-sm text-gray-500 capitalize">
+                  {selectedWebsite.status || "active"}
+                </span>
+              </div>
+            </div>
+
+            {/* Website Navigation */}
+            <div className="p-2">
+              <p className="text-xs font-normal text-gray-400 px-3 mb-2">
+                WEBSITE
+              </p>
+              <ul className="space-y-1">
+                <li>
+                  <button
+                    onClick={() => setActiveTab("main")}
+                    className={cn(
+                      "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
+                      activeTab === "main" ? "bg-gray-100 text-[#f58327]" : ""
+                    )}
+                  >
+                    <Home className="h-5 w-5" />
+                    <span>Main</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => setActiveTab("analytics")}
+                    className={cn(
+                      "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
+                      activeTab === "analytics"
+                        ? "bg-gray-100 text-[#f58327]"
+                        : ""
+                    )}
+                  >
+                    <BarChart3 className="h-5 w-5" />
+                    <span>Analytics</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => setActiveTab("domain")}
+                    className={cn(
+                      "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
+                      activeTab === "domain" ? "bg-gray-100 text-[#f58327]" : ""
+                    )}
+                  >
+                    <Globe className="h-5 w-5" />
+                    <span>Domain</span>
+                  </button>
+                </li>
+                <li>
+                  <button className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left">
+                    <ShoppingCart className="h-5 w-5" />
+                    <span>Ecommerce</span>
+                    <ExternalLink className="h-3 w-3 ml-auto" />
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div
+          className={cn(
+            "flex-1 overflow-auto transition-all duration-300 ease-in-out",
+            sidebarCollapsed ? "md:ml-20" : "md:ml-64",
+            selectedWebsite ? "md:ml-[336px]" : ""
+          )}
+        >
+          {/* Header */}
+          <header className="bg-white border-b border-gray-100 sticky top-0 z-30">
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    className="text-gray-500 md:hidden cursor-pointer"
+                  >
+                    <Menu className="h-6 w-6" />
+                  </button>
+                </div>
+
+                {/* Desktop Navigation */}
+                <div className="hidden md:flex items-center space-x-4">
+                  <button className="text-gray-500 hover:text-gray-700 cursor-pointer">
+                    <HelpCircle className="h-5 w-5" />
+                  </button>
+                  <button className="text-gray-500 hover:text-gray-700 relative cursor-pointer">
+                    <Bell className="h-5 w-5" />
+                    <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
+                  </button>
+
+                  <div className="relative group">
+                    <button className="flex items-center space-x-2 cursor-pointer">
+                      <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-normal">
+                        {userInitials}
+                      </div>
+                    </button>
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                      <div className="p-3 border-b border-gray-100">
+                        <p className="text-sm font-normal">{userFullName}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {user?.email}
+                        </p>
+                      </div>
+                      <div className="p-2">
+                        <button
+                          onClick={() => router.push("/dashboard")}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
+                        >
+                          Dashboard
+                        </button>
+                        <button
+                          onClick={() => router.push("/dashboard/settings")}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
+                        >
+                          Settings
+                        </button>
+                        <button
+                          onClick={handleSignOut}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
+                        >
+                          Sign out
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Website Cards */}
-                {filteredWebsites.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredWebsites.map((website) => {
-                      // ✅ Get individual screenshot data for this website
-                      const screenshotData = websiteScreenshots[website.id];
-                      const isLoadingScreenshot =
-                        screenshotData?.loading ?? true;
-                      const screenshotUrl = screenshotData?.url ?? null;
+                {/* Mobile Menu Button */}
+                <button
+                  className="md:hidden text-gray-600 cursor-pointer"
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                >
+                  {isMobileMenuOpen ? (
+                    <X className="h-6 w-6" />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-normal">
+                      {userInitials}
+                    </div>
+                  )}
+                </button>
+              </div>
 
-                      return (
-                        <div
-                          key={website.id}
-                          className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
-                          onClick={() => handleWebsiteClick(website)}
-                        >
-                          {/* Card Header */}
-                          <div className="p-4 border-b border-gray-100 flex justify-between items-start">
-                            <div>
-                              <h3 className="font-medium text-lg truncate">
-                                {website.title || "My Website"}
-                              </h3>
-                              <div className="flex items-center mt-1">
-                                <span className="inline-block h-2 w-2 rounded-full bg-green-500 mr-2"></span>
-                                <span className="text-sm text-gray-500 capitalize">
-                                  {website.status || "active"}
-                                </span>
+              {/* Mobile Menu */}
+              {isMobileMenuOpen && (
+                <div className="md:hidden mt-4 pb-4 space-y-4">
+                  <Link
+                    href="/dashboard"
+                    className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    href="/dashboard/settings"
+                    className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Settings
+                  </Link>
+                  <div className="pt-2 border-t border-gray-200">
+                    <div className="flex items-center pb-2">
+                      <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                        <span className="text-sm font-normal">
+                          {userInitials}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-normal">{userFullName}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      className="w-full text-left py-2 text-gray-600 hover:text-[#f58327] cursor-pointer"
+                      onClick={() => {
+                        handleSignOut();
+                        setIsMobileMenuOpen(false);
+                      }}
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </header>
+
+          {/* Main Dashboard Content */}
+          {!selectedWebsite ? (
+            <main className="p-6">
+              <div className="max-w-7xl mx-auto">
+                {/* Welcome Message */}
+                <motion.section
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="bg-white rounded-lg shadow-sm p-6 border border-gray-100"
+                >
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                    <div className="space-y-2 mb-4 md:mb-0">
+                      <h1 className="text-2xl md:text-3xl font-medium">
+                        {greeting}, {userName}!
+                      </h1>
+                      <p className="text-gray-500">
+                        Welcome to your WebDash dashboard. Here you can manage
+                        your AI-generated websites.
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm">
+                      <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-3 py-1.5 rounded-full">
+                        <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                        <span>All systems operational</span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.section>
+
+                {/* Websites Section */}
+                <div className="mt-8">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
+                    <div>
+                      <p className="text-gray-500 text-sm">
+                        {activeWorkspace?.name || "Loading..."} •{" "}
+                        {visibleWebsites.length} website
+                        {visibleWebsites.length !== 1 ? "s" : ""}
+                        {/* Only show limits for workspace owners, not collaborators */}
+                        {activeWorkspace &&
+                          safeGetUserRole(activeWorkspace) === "owner" &&
+                          websiteLimit && (
+                            <span>
+                              {" "}
+                              • {websites.length}/{websiteLimit} total limit
+                            </span>
+                          )}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-3 w-full md:w-auto">
+                      <PrimaryButton
+                        onClick={() => setShowWorkspaceManager(true)}
+                        className="relative font-normal border-neutral-100 border-2 hover:bg-neutral-100 hover:shadow-none text-base bg-white text-black rounded-[16px] transition-all shadow-none"
+                      >
+                        <Users className="h-4 w-4" />
+                        <span>Manage Workspace</span>
+                      </PrimaryButton>
+                      <PrimaryButton
+                        onClick={handleAddWebsite}
+                        disabled={!canCreateWebsites()}
+                        className={
+                          !canCreateWebsites()
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Add Website</span>
+                      </PrimaryButton>
+                    </div>
+                  </div>
+
+                  {/* Website Cards */}
+                  {filteredWebsites.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {filteredWebsites.map((website) => {
+                        // ✅ Get individual screenshot data for this website
+                        const screenshotData = websiteScreenshots[website.id];
+                        const isLoadingScreenshot =
+                          screenshotData?.loading ?? true;
+                        const screenshotUrl = screenshotData?.url ?? null;
+
+                        return (
+                          <div
+                            key={website.id}
+                            className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
+                            onClick={() => handleWebsiteClick(website)}
+                          >
+                            {/* Card Header */}
+                            <div className="p-4 border-b border-gray-100 flex justify-between items-start">
+                              <div>
+                                <h3 className="font-medium text-lg truncate">
+                                  {website.title || "My Website"}
+                                </h3>
+                                <div className="flex items-center mt-1">
+                                  <span className="inline-block h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+                                  <span className="text-sm text-gray-500 capitalize">
+                                    {website.status || "active"}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Add dropdown functionality
+                                  }}
+                                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                                >
+                                  <MoreVertical className="h-5 w-5" />
+                                </button>
                               </div>
                             </div>
-                            <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // Add dropdown functionality
-                                }}
-                                className="text-gray-400 hover:text-gray-600 cursor-pointer"
-                              >
-                                <MoreVertical className="h-5 w-5" />
-                              </button>
-                            </div>
-                          </div>
 
-                          {/* Website Preview - ✅ UPDATED to use individual screenshots */}
-                          <div className="relative w-full max-w-md h-32 overflow-hidden rounded-lg">
-                            <div className="w-full h-full bg-gray-100 flex items-center justify-center relative">
-                              {isLoadingScreenshot ? (
-                                <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#f58327]"></div>
-                                </div>
-                              ) : screenshotUrl ? (
-                                <div className="relative w-full h-full">
-                                  <img
-                                    src={screenshotUrl}
-                                    alt={`Preview of ${website.title}`}
-                                    className="w-full h-full object-cover object-top rounded-sm"
-                                    onLoad={() =>
-                                      handleScreenshotLoad(website.id)
-                                    }
-                                    onError={(e) => {
-                                      console.error(
-                                        "Error loading screenshot for",
-                                        website.id,
-                                        e
-                                      );
-                                      handleScreenshotLoad(website.id);
-                                    }}
-                                  />
-                                  {/* ✅ ADD: Refresh screenshot button */}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      refreshWebsiteScreenshot(
-                                        website.id,
-                                        website.siteUrl
-                                      );
-                                    }}
-                                    className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                    title="Refresh screenshot"
-                                  >
-                                    <RefreshCw className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              ) : (
-                                // Fallback when no URL is available
-                                <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-xs text-center p-3 rounded-lg">
-                                  <div>
-                                    <p className="mb-2">Website preview</p>
+                            {/* Website Preview - ✅ UPDATED to use individual screenshots */}
+                            <div className="relative w-full max-w-md h-32 overflow-hidden rounded-lg">
+                              <div className="w-full h-full bg-gray-100 flex items-center justify-center relative">
+                                {isLoadingScreenshot ? (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#f58327]"></div>
+                                  </div>
+                                ) : screenshotUrl ? (
+                                  <div className="relative w-full h-full">
+                                    <img
+                                      src={screenshotUrl}
+                                      alt={`Preview of ${website.title}`}
+                                      className="w-full h-full object-cover object-top rounded-sm"
+                                      onLoad={() =>
+                                        handleScreenshotLoad(website.id)
+                                      }
+                                      onError={(e) => {
+                                        console.error(
+                                          "Error loading screenshot for",
+                                          website.id,
+                                          e
+                                        );
+                                        handleScreenshotLoad(website.id);
+                                      }}
+                                    />
+                                    {/* ✅ ADD: Refresh screenshot button */}
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -1584,589 +1692,615 @@ export default function DashboardPage() {
                                           website.siteUrl
                                         );
                                       }}
-                                      className="text-[#f58327] hover:underline cursor-pointer"
+                                      className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                      title="Refresh screenshot"
                                     >
-                                      Generate screenshot
+                                      <RefreshCw className="h-3 w-3" />
                                     </button>
                                   </div>
+                                ) : (
+                                  // Fallback when no URL is available
+                                  <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-xs text-center p-3 rounded-lg">
+                                    <div>
+                                      <p className="mb-2">Website preview</p>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          refreshWebsiteScreenshot(
+                                            website.id,
+                                            website.siteUrl
+                                          );
+                                        }}
+                                        className="text-[#f58327] hover:underline cursor-pointer"
+                                      >
+                                        Generate screenshot
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Hover Overlay */}
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center rounded-lg">
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      window.open(website.siteUrl, "_blank");
+                                    }}
+                                    className="bg-white text-gray-800 hover:bg-white/90 px-2 py-1 rounded text-xs font-normal flex items-center space-x-1 cursor-pointer transition-colors duration-200"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    <span>Visit</span>
+                                  </button>
                                 </div>
-                              )}
+                              </div>
                             </div>
 
-                            {/* Hover Overlay */}
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center rounded-lg">
-                              <div className="flex space-x-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    window.open(website.siteUrl, "_blank");
-                                  }}
-                                  className="bg-white text-gray-800 hover:bg-white/90 px-2 py-1 rounded text-xs font-normal flex items-center space-x-1 cursor-pointer transition-colors duration-200"
+                            {/* Website Info */}
+                            <div className="p-4 space-y-3">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-500">URL</span>
+                                <a
+                                  href={website.siteUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[#f58327] hover:underline truncate max-w-[200px] flex items-center"
+                                  onClick={(e) => e.stopPropagation()}
                                 >
-                                  <ExternalLink className="h-3 w-3" />
-                                  <span>Visit</span>
-                                </button>
+                                  {website.siteUrl?.replace(
+                                    /^https?:\/\//,
+                                    ""
+                                  ) || "website.webdash.site"}
+                                  <ExternalLink className="h-3 w-3 ml-1" />
+                                </a>
                               </div>
                             </div>
                           </div>
-
-                          {/* Website Info */}
-                          <div className="p-4 space-y-3">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-500">URL</span>
-                              <a
-                                href={website.siteUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[#f58327] hover:underline truncate max-w-[200px] flex items-center"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {website.siteUrl?.replace(/^https?:\/\//, "") ||
-                                  "website.webdash.site"}
-                                <ExternalLink className="h-3 w-3 ml-1" />
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center">
-                    <div className="space-y-4">
-                      <h3 className="text-xl font-normal">No websites found</h3>
-                      {searchQuery ? (
-                        <p className="text-gray-500">
-                          No websites match your search criteria. Try a
-                          different search term.
-                        </p>
-                      ) : (
-                        <p className="text-gray-500">
-                          You haven't created any websites yet. Get started by
-                          creating your first AI-powered website.
-                        </p>
-                      )}
-                      <button
-                        onClick={handleAddWebsite}
-                        className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-4 py-2 rounded-md font-normal mt-2 cursor-pointer"
-                      >
-                        Create Your First Website
-                      </button>
+                        );
+                      })}
                     </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </main>
-        ) : (
-          <main className="p-6">
-            {/* Website Details Content */}
-            <div className="max-w-7xl mx-auto">
-              {/* Website Actions */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="md:hidden">
-                  <button
-                    onClick={handleBackToWebsites}
-                    className="flex items-center space-x-2 text-gray-700 hover:text-[#f58327] transition-colors cursor-pointer"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    <span className="font-normal">Back</span>
-                  </button>
-                </div>
-                <div className="flex items-center space-x-2 ml-auto">
-                  <button
-                    className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
-                    onClick={() =>
-                      window.open(selectedWebsite.siteUrl, "_blank")
-                    }
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    <span>Visit Site</span>
-                  </button>
-                  <button
-                    className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
-                    onClick={() => router.push("/editor")}
-                  >
-                    <Edit className="h-4 w-4" />
-                    <span>Edit Site</span>
-                  </button>
-                  <PrimaryButton
-                    onClick={() => handleOpenWPDashboard(selectedWebsite)}
-                    disabled={isWpDashboardLoading}
-                  >
-                    {isWpDashboardLoading ? (
-                      <span className="flex items-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
+                  ) : (
+                    <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center">
+                      <div className="space-y-4">
+                        <h3 className="text-xl font-normal">
+                          No websites found
+                        </h3>
+                        {searchQuery ? (
+                          <p className="text-gray-500">
+                            No websites match your search criteria. Try a
+                            different search term.
+                          </p>
+                        ) : (
+                          <p className="text-gray-500">
+                            You haven't created any websites yet. Get started by
+                            creating your first AI-powered website.
+                          </p>
+                        )}
+                        <button
+                          onClick={handleAddWebsite}
+                          className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-4 py-2 rounded-md font-normal mt-2 cursor-pointer"
                         >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Opening...
-                      </span>
-                    ) : (
-                      <>
-                        <Settings className="h-4 w-4" />
-                        <span>WP Dashboard</span>
-                      </>
-                    )}
-                  </PrimaryButton>
-                </div>
-              </div>
-
-              {/* Main Tab Content */}
-              {activeTab === "main" && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white rounded-lg border border-gray-200 p-4">
-                      <h3 className="text-sm font-normal text-gray-500 mb-2">
-                        Website URL
-                      </h3>
-                      <div className="flex items-center justify-between">
-                        <a
-                          href={selectedWebsite.siteUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#f58327] hover:underline flex items-center"
-                        >
-                          {selectedWebsite.siteUrl}
-                        </a>
-                        <button className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                          <Copy className="h-4 w-4" />
+                          Create Your First Website
                         </button>
                       </div>
                     </div>
-
-                    <div className="bg-white rounded-lg border border-gray-200 p-4">
-                      <h3 className="text-sm font-normal text-gray-500 mb-2">
-                        Created
-                      </h3>
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                        <span>
-                          {selectedWebsite.createdAt
-                            ? new Date(
-                                selectedWebsite.createdAt
-                              ).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                              })
-                            : "N/A"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg border border-gray-200 p-4">
-                      <h3 className="text-sm font-normal text-gray-500 mb-2">
-                        Last Modified
-                      </h3>
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                        <span>
-                          {selectedWebsite.lastModified
-                            ? new Date(
-                                selectedWebsite.lastModified
-                              ).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                              })
-                            : "N/A"}
-                        </span>
-                      </div>
-                    </div>
+                  )}
+                </div>
+              </div>
+            </main>
+          ) : (
+            <main className="p-6">
+              {/* Website Details Content */}
+              <div className="max-w-7xl mx-auto">
+                {/* Website Actions */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="md:hidden">
+                    <button
+                      onClick={handleBackToWebsites}
+                      className="flex items-center space-x-2 text-gray-700 hover:text-[#f58327] transition-colors cursor-pointer"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      <span className="font-normal">Back</span>
+                    </button>
                   </div>
+                  <div className="flex items-center space-x-2 ml-auto">
+                    <button
+                      className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
+                      onClick={() =>
+                        window.open(selectedWebsite.siteUrl, "_blank")
+                      }
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      <span>Visit Site</span>
+                    </button>
+                    <button
+                      className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
+                      onClick={() => router.push("/editor")}
+                    >
+                      <Edit className="h-4 w-4" />
+                      <span>Edit Site</span>
+                    </button>
+                    <PrimaryButton
+                      onClick={() => handleOpenWPDashboard(selectedWebsite)}
+                      disabled={isWpDashboardLoading}
+                    >
+                      {isWpDashboardLoading ? (
+                        <span className="flex items-center">
+                          <svg
+                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Opening...
+                        </span>
+                      ) : (
+                        <>
+                          <Settings className="h-4 w-4" />
+                          <span>WP Dashboard</span>
+                        </>
+                      )}
+                    </PrimaryButton>
+                  </div>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Main Tab Content */}
+                {activeTab === "main" && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="bg-white rounded-lg border border-gray-200 p-4">
+                        <h3 className="text-sm font-normal text-gray-500 mb-2">
+                          Website URL
+                        </h3>
+                        <div className="flex items-center justify-between">
+                          <a
+                            href={selectedWebsite.siteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#f58327] hover:underline flex items-center"
+                          >
+                            {selectedWebsite.siteUrl}
+                          </a>
+                          <button className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="bg-white rounded-lg border border-gray-200 p-4">
+                        <h3 className="text-sm font-normal text-gray-500 mb-2">
+                          Created
+                        </h3>
+                        <div className="flex items-center">
+                          <Clock className="h-4 w-4 mr-2 text-gray-400" />
+                          <span>
+                            {selectedWebsite.createdAt
+                              ? new Date(
+                                  selectedWebsite.createdAt
+                                ).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                })
+                              : "N/A"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white rounded-lg border border-gray-200 p-4">
+                        <h3 className="text-sm font-normal text-gray-500 mb-2">
+                          Last Modified
+                        </h3>
+                        <div className="flex items-center">
+                          <Clock className="h-4 w-4 mr-2 text-gray-400" />
+                          <span>
+                            {selectedWebsite.lastModified
+                              ? new Date(
+                                  selectedWebsite.lastModified
+                                ).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                })
+                              : "N/A"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        <div className="p-4 border-b border-gray-100">
+                          <h3 className="font-normal flex items-center">
+                            <BarChart3 className="h-5 w-5 mr-2 text-gray-500" />
+                            Analytics Overview
+                          </h3>
+                        </div>
+                        <div className="p-4">
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <p className="text-sm text-gray-500">
+                                  Page Views
+                                </p>
+                                <p className="text-2xl font-medium">
+                                  {mockAnalytics.pageViews}
+                                </p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-sm text-gray-500">
+                                  Unique Visitors
+                                </p>
+                                <p className="text-2xl font-medium">
+                                  {mockAnalytics.uniqueVisitors}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        <div className="p-4 border-b border-gray-100">
+                          <h3 className="font-normal flex items-center">
+                            <HardDrive className="h-5 w-5 mr-2 text-gray-500" />
+                            Storage Usage
+                          </h3>
+                        </div>
+                        <div className="p-4">
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-end">
+                              <div className="space-y-1">
+                                <p className="text-sm text-gray-500">
+                                  Total Storage
+                                </p>
+                                <p className="text-2xl font-medium">
+                                  {(
+                                    mockAnalytics.storageUsed.total / 1024
+                                  ).toFixed(2)}{" "}
+                                  MB
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-gray-500">
+                                  {(
+                                    (mockAnalytics.storageUsed.total /
+                                      (1024 * 1024)) *
+                                    100
+                                  ).toFixed(2)}
+                                  % of 1GB used
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-blue-500 h-2 rounded-full"
+                                style={{
+                                  width: `${
+                                    (mockAnalytics.storageUsed.total /
+                                      (1024 * 1024)) *
+                                    100
+                                  }%`,
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                       <div className="p-4 border-b border-gray-100">
                         <h3 className="font-normal flex items-center">
-                          <BarChart3 className="h-5 w-5 mr-2 text-gray-500" />
-                          Analytics Overview
+                          <FileText className="h-5 w-5 mr-2 text-gray-500" />
+                          Website Information
                         </h3>
                       </div>
                       <div className="p-4">
                         <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                              <p className="text-sm text-gray-500">
-                                Page Views
-                              </p>
-                              <p className="text-2xl font-medium">
-                                {mockAnalytics.pageViews}
-                              </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Title
+                                </p>
+                                <p className="font-normal">
+                                  {selectedWebsite.title}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Description
+                                </p>
+                                <p>
+                                  {selectedWebsite.description ||
+                                    "No description available"}
+                                </p>
+                              </div>
                             </div>
-                            <div className="space-y-1">
-                              <p className="text-sm text-gray-500">
-                                Unique Visitors
-                              </p>
-                              <p className="text-2xl font-medium">
-                                {mockAnalytics.uniqueVisitors}
-                              </p>
+                            <div className="space-y-3">
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Subdomain
+                                </p>
+                                <p className="font-normal">
+                                  {selectedWebsite.subdomain}.webdash.site
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Status
+                                </p>
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-green-100 text-green-800">
+                                  Active
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
+                  </div>
+                )}
 
+                {/* Analytics Tab Content */}
+                {activeTab === "analytics" && (
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="p-4 border-b border-gray-100">
+                        <h3 className="font-normal">Website Analytics</h3>
+                      </div>
+                      <div className="p-6">
+                        <VisitorStatistics
+                          domainId={selectedWebsite.domainId}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Domain Tab Content */}
+                {activeTab === "domain" && (
+                  <div className="space-y-6">
                     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                       <div className="p-4 border-b border-gray-100">
                         <h3 className="font-normal flex items-center">
-                          <HardDrive className="h-5 w-5 mr-2 text-gray-500" />
-                          Storage Usage
+                          <Globe className="h-5 w-5 mr-2 text-gray-500" />
+                          Domain Settings
                         </h3>
                       </div>
                       <div className="p-4">
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-end">
-                            <div className="space-y-1">
-                              <p className="text-sm text-gray-500">
-                                Total Storage
-                              </p>
-                              <p className="text-2xl font-medium">
-                                {(
-                                  mockAnalytics.storageUsed.total / 1024
-                                ).toFixed(2)}{" "}
-                                MB
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs text-gray-500">
-                                {(
-                                  (mockAnalytics.storageUsed.total /
-                                    (1024 * 1024)) *
-                                  100
-                                ).toFixed(2)}
-                                % of 1GB used
-                              </p>
+                        <div className="space-y-6">
+                          <div>
+                            <h3 className="text-lg font-normal mb-2">
+                              Current Domain
+                            </h3>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border">
+                              <div>
+                                <p className="font-normal">
+                                  {selectedWebsite.subdomain}.webdash.site
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  Default subdomain
+                                </p>
+                              </div>
+                              <button className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-normal cursor-pointer">
+                                Edit Subdomain
+                              </button>
                             </div>
                           </div>
 
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-500 h-2 rounded-full"
-                              style={{
-                                width: `${
-                                  (mockAnalytics.storageUsed.total /
-                                    (1024 * 1024)) *
-                                  100
-                                }%`,
-                              }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="p-4 border-b border-gray-100">
-                      <h3 className="font-normal flex items-center">
-                        <FileText className="h-5 w-5 mr-2 text-gray-500" />
-                        Website Information
-                      </h3>
-                    </div>
-                    <div className="p-4">
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-3">
-                            <div>
-                              <p className="text-sm text-gray-500 mb-1">
-                                Title
-                              </p>
-                              <p className="font-normal">
-                                {selectedWebsite.title}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-500 mb-1">
-                                Description
-                              </p>
-                              <p>
-                                {selectedWebsite.description ||
-                                  "No description available"}
-                              </p>
+                          <div>
+                            <h3 className="text-lg font-normal mb-2">
+                              Custom Domain
+                            </h3>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-dashed">
+                              <div>
+                                <p className="font-normal">
+                                  No custom domain connected
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  Connect your own domain to this website
+                                </p>
+                              </div>
+                              <button className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-3 py-1.5 rounded text-sm font-normal cursor-pointer">
+                                Connect Domain
+                              </button>
                             </div>
                           </div>
-                          <div className="space-y-3">
-                            <div>
-                              <p className="text-sm text-gray-500 mb-1">
-                                Subdomain
-                              </p>
-                              <p className="font-normal">
-                                {selectedWebsite.subdomain}.webdash.site
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-500 mb-1">
-                                Status
-                              </p>
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-green-100 text-green-800">
-                                Active
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {/* Analytics Tab Content */}
-              {activeTab === "analytics" && (
-                <div className="space-y-6">
-                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="p-4 border-b border-gray-100">
-                      <h3 className="font-normal">Website Analytics</h3>
-                    </div>
-                    <div className="p-6">
-                      <VisitorStatistics domainId={selectedWebsite.domainId} />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Domain Tab Content */}
-              {activeTab === "domain" && (
-                <div className="space-y-6">
-                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="p-4 border-b border-gray-100">
-                      <h3 className="font-normal flex items-center">
-                        <Globe className="h-5 w-5 mr-2 text-gray-500" />
-                        Domain Settings
-                      </h3>
-                    </div>
-                    <div className="p-4">
-                      <div className="space-y-6">
-                        <div>
-                          <h3 className="text-lg font-normal mb-2">
-                            Current Domain
-                          </h3>
-                          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border">
-                            <div>
-                              <p className="font-normal">
-                                {selectedWebsite.subdomain}.webdash.site
-                              </p>
-                              <p className="text-sm text-gray-500">
-                                Default subdomain
-                              </p>
-                            </div>
-                            <button className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-normal cursor-pointer">
-                              Edit Subdomain
-                            </button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <h3 className="text-lg font-normal mb-2">
-                            Custom Domain
-                          </h3>
-                          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-dashed">
-                            <div>
-                              <p className="font-normal">
-                                No custom domain connected
-                              </p>
-                              <p className="text-sm text-gray-500">
-                                Connect your own domain to this website
-                              </p>
-                            </div>
-                            <button className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-3 py-1.5 rounded text-sm font-normal cursor-pointer">
-                              Connect Domain
-                            </button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <h3 className="text-lg font-normal mb-4">
-                            DNS Records
-                          </h3>
-                          <div className="border rounded-md overflow-hidden overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th
-                                    scope="col"
-                                    className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
-                                  >
-                                    Type
-                                  </th>
-                                  <th
-                                    scope="col"
-                                    className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
-                                  >
-                                    Name
-                                  </th>
-                                  <th
-                                    scope="col"
-                                    className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
-                                  >
-                                    Value
-                                  </th>
-                                  <th
-                                    scope="col"
-                                    className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
-                                  >
-                                    TTL
-                                  </th>
-                                  {mockDnsRecords.some(
-                                    (record) => record.priority
-                                  ) && (
+                          <div>
+                            <h3 className="text-lg font-normal mb-4">
+                              DNS Records
+                            </h3>
+                            <div className="border rounded-md overflow-hidden overflow-x-auto">
+                              <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                  <tr>
                                     <th
                                       scope="col"
                                       className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
                                     >
-                                      Priority
+                                      Type
                                     </th>
-                                  )}
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {mockDnsRecords.map((record, index) => (
-                                  <tr key={index}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-normal text-gray-900">
-                                      {record.type}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      {record.name}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
-                                      {record.value}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      {record.ttl}
-                                    </td>
+                                    <th
+                                      scope="col"
+                                      className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
+                                    >
+                                      Name
+                                    </th>
+                                    <th
+                                      scope="col"
+                                      className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
+                                    >
+                                      Value
+                                    </th>
+                                    <th
+                                      scope="col"
+                                      className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
+                                    >
+                                      TTL
+                                    </th>
                                     {mockDnsRecords.some(
                                       (record) => record.priority
                                     ) && (
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {record.priority || "-"}
-                                      </td>
+                                      <th
+                                        scope="col"
+                                        className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
+                                      >
+                                        Priority
+                                      </th>
                                     )}
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {mockDnsRecords.map((record, index) => (
+                                    <tr key={index}>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-normal text-gray-900">
+                                        {record.type}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {record.name}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
+                                        {record.value}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {record.ttl}
+                                      </td>
+                                      {mockDnsRecords.some(
+                                        (record) => record.priority
+                                      ) && (
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                          {record.priority || "-"}
+                                        </td>
+                                      )}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </main>
-        )}
-      </div>
+                )}
+              </div>
+            </main>
+          )}
+        </div>
 
-      {/* Upgrade Modal */}
-      <UpgradeModal
-        isOpen={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        currentPlan={currentPlan}
-        websiteLimit={websiteLimit}
-        currentWebsiteCount={websites.length}
-        onUpgrade={handleUpgrade}
-        onBuyAdditional={handleBuyAdditional}
-      />
+        {/* Upgrade Modal */}
+        <UpgradeModal
+          isOpen={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
+          currentPlan={currentPlan}
+          websiteLimit={websiteLimit}
+          currentWebsiteCount={websites.length}
+          onUpgrade={handleUpgrade}
+          onBuyAdditional={handleBuyAdditional}
+        />
 
-      {/* Additional Website Payment Modal */}
-      <AdditionalWebsitePayment
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        planType={currentPlan}
-        onSuccess={handleAdditionalWebsiteSuccess}
-      />
+        {/* Additional Website Payment Modal */}
+        <AdditionalWebsitePayment
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          planType={currentPlan}
+          onSuccess={handleAdditionalWebsiteSuccess}
+        />
 
-      {/* Workspace Management Modal */}
-      <WorkspaceManagementModal
-        isOpen={showWorkspaceManager}
-        onClose={handleWorkspaceManagerClose}
-        onWorkspaceChange={handleWorkspaceChange}
-        websites={websites}
-      />
+        {/* Workspace Management Modal */}
+        <WorkspaceManagementModal
+          isOpen={showWorkspaceManager}
+          onClose={handleWorkspaceManagerClose}
+          onWorkspaceChange={handleWorkspaceChange}
+          websites={websites}
+        />
 
-      {process.env.NODE_ENV === "development" && (
-        <button
-          onClick={() => {
-            localStorage.clear();
-            window.location.reload();
-          }}
-          className="fixed bottom-4 right-4 bg-red-500 text-white p-2 rounded-md text-xs z-50 cursor-pointer"
-        >
-          Reset Storage & Reload
-        </button>
-      )}
-
-      {process.env.NODE_ENV === "development" && (
-        <div className="fixed bottom-20 right-4 bg-yellow-500 text-black p-4 rounded-lg z-50">
-          <h4 className="font-bold mb-2">🔧 Fix Website Limit</h4>
-          <p className="text-sm mb-2">
-            Your limit should be{" "}
-            {currentPlan === "agency"
-              ? "4"
-              : currentPlan === "enterprise"
-              ? "6"
-              : "2"}
-            but is {websiteLimit}
-          </p>
+        {process.env.NODE_ENV === "development" && (
           <button
-            onClick={async () => {
-              try {
-                const response = await fetch("/api/fix-website-limit", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    userId: user?.uid,
-                  }),
-                });
+            onClick={() => {
+              localStorage.clear();
+              window.location.reload();
+            }}
+            className="fixed bottom-4 right-4 bg-red-500 text-white p-2 rounded-md text-xs z-50 cursor-pointer"
+          >
+            Reset Storage & Reload
+          </button>
+        )}
 
-                const result = await response.json();
-
-                if (result.success) {
-                  toast({
-                    title: "Website limit fixed!",
-                    description: `Your limit has been updated from ${result.oldLimit} to ${result.newLimit}`,
+        {process.env.NODE_ENV === "development" && (
+          <div className="fixed bottom-20 right-4 bg-yellow-500 text-black p-4 rounded-lg z-50">
+            <h4 className="font-bold mb-2">🔧 Fix Website Limit</h4>
+            <p className="text-sm mb-2">
+              Your limit should be{" "}
+              {currentPlan === "agency"
+                ? "4"
+                : currentPlan === "enterprise"
+                ? "6"
+                : "2"}
+              but is {websiteLimit}
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  const response = await fetch("/api/fix-website-limit", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      userId: user?.uid,
+                    }),
                   });
 
-                  // Reload the page to see the changes
-                  setTimeout(() => {
-                    window.location.reload();
-                  }, 1500);
-                } else {
-                  throw new Error(result.error);
+                  const result = await response.json();
+
+                  if (result.success) {
+                    toast({
+                      title: "Website limit fixed!",
+                      description: `Your limit has been updated from ${result.oldLimit} to ${result.newLimit}`,
+                    });
+
+                    // Reload the page to see the changes
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 1500);
+                  } else {
+                    throw new Error(result.error);
+                  }
+                } catch (error: any) {
+                  toast({
+                    title: "Error fixing limit",
+                    description: error.message || "Failed to fix website limit",
+                    variant: "destructive",
+                  });
                 }
-              } catch (error: any) {
-                toast({
-                  title: "Error fixing limit",
-                  description: error.message || "Failed to fix website limit",
-                  variant: "destructive",
-                });
-              }
-            }}
-            className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 cursor-pointer"
-          >
-            Fix My Website Limit
-          </button>
-        </div>
-      )}
+              }}
+              className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 cursor-pointer"
+            >
+              Fix My Website Limit
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
