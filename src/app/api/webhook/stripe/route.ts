@@ -1,11 +1,11 @@
 // src/app/api/webhook/stripe/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { adminDb } from "@/config/firebase-admin";
 import { getServerStripe } from "@/config/stripe";
 import { UserService } from "@/lib/user-service";
 import { getPlanTypeFromId, ADDITIONAL_WEBSITE_PRICING } from "@/config/stripe";
+import { FieldValue } from "firebase-admin/firestore";
 
 /**
  * Stripe webhook handler
@@ -205,58 +205,138 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   }
 }
 
+// In src/app/api/webhook/stripe/route.ts, replace the handleMainPlanSubscription function:
+
 /**
- * Update subscription information in Firestore
+ * Handle main plan subscription updates
  */
-async function updateSubscriptionInFirestore(
-  subscription: Stripe.Subscription
+async function handleMainPlanSubscription(
+  subscription: Stripe.Subscription,
+  userId: string,
+  priceId: string
 ) {
-  const customerId = subscription.customer as string;
+  const userRef = adminDb.collection("users").doc(userId);
+  const userDoc = await userRef.get();
+  const userData = userDoc.data();
 
-  try {
-    // Find user by Stripe customer ID
-    const usersRef = adminDb.collection("users");
-    const q = usersRef.where("stripeCustomerId", "==", customerId);
-    const snapshot = await q.get();
+  // Get the product ID from the subscription
+  const productId = subscription.items.data[0].price.product as string;
 
-    if (snapshot.empty) {
-      console.error(`No user found with Stripe customer ID ${customerId}`);
-      return;
-    }
+  // Determine the new plan type from product ID
+  let newPlanType = "business"; // default
 
-    // Update user subscription status
-    const userId = snapshot.docs[0].id;
-    const userRef = adminDb.collection("users").doc(userId);
-    const userDoc = await userRef.get();
+  if (productId === "prod_SLW6KBiglhhYlh" || productId.includes("business")) {
+    newPlanType = "business";
+  } else if (
+    productId === "prod_SLW74DJP2aPaN7" ||
+    productId.includes("agency")
+  ) {
+    newPlanType = "agency";
+  } else if (
+    productId === "prod_SLW70YpoGn9giO" ||
+    productId.includes("enterprise")
+  ) {
+    newPlanType = "enterprise";
+  }
 
-    if (!userDoc.exists()) {
-      console.error(`User document ${userId} not found`);
-      return;
-    }
+  console.log(
+    `Detected plan type: ${newPlanType} from product ID: ${productId}`
+  );
 
-    const item = subscription.items.data[0];
-    const priceId = item.price.id;
+  // Get the old plan type - check multiple places
+  const oldPlanType =
+    userData?.webdashSubscription?.planType || userData?.planType || "business"; // default to business if no plan found
 
-    // Check if this is an additional website subscription
-    const isAdditionalWebsite = Object.values(ADDITIONAL_WEBSITE_PRICING).some(
-      (pricing) => pricing.priceId === priceId
+  // Plan base limits
+  const planLimits = {
+    business: 1,
+    agency: 3,
+    enterprise: 5,
+  };
+
+  // Only update website limit if subscription is active
+  if (subscription.status === "active") {
+    const oldPlanLimit =
+      planLimits[oldPlanType as keyof typeof planLimits] || 1;
+    const newPlanLimit =
+      planLimits[newPlanType as keyof typeof planLimits] || 1;
+    const currentWebsiteLimit = userData?.websiteLimit || oldPlanLimit;
+
+    // Calculate additional websites the user has purchased
+    const additionalWebsites = Math.max(0, currentWebsiteLimit - oldPlanLimit);
+
+    // New limit should be: new plan base limit + any additional websites purchased
+    const newWebsiteLimit = newPlanLimit + additionalWebsites;
+
+    console.log(`Plan change detected:
+      Old plan: ${oldPlanType} (base limit: ${oldPlanLimit})
+      New plan: ${newPlanType} (base limit: ${newPlanLimit})
+      Current limit: ${currentWebsiteLimit}
+      Additional websites purchased: ${additionalWebsites}
+      New limit will be: ${newWebsiteLimit}
+    `);
+
+    // Update user document with new subscription info AND website limit
+    await userRef.update({
+      websiteLimit: newWebsiteLimit,
+      planType: newPlanType, // Store at root level too for easier access
+      webdashSubscription: {
+        active: subscription.status === "active",
+        planId: priceId,
+        priceId: priceId, // Store both for compatibility
+        productId: productId,
+        planType: newPlanType, // IMPORTANT: Store the plan type
+        interval:
+          subscription.items.data[0].price.recurring?.interval || "monthly",
+        currency: subscription.currency,
+        trialEnd: subscription.trial_end
+          ? new Date(subscription.trial_end * 1000).toISOString()
+          : null,
+        currentPeriodEnd: new Date(
+          subscription.current_period_end * 1000
+        ).toISOString(),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        updatedAt: new Date().toISOString(),
+      },
+      updatedAt: new Date(),
+    });
+
+    console.log(
+      `Successfully updated user ${userId} to ${newPlanType} plan with website limit: ${newWebsiteLimit}`
     );
-
-    if (isAdditionalWebsite) {
-      // Handle additional website subscription
-      await handleAdditionalWebsiteSubscription(subscription, userId, priceId);
-    } else {
-      // Handle main plan subscription
-      await handleMainPlanSubscription(subscription, userId, priceId);
-    }
-
-    console.log(`Updated subscription for user ${userId}`);
-  } catch (error) {
-    console.error(`Error updating subscription: ${error}`);
-    throw error;
+  } else {
+    // Just update subscription status without changing limits
+    await userRef.update({
+      webdashSubscription: {
+        active: subscription.status === "active",
+        planId: priceId,
+        priceId: priceId,
+        productId: productId,
+        planType: newPlanType,
+        interval:
+          subscription.items.data[0].price.recurring?.interval || "monthly",
+        currency: subscription.currency,
+        trialEnd: subscription.trial_end
+          ? new Date(subscription.trial_end * 1000).toISOString()
+          : null,
+        currentPeriodEnd: new Date(
+          subscription.current_period_end * 1000
+        ).toISOString(),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        updatedAt: new Date().toISOString(),
+      },
+      updatedAt: new Date(),
+    });
   }
 }
 
+/**
+ * Handle additional website subscription updates
+ */
 /**
  * Handle additional website subscription updates
  */
@@ -313,8 +393,20 @@ async function handleAdditionalWebsiteSubscription(
       createdAt: new Date().toISOString(),
     });
 
-    // Increment website limit when additional subscription becomes active
-    await UserService.incrementWebsiteLimit(userId, 1);
+    // IMPORTANT: Only increment website limit if this is truly a new subscription
+    // Check if we've already processed this subscription ID
+    const alreadyProcessed = userData?.processedSubscriptions?.includes(
+      subscription.id
+    );
+
+    if (!alreadyProcessed) {
+      await UserService.incrementWebsiteLimit(userId, 1);
+
+      // Track that we've processed this subscription
+      await userRef.update({
+        processedSubscriptions: FieldValue.arrayUnion(subscription.id),
+      });
+    }
   }
 
   // If subscription is cancelled or deleted, decrement website limit
@@ -362,31 +454,80 @@ async function handleMainPlanSubscription(
   priceId: string
 ) {
   const userRef = adminDb.collection("users").doc(userId);
+  const userDoc = await userRef.get();
+  const userData = userDoc.data();
 
   // Determine plan type from price ID
-  const planType = getPlanTypeFromId(priceId);
+  const newPlanType = getPlanTypeFromId(priceId);
+  const oldPlanType = userData?.webdashSubscription?.planType || "business";
+
+  // Plan limits
+  const planLimits = {
+    business: 1,
+    agency: 3,
+    enterprise: 5,
+  };
 
   // Initialize website limit based on the new plan
   if (subscription.status === "active") {
-    await UserService.updateUserPlan(userId, planType);
-  }
+    const oldPlanLimit =
+      planLimits[oldPlanType as keyof typeof planLimits] || 1;
+    const newPlanLimit =
+      planLimits[newPlanType as keyof typeof planLimits] || 1;
+    const currentWebsiteLimit = userData?.websiteLimit || oldPlanLimit;
 
-  await userRef.update({
-    webdashSubscription: {
-      active: subscription.status === "active",
-      planId: priceId,
-      productId: subscription.items.data[0].price.product,
-      planType: planType,
-      trialEnd: subscription.trial_end
-        ? new Date(subscription.trial_end * 1000).toISOString()
-        : null,
-      currentPeriodEnd: new Date(
-        subscription.current_period_end * 1000
-      ).toISOString(),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      subscriptionId: subscription.id,
-      status: subscription.status,
-    },
-    updatedAt: new Date(),
-  });
+    // Calculate additional websites the user has purchased
+    const additionalWebsites = Math.max(0, currentWebsiteLimit - oldPlanLimit);
+
+    // New limit should be: new plan base limit + any additional websites purchased
+    const newWebsiteLimit = newPlanLimit + additionalWebsites;
+
+    console.log(`Plan upgrade/change detected:
+      Old plan: ${oldPlanType} (base limit: ${oldPlanLimit})
+      New plan: ${newPlanType} (base limit: ${newPlanLimit})
+      Current limit: ${currentWebsiteLimit}
+      Additional websites purchased: ${additionalWebsites}
+      New limit will be: ${newWebsiteLimit}
+    `);
+
+    await userRef.update({
+      websiteLimit: newWebsiteLimit,
+      webdashSubscription: {
+        active: subscription.status === "active",
+        planId: priceId,
+        productId: subscription.items.data[0].price.product,
+        planType: newPlanType,
+        trialEnd: subscription.trial_end
+          ? new Date(subscription.trial_end * 1000).toISOString()
+          : null,
+        currentPeriodEnd: new Date(
+          subscription.current_period_end * 1000
+        ).toISOString(),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        subscriptionId: subscription.id,
+        status: subscription.status,
+      },
+      updatedAt: new Date(),
+    });
+  } else {
+    // Just update subscription status without changing limits
+    await userRef.update({
+      webdashSubscription: {
+        active: subscription.status === "active",
+        planId: priceId,
+        productId: subscription.items.data[0].price.product,
+        planType: newPlanType,
+        trialEnd: subscription.trial_end
+          ? new Date(subscription.trial_end * 1000).toISOString()
+          : null,
+        currentPeriodEnd: new Date(
+          subscription.current_period_end * 1000
+        ).toISOString(),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        subscriptionId: subscription.id,
+        status: subscription.status,
+      },
+      updatedAt: new Date(),
+    });
+  }
 }

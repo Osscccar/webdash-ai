@@ -14,7 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 export default function OnboardingPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth();
+  const { user, userData, loading: authLoading } = useAuth(); // Add userData here
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingRedirect, setIsCheckingRedirect] = useState(true);
@@ -57,6 +57,20 @@ export default function OnboardingPage() {
           return;
         }
 
+        // NEW: Check if user is signed in and has reached their website limit
+        if (user && userData) {
+          const websiteLimit = userData.websiteLimit || 1;
+          const websiteCount = userData.websites?.length || 0;
+
+          if (websiteCount >= websiteLimit) {
+            console.log(
+              "User has reached website limit, redirecting to dashboard"
+            );
+            router.push("/dashboard");
+            return;
+          }
+        }
+
         // No redirect needed
         setIsCheckingRedirect(false);
       } catch (error) {
@@ -66,7 +80,7 @@ export default function OnboardingPage() {
     };
 
     checkForRedirect();
-  }, [router, authLoading, user]);
+  }, [router, authLoading, user, userData]);
 
   const handleGenerateWebsite = async () => {
     if (!prompt) return;

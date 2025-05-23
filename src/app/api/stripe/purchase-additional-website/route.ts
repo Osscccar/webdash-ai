@@ -175,19 +175,11 @@ export async function POST(request: NextRequest) {
       subscription.status
     );
 
-    // If payment is successful, update the user's website limit
-    if (
-      subscription.status === "active" ||
-      subscription.latest_invoice?.payment_intent?.status === "succeeded"
-    ) {
-      const newLimit = await UserService.incrementWebsiteLimit(userId, 1);
-
-      if (newLimit) {
-        console.log(
-          `Successfully incremented website limit for user ${userId} to ${newLimit}`
-        );
-      }
-    }
+    // IMPORTANT: DO NOT increment website limit here
+    // The webhook will handle the increment when it processes the subscription
+    console.log(
+      "Subscription created, webhook will handle website limit increment"
+    );
 
     // Update user document with additional website subscription info
     const userRef = adminDb.collection("users").doc(userId);

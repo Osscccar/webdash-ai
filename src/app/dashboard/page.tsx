@@ -769,7 +769,6 @@ export default function DashboardPage() {
       currentWebsiteCount < websiteLimit
     );
 
-    // FIXED: Changed from >= to > so users can create websites up to their limit
     if (currentWebsiteCount >= websiteLimit) {
       console.log("Reached website limit, showing upgrade modal");
       // User has reached their limit
@@ -798,8 +797,13 @@ export default function DashboardPage() {
   // Function to handle upgrade
   const handleUpgrade = () => {
     setShowUpgradeModal(false);
-    // Redirect to preview page with payment card
-    router.push("/preview");
+
+    // Store the current plan info in sessionStorage so the pricing page knows what to show
+    sessionStorage.setItem("upgrade_from_plan", currentPlan);
+    sessionStorage.setItem("upgrade_from_limit", websiteLimit.toString());
+
+    // Redirect to pricing page with upgrade parameter
+    router.push("/pricing?upgrade=true");
   };
 
   // Function to handle buying additional website
@@ -1872,31 +1876,71 @@ export default function DashboardPage() {
       />
 
       {process.env.NODE_ENV === "development" && (
-        <div className="fixed bottom-4 right-4 bg-black text-white p-2 rounded text-xs max-w-xs z-50">
-          <div>Current Plan: {currentPlan}</div>
-          <div>Website Limit: {websiteLimit}</div>
-          <div>Websites Count: {websites.length}</div>
-          <div>
-            Can Create More: {websites.length < websiteLimit ? "Yes" : "No"}
-          </div>
-          <div>
-            Subscription Active:{" "}
-            {userData?.webdashSubscription?.active ? "Yes" : "No"}
-          </div>
-        </div>
-      )}
-      {process.env.NODE_ENV === "development" && (
         <button
           onClick={() => {
             localStorage.clear();
             window.location.reload();
           }}
-          className="fixed bottom-30 right-4 bg-red-500 text-white p-2 rounded-md text-xs z-50 cursor-pointer"
+          className="fixed bottom-4 right-4 bg-red-500 text-white p-2 rounded-md text-xs z-50 cursor-pointer"
         >
           Reset Storage & Reload
         </button>
       )}
-      {process.env.NODE_ENV === "development" && <WebsiteDebugPanel />}
+
+      {process.env.NODE_ENV === "development" && (
+        <div className="fixed bottom-20 right-4 bg-yellow-500 text-black p-4 rounded-lg z-50">
+          <h4 className="font-bold mb-2">🔧 Fix Website Limit</h4>
+          <p className="text-sm mb-2">
+            Your limit should be{" "}
+            {currentPlan === "agency"
+              ? "4"
+              : currentPlan === "enterprise"
+              ? "6"
+              : "2"}
+            but is {websiteLimit}
+          </p>
+          <button
+            onClick={async () => {
+              try {
+                const response = await fetch("/api/fix-website-limit", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    userId: user?.uid,
+                  }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                  toast({
+                    title: "Website limit fixed!",
+                    description: `Your limit has been updated from ${result.oldLimit} to ${result.newLimit}`,
+                  });
+
+                  // Reload the page to see the changes
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 1500);
+                } else {
+                  throw new Error(result.error);
+                }
+              } catch (error: any) {
+                toast({
+                  title: "Error fixing limit",
+                  description: error.message || "Failed to fix website limit",
+                  variant: "destructive",
+                });
+              }
+            }}
+            className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 cursor-pointer"
+          >
+            Fix My Website Limit
+          </button>
+        </div>
+      )}
     </div>
   );
 }
