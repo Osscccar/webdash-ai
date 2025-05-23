@@ -2,11 +2,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { PLANS } from "@/config/stripe";
-import { Check, X } from "lucide-react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
@@ -18,13 +18,15 @@ import { WebsiteDeletionPopup } from "@/components/dashboard/website-deletion-po
 import { db } from "@/config/firebase";
 import { doc, updateDoc, arrayRemove } from "firebase/firestore";
 
+// Create a client component that uses useSearchParams
+import ClientComponent from "./client-component";
+
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
 
 export default function PricingPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, userData } = useAuth();
   const { toast } = useToast();
 
@@ -38,8 +40,8 @@ export default function PricingPage() {
     null
   );
   const [requiredDeletions, setRequiredDeletions] = useState(0);
+  const [isUpgrade, setIsUpgrade] = useState(false);
 
-  const isUpgrade = searchParams.get("upgrade") === "true";
   const currentPlan = userData?.webdashSubscription?.planType || "business";
   const currentWebsiteCount = userData?.websites?.length || 0;
   const currentWebsiteLimit = userData?.websiteLimit || 1;
@@ -49,6 +51,11 @@ export default function PricingPage() {
     business: 1,
     agency: 3,
     enterprise: 5,
+  };
+
+  // Function to handle upgrade param from the client component
+  const handleUpgradeParam = (upgradeValue: boolean) => {
+    setIsUpgrade(upgradeValue);
   };
 
   useEffect(() => {
@@ -169,6 +176,11 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
+      {/* Wrap the component that uses useSearchParams in Suspense */}
+      <Suspense fallback={<div>Loading...</div>}>
+        <ClientComponent onUpgradeChange={handleUpgradeParam} />
+      </Suspense>
+
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-10">
@@ -196,7 +208,7 @@ export default function PricingPage() {
           <div className="bg-white rounded-lg shadow-sm p-1 inline-flex">
             <button
               onClick={() => setBillingInterval("monthly")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer ${
                 billingInterval === "monthly"
                   ? "bg-[#f58327] text-white"
                   : "text-gray-500 hover:text-gray-700"
@@ -206,7 +218,7 @@ export default function PricingPage() {
             </button>
             <button
               onClick={() => setBillingInterval("annual")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer ${
                 billingInterval === "annual"
                   ? "bg-[#f58327] text-white"
                   : "text-gray-500 hover:text-gray-700"
@@ -277,7 +289,7 @@ export default function PricingPage() {
                       disabled={
                         isCurrentPlan || (isUpgrade && !isActualUpgrade)
                       }
-                      className={`w-full ${
+                      className={`w-full cursor-pointer ${
                         isCurrentPlan
                           ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                           : isUpgrade && !isActualUpgrade
@@ -345,7 +357,7 @@ export default function PricingPage() {
           <Button
             variant="ghost"
             onClick={() => router.push("/dashboard")}
-            className="text-gray-600 hover:text-gray-900"
+            className="text-gray-600 hover:text-gray-900 cursor-pointer"
           >
             ← Back to Dashboard
           </Button>
