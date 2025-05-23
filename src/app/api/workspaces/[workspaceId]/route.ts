@@ -68,7 +68,7 @@ export async function PUT(
 ) {
   try {
     const { workspaceId } = params;
-    const { userId, name } = await request.json();
+    const { userId, name, addWebsiteId } = await request.json();
 
     if (!userId) {
       return NextResponse.json(
@@ -116,6 +116,14 @@ export async function PUT(
 
     if (name && name.trim()) {
       updates.name = name.trim();
+    }
+
+    // Add website to workspace if specified
+    if (addWebsiteId) {
+      const currentWebsites = workspace.websites || [];
+      if (!currentWebsites.includes(addWebsiteId)) {
+        updates.websites = [...currentWebsites, addWebsiteId];
+      }
     }
 
     await workspaceRef.update(updates);

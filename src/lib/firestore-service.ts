@@ -185,10 +185,27 @@ export const FirestoreService = {
         if (websiteData) {
           // Parse existing website data
           website = JSON.parse(websiteData) as UserWebsite;
+          
+          // ✅ Handle pending workspace assignment for parsed websites
+          if (website.workspaceId === "pending-workspace-assignment") {
+            website.workspaceId = `workspace-${userId}-default`;
+            console.log(`Converting parsed website to default workspace: ${website.workspaceId}`);
+          }
         } else {
+          // Get the workspace ID from localStorage if available
+          const storedWorkspaceId = localStorage.getItem("webdash_current_workspace");
+          
+          // ✅ Handle pending workspace assignment for new users
+          let finalWorkspaceId = storedWorkspaceId;
+          if (!finalWorkspaceId || finalWorkspaceId === "pending-workspace-assignment") {
+            finalWorkspaceId = `workspace-${userId}-default`;
+            console.log(`Assigning new user website to default workspace: ${finalWorkspaceId}`);
+          }
+          
           // Create new website object
           website = {
             id: `website-${Date.now()}`,
+            workspaceId: finalWorkspaceId,
             domainId: domainId ? parseInt(domainId) : Date.now(),
             subdomain: subdomain,
             siteUrl: `https://${subdomain}.webdash.site`,

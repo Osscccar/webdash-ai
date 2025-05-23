@@ -19,9 +19,10 @@ export interface WorkspaceCollaborator {
   addedAt: string;
   addedBy: string; // User ID of who added this collaborator
   status: CollaboratorStatus;
+  allowedWebsites?: string[]; // For client role - specific website IDs they can access
 }
 
-export type CollaboratorRole = "owner" | "admin" | "member";
+export type CollaboratorRole = "owner" | "admin" | "member" | "client";
 export type CollaboratorStatus = "pending" | "active" | "inactive";
 
 export interface WorkspaceInvite {
@@ -66,6 +67,7 @@ export interface WorkspacePermissions {
   canRemoveCollaborators: boolean;
   canManageWebsites: boolean;
   canViewAnalytics: boolean;
+  canCreateWebsites: boolean;
 }
 
 export const ROLE_PERMISSIONS: Record<CollaboratorRole, WorkspacePermissions> =
@@ -77,6 +79,7 @@ export const ROLE_PERMISSIONS: Record<CollaboratorRole, WorkspacePermissions> =
       canRemoveCollaborators: true,
       canManageWebsites: true,
       canViewAnalytics: true,
+      canCreateWebsites: true,
     },
     admin: {
       canEditWorkspace: true,
@@ -85,6 +88,7 @@ export const ROLE_PERMISSIONS: Record<CollaboratorRole, WorkspacePermissions> =
       canRemoveCollaborators: true,
       canManageWebsites: true,
       canViewAnalytics: true,
+      canCreateWebsites: true,
     },
     member: {
       canEditWorkspace: false,
@@ -93,5 +97,15 @@ export const ROLE_PERMISSIONS: Record<CollaboratorRole, WorkspacePermissions> =
       canRemoveCollaborators: false,
       canManageWebsites: true,
       canViewAnalytics: true,
+      canCreateWebsites: false,
+    },
+    client: {
+      canEditWorkspace: false,
+      canDeleteWorkspace: false,
+      canAddCollaborators: false,
+      canRemoveCollaborators: false,
+      canManageWebsites: true,
+      canViewAnalytics: true,
+      canCreateWebsites: false,
     },
   };

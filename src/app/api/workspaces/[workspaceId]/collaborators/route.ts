@@ -69,7 +69,7 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = params;
-    const { userId, collaboratorEmail, role = "member" } = await request.json();
+    const { userId, collaboratorEmail, role = "member", allowedWebsites } = await request.json();
 
     if (!userId || !collaboratorEmail) {
       return NextResponse.json(
@@ -172,6 +172,7 @@ export async function POST(
                   role: role as any,
                   addedAt: new Date().toISOString(),
                   addedBy: userId,
+                  ...(role === "client" && allowedWebsites && { allowedWebsites }),
                 }
               : collaborator
         );
@@ -223,6 +224,7 @@ export async function POST(
       addedAt: new Date().toISOString(),
       addedBy: userId,
       status: "active",
+      ...(role === "client" && allowedWebsites && { allowedWebsites }),
     };
 
     const updatedCollaborators = [...workspace.collaborators, newCollaborator];

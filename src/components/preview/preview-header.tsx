@@ -52,14 +52,7 @@ export function PreviewHeader({
     <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center space-x-2">
-            <Image
-              src={WebDashLogo}
-              alt="WebDash logo"
-              width={40}
-              height={40}
-            />
-          </Link>
+          <Image src={WebDashLogo} alt="WebDash logo" width={40} height={40} />
 
           <div className="flex items-center space-x-4">
             {/* Show Discord component ONLY during generation */}

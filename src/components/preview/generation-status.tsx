@@ -27,7 +27,7 @@ const GENERATION_SUBSTEPS: Record<string, string[]> = {
   ],
   [GenerationStep.DESIGNING_PAGES]: [
     "Creating responsive layouts",
-    "Applying design templates",
+    "Applying design styles",
   ],
   [GenerationStep.SETTING_UP_NAVIGATION]: [
     "Building navigation menus",
@@ -235,6 +235,15 @@ export function GenerationStatus({
               substep: 1,
             });
 
+            // ✅ Get or create default workspace for new users
+            let workspaceId = localStorage.getItem("webdash_current_workspace");
+            
+            if (!workspaceId) {
+              // For new users, we need to ensure they have a default workspace
+              // This will be handled when they first access the dashboard
+              workspaceId = "pending-workspace-assignment";
+            }
+
             const websiteData = {
               jobId: jobId,
               siteUrl: siteUrl,
@@ -242,6 +251,7 @@ export function GenerationStatus({
               createdAt: new Date().toISOString(),
               status: "active",
               domainId: data.job.domain_id || data.job.domainId,
+              workspaceId: workspaceId,
             };
 
             localStorage.setItem(
@@ -432,6 +442,15 @@ export function GenerationStatus({
           const siteUrl = jobData.site_url || jobData.siteUrl;
 
           if (siteUrl) {
+            // ✅ Get or create default workspace for new users
+            let workspaceId = localStorage.getItem("webdash_current_workspace");
+            
+            if (!workspaceId) {
+              // For new users, we need to ensure they have a default workspace
+              // This will be handled when they first access the dashboard
+              workspaceId = "pending-workspace-assignment";
+            }
+
             const websiteData = {
               jobId: jobId,
               siteUrl: siteUrl,
@@ -439,6 +458,7 @@ export function GenerationStatus({
               createdAt: new Date().toISOString(),
               status: "active",
               domainId: jobData.domain_id || jobData.domainId,
+              workspaceId: workspaceId,
             };
 
             localStorage.setItem(
@@ -949,16 +969,6 @@ export function GenerationStatus({
                   );
                 })}
               </div>
-
-              {onCancel && (
-                <Button
-                  variant="outline"
-                  className="w-full cursor-pointer"
-                  onClick={handleCancel}
-                >
-                  Cancel Generation
-                </Button>
-              )}
             </>
           )}
       </CardContent>

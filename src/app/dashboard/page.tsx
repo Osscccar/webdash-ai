@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -43,6 +43,8 @@ import {
   ChevronRight,
   Home,
   HelpCircle,
+  RefreshCw,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -62,13 +64,17 @@ import {
   validateAdditionalWebsitePricing,
 } from "@/config/stripe";
 import { WebsiteDebugPanel } from "@/components/debug/website-debug";
+import { WorkspaceSwitcher } from "@/components/workspaces/workspace-switcher";
+import { WorkspaceManagementModal } from "@/components/workspaces/workspace-management-modal";
+import { useWorkspaces } from "@/hooks/use-workspaces";
+import type { Workspace } from "@/types/workspace";
+import { ROLE_PERMISSIONS } from "@/types/workspace";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
 
-// Mock workspaces data
-const WORKSPACES = [{ id: "1", name: "WebDash's Workspace", role: "Owner" }];
+// This will be replaced by dynamic workspace data
 
 // Plan configurations with website limits and additional website pricing
 const PLAN_CONFIGS = {
@@ -238,28 +244,7 @@ function AdditionalWebsitePayment({
     </Dialog>
   );
 }
-// Also update the getUserPlanInfo function to be more robust:
-const getUserPlanInfo = () => {
-  const subscription = userData?.webdashSubscription;
-
-  console.log("getUserPlanInfo - subscription:", subscription);
-
-  if (!subscription?.active) {
-    console.log("No active subscription, defaulting to business plan");
-    return { plan: "business", limit: 1 };
-  }
-
-  // Use the new helper function from stripe config
-  const planType = getPlanTypeFromSubscription(subscription);
-
-  console.log("Determined plan type:", planType);
-
-  const limit =
-    userData?.websiteLimit ||
-    (planType === "enterprise" ? 5 : planType === "agency" ? 3 : 1);
-
-  return { plan: planType, limit };
-};
+// Function will be defined inside component where userData is available
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -267,15 +252,27 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const tenWebHook = useTenWeb();
   const { loading: authLoading } = useAuth();
+  const {
+    workspaces,
+    activeWorkspace: hookActiveWorkspace,
+    isLoading: workspacesLoading,
+    changeActiveWorkspace,
+    getUserRole,
+    canManageWorkspace,
+    canAddCollaborators,
+    loadWorkspaces,
+  } = useWorkspaces();
 
   // State management
   const [isLoading, setIsLoading] = useState(true);
   const [isWpDashboardLoading, setIsWpDashboardLoading] = useState(false);
   const [websites, setWebsites] = useState<UserWebsite[]>([]);
-  const [activeWorkspace, setActiveWorkspace] = useState(WORKSPACES[0]);
   const [selectedWebsite, setSelectedWebsite] = useState<UserWebsite | null>(
     null
   );
+  
+  // Use the workspace from the hook
+  const activeWorkspace = hookActiveWorkspace;
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [websiteScreenshots, setWebsiteScreenshots] = useState<{
     [websiteId: string]: {
@@ -296,6 +293,9 @@ export default function DashboardPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [currentPlan, setCurrentPlan] = useState("business");
+  const [showWorkspaceManager, setShowWorkspaceManager] = useState(false);
+  
+  // Remove unused ref since we're using modal now
 
   // Mock data for analytics
   const mockAnalytics = {
@@ -367,6 +367,73 @@ export default function DashboardPage() {
     }));
   };
 
+  // Filter websites based on workspace and user role permissions
+  const getVisibleWebsites = () => {
+    console.log("=== getVisibleWebsites Debug ===");
+    console.log("activeWorkspace:", activeWorkspace);
+    console.log("user:", user?.uid);
+    console.log("workspaces loaded:", workspaces?.length);
+    
+    if (!activeWorkspace || !user) {
+      console.log("No active workspace or user, returning empty array");
+      return [];
+    }
+    
+    const userCollaborator = activeWorkspace.collaborators.find(c => c.userId === user.uid);
+    console.log("userCollaborator found:", userCollaborator);
+    
+    if (!userCollaborator) {
+      console.log("User not found in workspace collaborators, returning empty array");
+      console.log("Workspace collaborators:", activeWorkspace.collaborators);
+      return [];
+    }
+    
+    // First filter by workspace - only show websites that belong to current workspace
+    const workspaceWebsites = websites.filter(website => 
+      website.workspaceId === activeWorkspace.id
+    );
+    
+    console.log(`Filtering ${websites.length} total websites for workspace ${activeWorkspace.id} (${activeWorkspace.name}):`);
+    console.log(`Found ${workspaceWebsites.length} websites in current workspace`);
+    console.log("All websites:", websites.map(w => ({ id: w.id, title: w.title, workspaceId: w.workspaceId, userId: w.userId })));
+    console.log("Workspace websites:", workspaceWebsites.map(w => ({ id: w.id, title: w.title, workspaceId: w.workspaceId, userId: w.userId })));
+    
+    // If user is client, only show allowed websites within this workspace
+    if (userCollaborator.role === "client" && userCollaborator.allowedWebsites) {
+      const clientWebsites = workspaceWebsites.filter(website => 
+        userCollaborator.allowedWebsites?.includes(website.id)
+      );
+      console.log(`User is client, showing ${clientWebsites.length} allowed websites`);
+      return clientWebsites;
+    }
+    
+    // For other roles, show all websites in the current workspace
+    console.log(`User role: ${userCollaborator.role}, showing all ${workspaceWebsites.length} workspace websites`);
+    console.log("=== End Debug ===");
+    return workspaceWebsites;
+  };
+
+  // Handle workspace change
+  const handleWorkspaceChange = (workspace: Workspace) => {
+    changeActiveWorkspace(workspace);
+    console.log("Active workspace changed to:", workspace.name);
+    
+    // Clear selected website since it might not be available in new workspace
+    setSelectedWebsite(null);
+    
+    // Close workspace manager modal if open
+    setShowWorkspaceManager(false);
+  };
+
+  // Handle workspace management modal close with potential data refresh
+  const handleWorkspaceManagerClose = () => {
+    setShowWorkspaceManager(false);
+    // Reload workspaces in case changes were made
+    loadWorkspaces();
+  };
+
+  // Modal handles click outside automatically
+
   const handleScreenshotLoad = (websiteId: string) => {
     setWebsiteScreenshots((prev) => ({
       ...prev,
@@ -389,10 +456,11 @@ export default function DashboardPage() {
         return;
       }
 
-      // Check if the user has an active subscription
+      // Check if the user has an active subscription OR is a collaborator in any workspace
       const hasSubscription = userData?.webdashSubscription?.active || false;
+      const hasWorkspaceAccess = userData?.workspaces && userData.workspaces.length > 0;
 
-      if (!hasSubscription) {
+      if (!hasSubscription && !hasWorkspaceAccess) {
         // Check if user has generated a website
         const savedWebsite = localStorage.getItem("webdash_website");
 
@@ -561,129 +629,156 @@ export default function DashboardPage() {
         return;
       }
 
+      // Wait for workspaces to finish loading
+      if (workspacesLoading) {
+        console.log("Waiting for workspaces to load...");
+        return;
+      }
+
       // Load website data
       try {
         setIsLoading(true);
         console.log("Loading websites for user:", user.uid);
+        console.log("Available workspaces:", workspaces?.length || 0);
 
-        // Get user document directly
-        const userRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userRef);
-
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          console.log("User data from Firestore:", userData);
-
-          // ✅ FIXED: Always load existing websites first
-          let existingWebsites: UserWebsite[] = [];
-          if (
-            userData.websites &&
-            Array.isArray(userData.websites) &&
-            userData.websites.length > 0
-          ) {
-            console.log("Found websites in user document:", userData.websites);
-            existingWebsites = userData.websites;
+        // ✅ SECURE: Use API endpoint to load workspace websites
+        console.log("Loading workspace websites via secure API...");
+        
+        let existingWebsites: UserWebsite[] = [];
+        
+        try {
+          // Get user's Firebase ID token for API authentication
+          console.log("Getting Firebase ID token...");
+          const idToken = await user.getIdToken();
+          console.log("ID token obtained, calling API...");
+          
+          // Call secure API endpoint to load workspace websites
+          const response = await fetch("/api/workspaces/websites", {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${idToken}`,
+              "Content-Type": "application/json",
+            },
+          });
+          
+          console.log(`API response status: ${response.status}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log("API response data:", data);
+            console.log("API response websites array:", data.websites);
+            existingWebsites = data.websites || [];
+            console.log(`Loaded ${existingWebsites.length} websites via API`);
+          } else {
+            const errorText = await response.text();
+            console.error("Failed to load websites via API:", response.status, errorText);
+            // Fallback: try to load from user's own document
+            const userRef = doc(db, "users", user.uid);
+            const userDoc = await getDoc(userRef);
+            
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              existingWebsites = userData.websites || [];
+              console.log(`Fallback: loaded ${existingWebsites.length} websites from user document`);
+            }
           }
+        } catch (error) {
+          console.error("Error loading websites via API:", error);
+          // Fallback: try to load from user's own document
+          const userRef = doc(db, "users", user.uid);
+          const userDoc = await getDoc(userRef);
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            existingWebsites = userData.websites || [];
+            console.log(`Fallback: loaded ${existingWebsites.length} websites from user document`);
+          }
+        }
 
-          // Check localStorage for NEW website data
-          const websiteData = localStorage.getItem("webdash_website");
-          const siteInfo = localStorage.getItem("webdash_site_info");
-          const subdomain = localStorage.getItem("webdash_subdomain");
-          const domainId = localStorage.getItem("webdash_domain_id");
+        // Check localStorage for NEW website data
+        const websiteData = localStorage.getItem("webdash_website");
+        const siteInfo = localStorage.getItem("webdash_site_info");
+        const subdomain = localStorage.getItem("webdash_subdomain");
+        const domainId = localStorage.getItem("webdash_domain_id");
+        const storedWorkspaceId = localStorage.getItem("webdash_current_workspace");
 
-          if (websiteData) {
-            try {
-              console.log("Found NEW website in localStorage:", websiteData);
-              const parsedWebsite = JSON.parse(websiteData);
+        if (websiteData) {
+          try {
+            console.log("Found NEW website in localStorage:", websiteData);
+            const parsedWebsite = JSON.parse(websiteData);
 
-              // Add user ID if missing
-              parsedWebsite.userId = user.uid;
+            // Add user ID and workspace ID if missing
+            parsedWebsite.userId = user.uid;
+            
+            // ✅ Handle pending workspace assignment for new users
+            if (parsedWebsite.workspaceId === "pending-workspace-assignment") {
+              // Assign to user's default workspace
+              parsedWebsite.workspaceId = activeWorkspace?.id || `workspace-${user.uid}-default`;
+              console.log(`Assigning pending website to default workspace: ${parsedWebsite.workspaceId}`);
+            } else {
+              parsedWebsite.workspaceId = storedWorkspaceId || activeWorkspace?.id || "default-workspace";
+            }
 
-              // ✅ FIXED: Check if this website already exists
-              const websiteExists = existingWebsites.some(
-                (w) =>
-                  w.id === parsedWebsite.id ||
-                  w.subdomain === parsedWebsite.subdomain
-              );
+            // ✅ FIXED: Check if this website already exists
+            const websiteExists = existingWebsites.some(
+              (w) =>
+                w.id === parsedWebsite.id ||
+                w.subdomain === parsedWebsite.subdomain
+            );
 
-              if (!websiteExists) {
-                console.log("Adding new website to existing collection");
+            if (!websiteExists) {
+              console.log("Adding new website to existing collection");
 
-                // Add to existing websites array
-                const updatedWebsites = [...existingWebsites, parsedWebsite];
+              // Add to existing websites array for UI
+              const updatedWebsites = [...existingWebsites, parsedWebsite];
 
-                // Update Firestore with ALL websites
-                await updateDoc(userRef, {
-                  websites: updatedWebsites,
-                  updatedAt: serverTimestamp(),
+              // ✅ SECURE: Use API to save website to appropriate workspace owner
+              try {
+                const idToken = await user.getIdToken();
+                const response = await fetch("/api/workspaces/websites", {
+                  method: "POST",
+                  headers: {
+                    "Authorization": `Bearer ${idToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    website: parsedWebsite,
+                    workspaceId: parsedWebsite.workspaceId,
+                  }),
                 });
 
-                console.log("Added new website to Firestore");
-                setWebsites(updatedWebsites);
-
-                // ✅ FIXED: Clear localStorage after successful addition
-                localStorage.removeItem("webdash_website");
-                localStorage.removeItem("webdash_site_info");
-                localStorage.removeItem("webdash_subdomain");
-                localStorage.removeItem("webdash_domain_id");
-              } else {
-                console.log("Website already exists, using existing websites");
+                if (response.ok) {
+                  console.log("Successfully saved website via API");
+                  setWebsites(updatedWebsites);
+                } else {
+                  console.error("Failed to save website via API");
+                  setWebsites(existingWebsites);
+                }
+              } catch (error) {
+                console.error("Error saving website via API:", error);
                 setWebsites(existingWebsites);
               }
-            } catch (error) {
-              console.error(
-                "Error parsing website data from localStorage:",
-                error
-              );
+
+              // ✅ FIXED: Clear localStorage after successful addition
+              localStorage.removeItem("webdash_website");
+              localStorage.removeItem("webdash_site_info");
+              localStorage.removeItem("webdash_subdomain");
+              localStorage.removeItem("webdash_domain_id");
+              localStorage.removeItem("webdash_current_workspace");
+            } else {
+              console.log("Website already exists, using existing websites");
               setWebsites(existingWebsites);
             }
-          } else if (siteInfo && subdomain && existingWebsites.length === 0) {
-            // Only create dummy website if NO existing websites
-            console.log("Creating website from incomplete localStorage data");
-
-            try {
-              const parsedInfo = JSON.parse(siteInfo);
-              const dummyWebsite: UserWebsite = {
-                id: `website-${Date.now()}`,
-                userId: user.uid,
-                domainId: domainId ? Number.parseInt(domainId) : Date.now(),
-                subdomain: subdomain,
-                siteUrl: `https://${subdomain}.webdash.site`,
-                title:
-                  parsedInfo.websiteTitle ||
-                  parsedInfo.businessName ||
-                  "My Website",
-                description:
-                  parsedInfo.businessDescription || "AI-generated website",
-                createdAt: new Date().toISOString(),
-                lastModified: new Date().toISOString(),
-                status: "active",
-              };
-
-              // Add to user's websites array in Firestore
-              await updateDoc(userRef, {
-                websites: arrayUnion(dummyWebsite),
-                updatedAt: serverTimestamp(),
-              });
-
-              console.log("Added dummy website to Firestore");
-              setWebsites([dummyWebsite]);
-            } catch (error) {
-              console.error("Error creating dummy website:", error);
-              setWebsites(existingWebsites);
-            }
-          } else {
-            console.log("No new website data, using existing websites");
+          } catch (error) {
+            console.error(
+              "Error parsing website data from localStorage:",
+              error
+            );
             setWebsites(existingWebsites);
           }
         } else {
-          console.error("User document not found in Firestore");
-          toast({
-            title: "User profile not found",
-            description:
-              "We couldn't find your user profile. Try signing out and back in.",
-            variant: "destructive",
-          });
+          console.log("No new website data, using existing websites");
+          setWebsites(existingWebsites);
         }
       } catch (error) {
         console.error("Error loading website data:", error);
@@ -698,7 +793,7 @@ export default function DashboardPage() {
     };
 
     checkAuth();
-  }, [user, router, toast]);
+  }, [user, router, toast, workspacesLoading, workspaces]);
 
   const handleOpenWPDashboard = async (website: UserWebsite) => {
     setIsWpDashboardLoading(true);
@@ -757,9 +852,29 @@ export default function DashboardPage() {
     setSidebarCollapsed(false);
   };
 
-  // Function to handle adding a new website
+  // Check if user can create websites based on role
+  const canCreateWebsites = () => {
+    if (!activeWorkspace || !user) return false;
+    
+    const role = safeGetUserRole(activeWorkspace);
+    if (!role) return false;
+    
+    const permissions = ROLE_PERMISSIONS[role];
+    return permissions.canCreateWebsites;
+  };
+
   // Function to handle adding a new website
   const handleAddWebsite = () => {
+    // Check role permissions first
+    if (!canCreateWebsites()) {
+      toast({
+        title: "Permission denied",
+        description: "Only workspace owners and admins can create new websites.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const currentWebsiteCount = websites.length;
 
     console.log("handleAddWebsite - Current count:", currentWebsiteCount);
@@ -788,6 +903,11 @@ export default function DashboardPage() {
 
       // Add a flag to indicate this is a new website creation
       localStorage.setItem("webdash_creating_new", "true");
+      
+      // Store the current workspace ID so the new website gets assigned to it
+      if (activeWorkspace) {
+        localStorage.setItem("webdash_current_workspace", activeWorkspace.id);
+      }
 
       // User can add more websites
       router.push("/?new=true");
@@ -867,7 +987,8 @@ export default function DashboardPage() {
     }
   };
 
-  const filteredWebsites = websites.filter(
+  const visibleWebsites = getVisibleWebsites();
+  const filteredWebsites = visibleWebsites.filter(
     (website) =>
       website.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       website.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -885,6 +1006,12 @@ export default function DashboardPage() {
     userData?.firstName && userData?.lastName
       ? `${userData.firstName} ${userData.lastName}`
       : user?.email?.split("@")[0];
+
+  // Safe getUserRole function that handles null workspace
+  const safeGetUserRole = (workspace: Workspace | null) => {
+    if (!workspace || !user) return null;
+    return getUserRole(workspace);
+  };
 
   // Get time of day for greeting
   const currentHour = new Date().getHours();
@@ -943,52 +1070,133 @@ export default function DashboardPage() {
 
         {/* Workspace Selector */}
         {!sidebarCollapsed && (
-          <div className="p-4 border-b border-gray-100 hover:bg-neutral-100 cursor-pointer">
-            <div className="flex items-center justify-between">
-              <button className="">
-                <div className="flex items-center space-x-2">
-                  <div className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                    <Settings className="h-4 w-4" />
+          <div className="p-4 border-b border-gray-100">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-normal text-gray-400 uppercase tracking-wider">
+                WORKSPACE
+              </span>
+              <button
+                onClick={() => setShowWorkspaceManager(!showWorkspaceManager)}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <Settings className="h-4 w-4" />
+              </button>
+            </div>
+            
+            {activeWorkspace && (
+              <div className="flex items-center space-x-2 p-2 rounded-md bg-gray-50">
+                <div className="h-6 w-6 rounded bg-gray-200 flex items-center justify-center text-xs font-medium">
+                  {activeWorkspace.name.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">
+                    {activeWorkspace.name}
                   </div>
-                  <div className="text-sm font-normal truncate">
-                    Workspace Settings
+                  <div className="text-xs text-gray-500">
+                    {safeGetUserRole(activeWorkspace)} • {activeWorkspace?.collaborators?.length || 0} member{(activeWorkspace?.collaborators?.length || 0) !== 1 ? "s" : ""}
                   </div>
                 </div>
-              </button>
+              </div>
+            )}
+
+            {/* Quick Workspace Info */}
+            <div className="mt-4 text-xs text-gray-500">
+              {workspaces.length > 1 ? (
+                <span>{workspaces.length} workspaces available</span>
+              ) : (
+                <span>Click settings to manage workspaces</span>
+              )}
             </div>
           </div>
         )}
 
         {/* Sidebar Navigation */}
         <div className="p-2 overflow-y-auto h-[calc(100vh-8rem)]">
-          {/* Workspaces */}
+          {/* Workspaces List */}
           {!sidebarCollapsed && (
             <div className="mb-6">
               <div className="flex items-center justify-between px-3 mb-2">
-                <p className="text-xs font-normal text-gray-400">WORKSPACES</p>
-                <button className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <p className="text-xs font-normal text-gray-400 uppercase tracking-wider">WORKSPACES</p>
+                <button 
+                  onClick={() => setShowWorkspaceManager(true)}
+                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
-              <ul className="space-y-1">
-                {WORKSPACES.map((workspace) => (
-                  <li key={workspace.id}>
-                    <button
-                      onClick={() => setActiveWorkspace(workspace)}
+              
+              {/* Show loading state while workspaces load */}
+              {workspacesLoading ? (
+                <div className="px-3 py-2">
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-8 bg-gray-200 rounded"></div>
+                    <div className="h-8 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+              ) : (
+                <ul className="space-y-1">
+                  {workspaces.map((workspace) => (
+                    <li key={workspace.id}>
+                      <button
+                        onClick={() => handleWorkspaceChange(workspace)}
+                        className={cn(
+                          "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left cursor-pointer",
+                          activeWorkspace?.id === workspace.id ? "bg-gray-100" : ""
+                        )}
+                      >
+                        <div className="h-6 w-6 rounded-md bg-gray-200 flex items-center justify-center text-xs font-normal">
+                          {workspace.name.charAt(0)}
+                          {workspace.name.split(" ")[1]?.charAt(0) || ""}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="truncate">{workspace.name}</span>
+                            {safeGetUserRole(workspace) === "owner" && (
+                              <Crown className="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {safeGetUserRole(workspace)} • {workspace.collaborators?.length || 0} members
+                          </span>
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {/* Collapsed state - show current workspace or cycle through */}
+          {sidebarCollapsed && !workspacesLoading && (
+            <div className="mb-4">
+              {workspaces.length > 1 ? (
+                <div className="space-y-2">
+                  {workspaces.map((workspace) => (
+                    <div 
+                      key={workspace.id}
                       className={cn(
-                        "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
-                        activeWorkspace.id === workspace.id ? "bg-gray-100" : ""
+                        "h-8 w-8 rounded-md flex items-center justify-center text-xs font-normal mx-auto cursor-pointer transition-colors",
+                        activeWorkspace?.id === workspace.id 
+                          ? "bg-gray-300 ring-2 ring-blue-500" 
+                          : "bg-gray-200 hover:bg-gray-300"
                       )}
+                      onClick={() => handleWorkspaceChange(workspace)}
+                      title={`${workspace.name} (${safeGetUserRole(workspace)})`}
                     >
-                      <div className="h-6 w-6 rounded-md bg-gray-200 flex items-center justify-center text-xs font-normal">
-                        {workspace.name.charAt(0)}
-                        {workspace.name.split(" ")[1]?.charAt(0) || ""}
-                      </div>
-                      <span className="truncate">{workspace.name}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                      {workspace.name.charAt(0)}
+                    </div>
+                  ))}
+                </div>
+              ) : activeWorkspace ? (
+                <div 
+                  className="h-8 w-8 rounded-md bg-gray-200 flex items-center justify-center text-xs font-normal mx-auto cursor-pointer hover:bg-gray-300 transition-colors"
+                  onClick={() => setSidebarCollapsed(false)}
+                  title={activeWorkspace.name}
+                >
+                  {activeWorkspace.name.charAt(0)}
+                </div>
+              ) : null}
             </div>
           )}
         </div>
@@ -1255,16 +1463,26 @@ export default function DashboardPage() {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
                   <div>
                     <p className="text-gray-500 text-sm">
-                      {activeWorkspace.name} • {websites.length}/{websiteLimit}{" "}
-                      websites
+                      {activeWorkspace?.name || "Loading..."} • {visibleWebsites.length} website{visibleWebsites.length !== 1 ? 's' : ''}
+                      {/* Only show limits for workspace owners, not collaborators */}
+                      {activeWorkspace && safeGetUserRole(activeWorkspace) === 'owner' && websiteLimit && (
+                        <span> • {websites.length}/{websiteLimit} total limit</span>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center space-x-3 w-full md:w-auto">
-                    <PrimaryButton className="relative font-normal border-neutral-100 border-2 hover:bg-neutral-100 hover:shadow-none text-base bg-white text-black rounded-[16px] transition-all shadow-none">
-                      <Plus className="h-4 w-4" />
-                      <span>Add Collaborators</span>
+                    <PrimaryButton 
+                      onClick={() => setShowWorkspaceManager(true)}
+                      className="relative font-normal border-neutral-100 border-2 hover:bg-neutral-100 hover:shadow-none text-base bg-white text-black rounded-[16px] transition-all shadow-none"
+                    >
+                      <Users className="h-4 w-4" />
+                      <span>Manage Workspace</span>
                     </PrimaryButton>
-                    <PrimaryButton onClick={handleAddWebsite}>
+                    <PrimaryButton 
+                      onClick={handleAddWebsite}
+                      disabled={!canCreateWebsites()}
+                      className={!canCreateWebsites() ? "opacity-50 cursor-not-allowed" : ""}
+                    >
                       <Plus className="h-4 w-4" />
                       <span>Add Website</span>
                     </PrimaryButton>
@@ -1873,6 +2091,14 @@ export default function DashboardPage() {
         onClose={() => setShowPaymentModal(false)}
         planType={currentPlan}
         onSuccess={handleAdditionalWebsiteSuccess}
+      />
+
+      {/* Workspace Management Modal */}
+      <WorkspaceManagementModal
+        isOpen={showWorkspaceManager}
+        onClose={handleWorkspaceManagerClose}
+        onWorkspaceChange={handleWorkspaceChange}
+        websites={websites}
       />
 
       {process.env.NODE_ENV === "development" && (

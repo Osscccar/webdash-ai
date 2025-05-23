@@ -130,9 +130,13 @@ export function useTenWeb() {
 
           if (jobData.status === 'complete') {
             isComplete = true;
+            // Get the workspace ID from localStorage if available
+            const storedWorkspaceId = localStorage.getItem("webdash_current_workspace");
+            
             const website: UserWebsite = {
               id: jobId,
               userId: user?.uid || '',
+              workspaceId: storedWorkspaceId || 'default-workspace',
               domainId: jobData.domainId || Date.now(),
               subdomain: jobData.subdomain,
               siteUrl: jobData.siteUrl,
