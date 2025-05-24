@@ -2,7 +2,7 @@
 import axios from "axios";
 
 export const TENWEB_API_KEY = process.env.TENWEB_API_KEY;
-export const TENWEB_API_BASE_URL = "https://10web.io/api/v1";
+export const TENWEB_API_BASE_URL = "https://api.10web.io";
 
 // Create a secure axios instance for 10Web API calls
 export const tenwebApi = axios.create({

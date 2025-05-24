@@ -9,10 +9,10 @@ import type { Workspace, WorkspaceCollaborator } from "@/types/workspace";
 // GET /api/workspaces/[workspaceId]/collaborators - Get workspace collaborators
 export async function GET(
   request: NextRequest,
-  { params }: { params: { workspaceId: string } }
+  { params }: { params: Promise<{ workspaceId: string }> }
 ) {
   try {
-    const { workspaceId } = params;
+    const { workspaceId } = await params;
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("userId");
 
@@ -65,10 +65,10 @@ export async function GET(
 // POST /api/workspaces/[workspaceId]/collaborators - Add collaborator to workspace
 export async function POST(
   request: NextRequest,
-  { params }: { params: { workspaceId: string } }
+  { params }: { params: Promise<{ workspaceId: string }> }
 ) {
   try {
-    const { workspaceId } = params;
+    const { workspaceId } = await params;
     const { userId, collaboratorEmail, role = "member", allowedWebsites } = await request.json();
 
     if (!userId || !collaboratorEmail) {
@@ -258,10 +258,10 @@ export async function POST(
 // DELETE /api/workspaces/[workspaceId]/collaborators/[collaboratorId] - Remove collaborator
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { workspaceId: string; collaboratorId: string } }
+  { params }: { params: Promise<{ workspaceId: string; collaboratorId: string }> }
 ) {
   try {
-    const { workspaceId } = params;
+    const { workspaceId } = await params;
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("userId");
     const collaboratorId = searchParams.get("collaboratorId");

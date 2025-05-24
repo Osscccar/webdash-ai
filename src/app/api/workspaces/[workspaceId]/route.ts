@@ -8,10 +8,10 @@ import type { Workspace } from "@/types/workspace";
 // GET /api/workspaces/[workspaceId] - Get specific workspace
 export async function GET(
   request: NextRequest,
-  { params }: { params: { workspaceId: string } }
+  { params }: { params: Promise<{ workspaceId: string }> }
 ) {
   try {
-    const { workspaceId } = params;
+    const { workspaceId } = await params;
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("userId");
 
@@ -64,10 +64,10 @@ export async function GET(
 // PUT /api/workspaces/[workspaceId] - Update workspace (name, etc.)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { workspaceId: string } }
+  { params }: { params: Promise<{ workspaceId: string }> }
 ) {
   try {
-    const { workspaceId } = params;
+    const { workspaceId } = await params;
     const { userId, name, addWebsiteId } = await request.json();
 
     if (!userId) {
@@ -146,10 +146,10 @@ export async function PUT(
 // DELETE /api/workspaces/[workspaceId] - Delete workspace
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { workspaceId: string } }
+  { params }: { params: Promise<{ workspaceId: string }> }
 ) {
   try {
-    const { workspaceId } = params;
+    const { workspaceId } = await params;
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("userId");
 

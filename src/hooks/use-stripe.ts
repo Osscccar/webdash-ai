@@ -224,6 +224,78 @@ export function useStripe() {
   };
 
   /**
+   * Upgrade an existing subscription
+   */
+  const upgradeSubscription = async (
+    newPriceId: string,
+    newProductId: string,
+    newPlanType: string,
+    interval: string
+  ) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to upgrade",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    if (!userData?.webdashSubscription?.active) {
+      toast({
+        title: "No active subscription",
+        description: "You need an active subscription to upgrade",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/stripe/upgrade-subscription", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${await user.getIdToken()}`,
+        },
+        body: JSON.stringify({
+          newPriceId,
+          newProductId,
+          newPlanType,
+          interval,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to upgrade subscription");
+      }
+
+      const result = await response.json();
+      
+      toast({
+        title: "Subscription upgraded!",
+        description: `Successfully upgraded to ${newPlanType} plan`,
+      });
+
+      return result;
+    } catch (error: any) {
+      console.error("Error upgrading subscription:", error);
+
+      toast({
+        title: "Error upgrading subscription",
+        description: error.message || "Please try again later",
+        variant: "destructive",
+      });
+
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
    * Check if the user has an active subscription
    */
   const hasActiveSubscription = (): boolean => {
@@ -250,6 +322,7 @@ export function useStripe() {
   return {
     startTrial,
     createSubscription,
+    upgradeSubscription,
     validatePromoCode,
     openCustomerPortal,
     hasActiveSubscription,

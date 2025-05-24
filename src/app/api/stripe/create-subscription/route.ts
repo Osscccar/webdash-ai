@@ -1,7 +1,7 @@
 // src/app/api/stripe/create-subscription/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerStripe } from "@/config/stripe";
+import { getServerStripe, PRICE_IDS } from "@/config/stripe";
 import { adminDb } from "@/config/firebase-admin";
 import { AdminAuthService } from "@/lib/admin-auth-service";
 
@@ -127,18 +127,42 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Check if customer has an existing subscription for this price
-    const subscriptions = await stripe.subscriptions.list({
+    // Check if customer has ANY existing active subscription
+    const allSubscriptions = await stripe.subscriptions.list({
       customer: customer.id,
-      price: priceId,
       status: "active",
     });
 
-    if (subscriptions.data.length > 0) {
+    // Filter out additional website subscriptions by checking against main plan price IDs
+    const mainPlanSubscriptions = allSubscriptions.data.filter(sub => {
+      const subPriceId = sub.items.data[0].price.id;
+      // Check if this is a main plan subscription (not additional website)
+      const isMainPlan = Object.values(PRICE_IDS).includes(subPriceId);
+      return isMainPlan;
+    });
+
+    if (mainPlanSubscriptions.length > 0) {
+      // Check if they're trying to subscribe to the exact same plan
+      const existingSubscription = mainPlanSubscriptions.find(sub => 
+        sub.items.data[0].price.id === priceId
+      );
+
+      if (existingSubscription) {
+        return NextResponse.json(
+          {
+            error: "You already have an active subscription for this plan",
+            subscription: existingSubscription,
+          },
+          { status: 400 }
+        );
+      }
+
+      // They have a different plan - this should be an upgrade, not a new subscription
       return NextResponse.json(
         {
-          error: "You already have an active subscription for this plan",
-          subscription: subscriptions.data[0],
+          error: "You already have an active subscription. Please use the upgrade option instead.",
+          existingSubscription: mainPlanSubscriptions[0],
+          shouldUpgrade: true,
         },
         { status: 400 }
       );

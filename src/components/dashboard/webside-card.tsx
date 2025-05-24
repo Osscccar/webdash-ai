@@ -93,12 +93,12 @@ export function WebsiteCard({
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation();
-                  router.push("/editor");
+                  onOpenWPDashboard(website);
                 }}
                 className="cursor-pointer"
               >
                 <Edit className="h-4 w-4 mr-2" />
-                Edit Website
+                Edit Site (Elementor)
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={(e) => {
@@ -151,7 +151,7 @@ export function WebsiteCard({
               className="bg-white text-gray-800 hover:bg-white/90 cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation();
-                router.push("/editor");
+                onOpenWPDashboard(website);
               }}
             >
               <Edit className="h-4 w-4 mr-1" />

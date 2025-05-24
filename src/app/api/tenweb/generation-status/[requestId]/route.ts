@@ -7,10 +7,10 @@ import axios from "axios";
 // Instead, we'll simulate status checking with a mock
 export async function GET(
   request: NextRequest,
-  { params }: { params: { requestId: string } }
+  { params }: { params: Promise<{ requestId: string }> }
 ) {
   try {
-    const requestId = params.requestId;
+    const { requestId } = await params;
 
     if (!requestId) {
       return NextResponse.json(

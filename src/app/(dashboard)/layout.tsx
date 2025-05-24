@@ -28,14 +28,15 @@ export default function DashboardLayout({
         return;
       }
 
-      // Check if the user has an active subscription
+      // Check if the user has an active subscription or workspace collaborator access
       const hasSubscription = userData?.webdashSubscription?.active || false;
+      const hasWorkspaceAccess = userData?.workspaces && Object.keys(userData.workspaces).length > 0;
 
-      if (!hasSubscription) {
+      if (!hasSubscription && !hasWorkspaceAccess) {
         // Check if user has generated a website
         const savedWebsite = localStorage.getItem("webdash_website");
 
-        if (savedWebsite || !hasSubscription) {
+        if (savedWebsite) {
           // User has generated a website but hasn't paid - redirect to preview
           router.push("/preview");
           return;
@@ -46,7 +47,7 @@ export default function DashboardLayout({
         }
       }
 
-      // User is authenticated and has subscription - allow access
+      // User is authenticated and has subscription or workspace access - allow access
       setIsLoading(false);
     };
 
@@ -57,7 +58,7 @@ export default function DashboardLayout({
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <LoadingSpinner size="lg" message="Loading..." />
+        <LoadingSpinner size="lg" message="Loading Dashboard..." />
       </div>
     );
   }

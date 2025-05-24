@@ -24,6 +24,9 @@ export const getServerStripe = () => {
   return stripeInstance;
 };
 
+// Export a default stripe instance for convenience
+export const stripe = getServerStripe();
+
 // Product IDs for all plans
 export const PRODUCT_IDS = {
   BUSINESS: "prod_SLW6KBiglhhYlh",

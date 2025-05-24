@@ -383,22 +383,8 @@ async function handleMainPlanSubscription(
   // Get the product ID from the subscription
   const productId = subscription.items.data[0].price.product as string;
 
-  // Determine the new plan type from product ID
-  let newPlanType = "business"; // default
-
-  if (productId === "prod_SLW6KBiglhhYlh" || productId.includes("business")) {
-    newPlanType = "business";
-  } else if (
-    productId === "prod_SLW74DJP2aPaN7" ||
-    productId.includes("agency")
-  ) {
-    newPlanType = "agency";
-  } else if (
-    productId === "prod_SLW70YpoGn9giO" ||
-    productId.includes("enterprise")
-  ) {
-    newPlanType = "enterprise";
-  }
+  // Determine the new plan type from product ID using the config
+  let newPlanType = getPlanTypeFromId(productId);
 
   console.log(
     `Detected plan type: ${newPlanType} from product ID: ${productId}`

@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { PaymentForm } from "@/components/payment/payment-form";
+import { useStripe as useStripeHook } from "@/hooks/use-stripe";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { WebsiteDeletionPopup } from "@/components/dashboard/website-deletion-popup";
 import { db } from "@/config/firebase";
@@ -29,6 +30,7 @@ export default function PricingPage() {
   const router = useRouter();
   const { user, userData } = useAuth();
   const { toast } = useToast();
+  const { upgradeSubscription, hasActiveSubscription } = useStripeHook();
 
   const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">(
     "monthly"
@@ -108,8 +110,15 @@ export default function PricingPage() {
       }
     }
 
-    setSelectedPlan(planId);
-    setShowPaymentModal(true);
+    // Check if user has an active subscription
+    if (hasActiveSubscription()) {
+      // This is an upgrade - handle it directly
+      handleUpgradeSubscription(planId, selectedPlanName || "business");
+    } else {
+      // This is a new subscription - show payment modal
+      setSelectedPlan(planId);
+      setShowPaymentModal(true);
+    }
   };
 
   const handleDeleteWebsites = async (websiteIds: string[]) => {
@@ -130,9 +139,13 @@ export default function PricingPage() {
         });
       }
 
-      // After deletion, close the popup and show payment modal
+      // After deletion, close the popup and handle the downgrade
       setShowDeletionPopup(false);
-      setShowPaymentModal(true);
+      
+      // Handle the downgrade as an upgrade (subscription modification)
+      if (selectedPlan && targetDowngradePlan) {
+        await handleUpgradeSubscription(selectedPlan, targetDowngradePlan);
+      }
 
       toast({
         title: "Websites deleted",
@@ -141,6 +154,46 @@ export default function PricingPage() {
     } catch (error) {
       console.error("Error deleting websites:", error);
       throw error;
+    }
+  };
+
+  const handleUpgradeSubscription = async (planId: string, planType: string) => {
+    try {
+      // Get the plan details
+      const plan = PLANS[planType as keyof typeof PLANS];
+      if (!plan) {
+        throw new Error("Invalid plan selected");
+      }
+
+      // Get the price for the selected billing interval
+      const priceInfo = plan.prices[billingInterval];
+      if (!priceInfo) {
+        throw new Error("Price information not found");
+      }
+
+      // Call the upgrade function
+      const result = await upgradeSubscription(
+        priceInfo.id,
+        plan.id,
+        planType,
+        billingInterval
+      );
+
+      if (result) {
+        // Set flag for dashboard reload
+        sessionStorage.setItem("webdash_just_purchased", "true");
+        
+        // Redirect to dashboard
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1000);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Upgrade failed",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
     }
   };
 

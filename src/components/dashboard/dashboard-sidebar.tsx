@@ -14,6 +14,18 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  Globe,
+  Lock,
+  Database,
+  Zap,
+  Shield,
+  FileText,
+  HardDrive,
+  BarChart3,
+  Cpu,
+  CloudSnow,
+  Key,
+  Monitor,
 } from "lucide-react";
 import Image from "next/image";
 import WebDashLogo from "../../../public/WebDash.webp";
@@ -125,6 +137,148 @@ export function DashboardSidebar({
               >
                 <Settings className="h-5 w-5" />
                 {!isCollapsed && <span>Settings</span>}
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Website Management */}
+        <div className="mb-6">
+          {!isCollapsed && (
+            <p className="text-xs font-normal text-gray-400 px-3 mb-2">
+              WEBSITE MANAGEMENT
+            </p>
+          )}
+          <ul className="space-y-1">
+            <li>
+              <Link
+                href="/dashboard/domains"
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors",
+                  isCollapsed ? "justify-center" : ""
+                )}
+              >
+                <Globe className="h-5 w-5" />
+                {!isCollapsed && <span>Domains & SSL</span>}
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/dashboard/wordpress"
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors",
+                  isCollapsed ? "justify-center" : ""
+                )}
+              >
+                <Key className="h-5 w-5" />
+                {!isCollapsed && <span>WordPress</span>}
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/dashboard/backups"
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors",
+                  isCollapsed ? "justify-center" : ""
+                )}
+              >
+                <Database className="h-5 w-5" />
+                {!isCollapsed && <span>Backups</span>}
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/dashboard/staging"
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors",
+                  isCollapsed ? "justify-center" : ""
+                )}
+              >
+                <Monitor className="h-5 w-5" />
+                {!isCollapsed && <span>Staging</span>}
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/dashboard/cache"
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors",
+                  isCollapsed ? "justify-center" : ""
+                )}
+              >
+                <Zap className="h-5 w-5" />
+                {!isCollapsed && <span>Cache & Performance</span>}
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/dashboard/security"
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors",
+                  isCollapsed ? "justify-center" : ""
+                )}
+              >
+                <Shield className="h-5 w-5" />
+                {!isCollapsed && <span>Security</span>}
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Analytics & Monitoring */}
+        <div className="mb-6">
+          {!isCollapsed && (
+            <p className="text-xs font-normal text-gray-400 px-3 mb-2">
+              ANALYTICS & MONITORING
+            </p>
+          )}
+          <ul className="space-y-1">
+            <li>
+              <Link
+                href="/dashboard/analytics"
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors",
+                  isCollapsed ? "justify-center" : ""
+                )}
+              >
+                <BarChart3 className="h-5 w-5" />
+                {!isCollapsed && <span>Analytics</span>}
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/dashboard/logs"
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors",
+                  isCollapsed ? "justify-center" : ""
+                )}
+              >
+                <FileText className="h-5 w-5" />
+                {!isCollapsed && <span>Logs</span>}
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/dashboard/storage"
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors",
+                  isCollapsed ? "justify-center" : ""
+                )}
+              >
+                <HardDrive className="h-5 w-5" />
+                {!isCollapsed && <span>Storage</span>}
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/dashboard/php"
+                className={cn(
+                  "flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors",
+                  isCollapsed ? "justify-center" : ""
+                )}
+              >
+                <Cpu className="h-5 w-5" />
+                {!isCollapsed && <span>PHP & Server</span>}
               </Link>
             </li>
           </ul>

@@ -1,24 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserWebsite } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeft,
-  BarChart3,
   ExternalLink,
-  Globe,
   HardDrive,
-  Home,
   Settings,
   Edit,
   Copy,
   FileText,
   Clock,
+  Shield,
+  BarChart3,
+  Globe,
+  Database,
+  Zap,
+  Key,
+  Archive,
 } from "lucide-react";
 import {
   Table,
@@ -30,59 +32,58 @@ import {
 } from "@/components/ui/table";
 import { VisitorStatistics } from "@/components/dashboard/visitor-statistics";
 import { useToast } from "@/components/ui/use-toast";
+import { WordPressCredentials } from "@/components/dashboard/wordpress-credentials";
+import { DomainManagement } from "@/components/dashboard/domain-management";
+import { BackupManagement } from "@/components/dashboard/backup-management";
+import { CacheManagement } from "@/components/dashboard/cache-management";
 
 interface WebsiteDetailsProps {
   website: UserWebsite;
   onBack: () => void;
   onOpenWPDashboard: () => void;
+  onOpenElementorEditor: () => void;
   isLoading: boolean;
+  isElementorLoading?: boolean;
+  activeTab: string;
+  onActiveTabChange: (tab: string) => void;
 }
 
 export function WebsiteDetails({
   website,
   onBack,
   onOpenWPDashboard,
+  onOpenElementorEditor,
   isLoading,
+  isElementorLoading = false,
+  activeTab,
+  onActiveTabChange,
 }: WebsiteDetailsProps) {
-  const [activeTab, setActiveTab] = useState("main");
   const { toast } = useToast();
 
-  // Mock data for the website details (for storage)
-  const mockStorage = {
-    database: 864, // KB
-    files: 207530, // KB
-    total: 208394, // KB
-  };
+  // Storage data will be fetched from API
+  const [storage, setStorage] = useState({
+    database: 0,
+    files: 0,
+    total: 0,
+  });
 
-  // Mock performance scores
-  const mockPerformance = {
-    desktop: 100,
-    mobile: 100,
-  };
+  useEffect(() => {
+    const fetchStorageData = async () => {
+      if (!website.domainId) return;
+      
+      try {
+        const response = await fetch(`/api/tenweb/storage?domainId=${website.domainId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setStorage(data);
+        }
+      } catch (error) {
+        console.error('Error fetching storage data:', error);
+      }
+    };
 
-  // Mock DNS records
-  const mockDnsRecords = [
-    { type: "A", name: "@", value: "192.168.1.1", ttl: "3600" },
-    {
-      type: "CNAME",
-      name: "www",
-      value: website.subdomain + ".webdash.site",
-      ttl: "3600",
-    },
-    {
-      type: "MX",
-      name: "@",
-      value: "mail.webdash.site",
-      ttl: "3600",
-      priority: "10",
-    },
-    {
-      type: "TXT",
-      name: "@",
-      value: "v=spf1 include:_spf.webdash.site ~all",
-      ttl: "3600",
-    },
-  ];
+    fetchStorageData();
+  }, [website.domainId]);
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(website.siteUrl);
@@ -92,290 +93,10 @@ export function WebsiteDetails({
     });
   };
 
-  return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
-        <div className="flex items-center justify-between p-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex items-center text-gray-500 cursor-pointer"
-            onClick={onBack}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Websites
-          </Button>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="cursor-pointer"
-              onClick={() => window.open(website.siteUrl, "_blank")}
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Visit Site
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="cursor-pointer"
-              onClick={() => (window.location.href = "/editor")}
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Site
-            </Button>
-            <Button
-              className="bg-[#f58327] hover:bg-[#f58327]/90 text-white cursor-pointer"
-              size="sm"
-              onClick={onOpenWPDashboard}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <span className="flex items-center">
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Opening...
-                </span>
-              ) : (
-                <>
-                  <Settings className="h-4 w-4 mr-2" />
-                  WP Dashboard
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="px-4">
-          <TabsList className="bg-gray-100 p-1 h-9">
-            <TabsTrigger
-              value="main"
-              className="data-[state=active]:bg-white data-[state=active]:text-black"
-            >
-              <Home className="h-4 w-4 mr-2" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger
-              value="analytics"
-              className="data-[state=active]:bg-white data-[state=active]:text-black"
-            >
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Analytics
-            </TabsTrigger>
-            <TabsTrigger
-              value="domain"
-              className="data-[state=active]:bg-white data-[state=active]:text-black"
-            >
-              <Globe className="h-4 w-4 mr-2" />
-              Domain
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
-      {/* Content */}
-      <div className="p-6 flex-1 overflow-auto">
-        <TabsContent value="main" className="mt-0 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-normal text-gray-500">
-                  Website URL
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <a
-                    href={website.siteUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#f58327] hover:underline flex items-center"
-                  >
-                    {website.siteUrl}
-                    <ExternalLink className="h-3 w-3 ml-1" />
-                  </a>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 cursor-pointer"
-                    onClick={handleCopyUrl}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-normal text-gray-500">
-                  Created
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center">
-                  <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                  <span>
-                    {website.createdAt
-                      ? new Date(website.createdAt).toLocaleDateString(
-                          "en-US",
-                          {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          }
-                        )
-                      : "N/A"}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-normal text-gray-500">
-                  Last Modified
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center">
-                  <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                  <span>
-                    {website.lastModified
-                      ? new Date(website.lastModified).toLocaleDateString(
-                          "en-US",
-                          {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          }
-                        )
-                      : "N/A"}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Visitor Statistics */}
-            <VisitorStatistics domainId={website.domainId} />
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-base">
-                  <HardDrive className="h-5 w-5 mr-2 text-gray-500" />
-                  Storage Usage
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-end">
-                    <div className="space-y-1">
-                      <p className="text-sm text-gray-500">Total Storage</p>
-                      <p className="text-2xl font-medium">
-                        {(mockStorage.total / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">
-                        {((mockStorage.total / (1024 * 1024)) * 100).toFixed(2)}
-                        % of 1GB used
-                      </p>
-                    </div>
-                  </div>
-
-                  <Progress
-                    value={(mockStorage.total / (1024 * 1024)) * 100}
-                    className="h-2"
-                  />
-
-                  <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div className="space-y-1">
-                      <div className="flex items-center">
-                        <div className="h-3 w-3 rounded-sm bg-blue-500 mr-2"></div>
-                        <p className="text-sm text-gray-500">Database</p>
-                      </div>
-                      <p className="text-sm font-normal">
-                        {(mockStorage.database / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center">
-                        <div className="h-3 w-3 rounded-sm bg-green-500 mr-2"></div>
-                        <p className="text-sm text-gray-500">Files</p>
-                      </div>
-                      <p className="text-sm font-normal">
-                        {(mockStorage.files / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center text-base">
-                <FileText className="h-5 w-5 mr-2 text-gray-500" />
-                Website Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Title</p>
-                      <p className="font-normal">{website.title}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Description</p>
-                      <p>{website.description || "No description available"}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Subdomain</p>
-                      <p className="font-normal">
-                        {website.subdomain}.webdash.site
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Status</p>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-green-100 text-green-800">
-                        Active
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="analytics" className="mt-0 space-y-6">
+  const renderContent = () => {
+    switch (activeTab) {
+      case "analytics":
+        return (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-medium mb-6">Website Analytics</h2>
 
@@ -534,96 +255,485 @@ export function WebsiteDetails({
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        );
 
-        <TabsContent value="domain" className="mt-0 space-y-6">
+      case "domain":
+        return (
+          <DomainManagement 
+            selectedWebsite={{
+              id: website.id,
+              name: website.title || "My Website",
+              domainId: website.domainId,
+              url: website.siteUrl
+            }}
+          />
+        );
+
+      case "wordpress":
+        return (
+          <WordPressCredentials 
+            selectedWebsite={{
+              id: website.id,
+              name: website.title || "My Website",
+              domainId: website.domainId
+            }}
+          />
+        );
+
+      case "backups":
+        return (
+          <BackupManagement 
+            selectedWebsite={{
+              id: website.id,
+              name: website.title || "My Website",
+              domainId: website.domainId
+            }}
+          />
+        );
+
+      case "performance":
+        return (
+          <CacheManagement 
+            selectedWebsite={{
+              id: website.id,
+              name: website.title || "My Website",
+              domainId: website.domainId
+            }}
+          />
+        );
+
+      case "security":
+        return (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center text-base">
-                <Globe className="h-5 w-5 mr-2 text-gray-500" />
-                Domain Settings
+                <Shield className="h-5 w-5 mr-2 text-gray-500" />
+                Security Settings
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-normal mb-2">Current Domain</h3>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border">
-                    <div>
-                      <p className="font-normal">
-                        {website.subdomain}.webdash.site
-                      </p>
-                      <p className="text-sm text-gray-500">Default subdomain</p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="cursor-pointer"
-                    >
-                      Edit Subdomain
-                    </Button>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">SSL Certificate</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Status: Active</span>
+                        <Button variant="outline" size="sm">Manage SSL</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Password Protection</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Status: Disabled</span>
+                        <Button variant="outline" size="sm">Enable</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-
                 <div>
-                  <h3 className="text-lg font-normal mb-2">Custom Domain</h3>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-dashed">
-                    <div>
-                      <p className="font-normal">No custom domain connected</p>
-                      <p className="text-sm text-gray-500">
-                        Connect your own domain to this website
-                      </p>
+                  <h3 className="text-sm font-medium mb-2">Security Features</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Firewall Protection</span>
+                      <span className="text-sm font-medium text-green-600">Active</span>
                     </div>
-                    <Button
-                      className="bg-[#f58327] hover:bg-[#f58327]/90 text-white cursor-pointer"
-                      size="sm"
-                    >
-                      Connect Domain
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-normal mb-4">DNS Records</h3>
-                  <div className="border rounded-md overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Value</TableHead>
-                          <TableHead>TTL</TableHead>
-                          {mockDnsRecords.some((record) => record.priority) && (
-                            <TableHead>Priority</TableHead>
-                          )}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {mockDnsRecords.map((record, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-normal">
-                              {record.type}
-                            </TableCell>
-                            <TableCell>{record.name}</TableCell>
-                            <TableCell className="max-w-xs truncate">
-                              {record.value}
-                            </TableCell>
-                            <TableCell>{record.ttl}</TableCell>
-                            {mockDnsRecords.some(
-                              (record) => record.priority
-                            ) && (
-                              <TableCell>{record.priority || "-"}</TableCell>
-                            )}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Malware Scanning</span>
+                      <span className="text-sm font-medium text-green-600">Active</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Automatic Updates</span>
+                      <span className="text-sm font-medium text-green-600">Enabled</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        );
+
+      default: // "main"
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-normal text-gray-500">
+                    Website URL
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <a
+                      href={website.siteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#f58327] hover:underline flex items-center"
+                    >
+                      {website.siteUrl}
+                      <ExternalLink className="h-3 w-3 ml-1" />
+                    </a>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 cursor-pointer"
+                      onClick={handleCopyUrl}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-normal text-gray-500">
+                    Created
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center">
+                    <Clock className="h-4 w-4 mr-2 text-gray-400" />
+                    <span>
+                      {website.createdAt
+                        ? new Date(website.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            }
+                          )
+                        : "N/A"}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-normal text-gray-500">
+                    Last Modified
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center">
+                    <Clock className="h-4 w-4 mr-2 text-gray-400" />
+                    <span>
+                      {website.lastModified
+                        ? new Date(website.lastModified).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            }
+                          )
+                        : "N/A"}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Visitor Statistics */}
+              <VisitorStatistics domainId={website.domainId} />
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center text-base">
+                    <HardDrive className="h-5 w-5 mr-2 text-gray-500" />
+                    Storage Usage
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-end">
+                      <div className="space-y-1">
+                        <p className="text-sm text-gray-500">Total Storage</p>
+                        <p className="text-2xl font-medium">
+                          {storage.total ? (storage.total / 1024).toFixed(2) : '0'} MB
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">
+                          {storage.total ? ((storage.total / (1024 * 1024)) * 100).toFixed(2) : '0'}% of 1GB used
+                        </p>
+                      </div>
+                    </div>
+
+                    <Progress
+                      value={storage.total ? (storage.total / (1024 * 1024)) * 100 : 0}
+                      className="h-2"
+                    />
+
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center">
+                          <div className="h-3 w-3 rounded-sm bg-blue-500 mr-2"></div>
+                          <p className="text-sm text-gray-500">Database</p>
+                        </div>
+                        <p className="text-sm font-normal">
+                          {storage.database ? (storage.database / 1024).toFixed(2) : '0'} MB
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center">
+                          <div className="h-3 w-3 rounded-sm bg-green-500 mr-2"></div>
+                          <p className="text-sm text-gray-500">Files</p>
+                        </div>
+                        <p className="text-sm font-normal">
+                          {storage.files ? (storage.files / 1024).toFixed(2) : '0'} MB
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center text-base">
+                  <FileText className="h-5 w-5 mr-2 text-gray-500" />
+                  Website Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Title</p>
+                        <p className="font-normal">{website.title}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Description</p>
+                        <p>{website.description || "No description available"}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Subdomain</p>
+                        <p className="font-normal">
+                          {website.subdomain}.webdash.site
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Status</p>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-green-100 text-green-800">
+                          Active
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
+        <div className="flex items-center justify-between p-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex items-center text-gray-500 cursor-pointer"
+            onClick={onBack}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Websites
+          </Button>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={() => window.open(website.siteUrl, "_blank")}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Visit Site
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={onOpenElementorEditor}
+              disabled={isElementorLoading}
+            >
+              {isElementorLoading ? (
+                <span className="flex items-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-600"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Opening...
+                </span>
+              ) : (
+                <>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Site (Elementor)
+                </>
+              )}
+            </Button>
+            <Button
+              className="bg-[#f58327] hover:bg-[#f58327]/90 text-white cursor-pointer"
+              size="sm"
+              onClick={onOpenWPDashboard}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="flex items-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Opening...
+                </span>
+              ) : (
+                <>
+                  <Settings className="h-4 w-4 mr-2" />
+                  WP Dashboard
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200 bg-white">
+        <div className="px-6">
+          <nav className="flex space-x-8">
+            <button
+              onClick={() => onActiveTabChange("main")}
+              className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "main"
+                  ? "border-[#f58327] text-[#f58327]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <FileText className="h-4 w-4 inline mr-2" />
+              Overview
+            </button>
+            <button
+              onClick={() => onActiveTabChange("analytics")}
+              className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "analytics"
+                  ? "border-[#f58327] text-[#f58327]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <BarChart3 className="h-4 w-4 inline mr-2" />
+              Analytics
+            </button>
+            <button
+              onClick={() => onActiveTabChange("domain")}
+              className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "domain"
+                  ? "border-[#f58327] text-[#f58327]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <Globe className="h-4 w-4 inline mr-2" />
+              Domain
+            </button>
+            <button
+              onClick={() => onActiveTabChange("backups")}
+              className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "backups"
+                  ? "border-[#f58327] text-[#f58327]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <Archive className="h-4 w-4 inline mr-2" />
+              Backup
+            </button>
+            <button
+              onClick={() => onActiveTabChange("performance")}
+              className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "performance"
+                  ? "border-[#f58327] text-[#f58327]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <Zap className="h-4 w-4 inline mr-2" />
+              Cache
+            </button>
+            <button
+              onClick={() => onActiveTabChange("wordpress")}
+              className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "wordpress"
+                  ? "border-[#f58327] text-[#f58327]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <Key className="h-4 w-4 inline mr-2" />
+              WordPress
+            </button>
+            <button
+              onClick={() => onActiveTabChange("security")}
+              className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "security"
+                  ? "border-[#f58327] text-[#f58327]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <Shield className="h-4 w-4 inline mr-2" />
+              Security
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-6 flex-1 overflow-auto">
+        {renderContent()}
       </div>
     </div>
   );

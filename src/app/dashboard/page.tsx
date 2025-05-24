@@ -17,6 +17,8 @@ import useTenWeb from "@/hooks/use-tenweb";
 import { getUserInitials } from "@/lib/utils";
 import type { UserWebsite } from "@/types";
 import { motion } from "framer-motion";
+import NotificationsDropdown from "@/components/dashboard/notifications-dropdown";
+import SettingsModal from "@/components/dashboard/settings-modal";
 import {
   LayoutDashboard,
   Settings,
@@ -45,6 +47,9 @@ import {
   HelpCircle,
   RefreshCw,
   Crown,
+  Archive,
+  Zap,
+  Key,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -69,6 +74,10 @@ import { WorkspaceManagementModal } from "@/components/workspaces/workspace-mana
 import { useWorkspaces } from "@/hooks/use-workspaces";
 import type { Workspace } from "@/types/workspace";
 import { ROLE_PERMISSIONS } from "@/types/workspace";
+import { WebsiteDetails } from "@/components/dashboard/website-details";
+import { BackupManagement } from "@/components/dashboard/backup-management";
+import { CacheManagement } from "@/components/dashboard/cache-management";
+import { WordPressCredentials } from "@/components/dashboard/wordpress-credentials";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -244,7 +253,6 @@ function AdditionalWebsitePayment({
     </Dialog>
   );
 }
-// Function will be defined inside component where userData is available
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -294,6 +302,7 @@ export default function DashboardPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [currentPlan, setCurrentPlan] = useState("business");
   const [showWorkspaceManager, setShowWorkspaceManager] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Remove unused ref since we're using modal now
 
@@ -841,32 +850,46 @@ export default function DashboardPage() {
     checkAuth();
   }, [user, router, toast, workspacesLoading, workspaces]);
 
+  // Auto-collapse sidebar when website is selected
+  useEffect(() => {
+    if (selectedWebsite) {
+      setSidebarCollapsed(true);
+    }
+  }, [selectedWebsite]);
+
   const handleOpenWPDashboard = async (website: UserWebsite) => {
     setIsWpDashboardLoading(true);
     setActiveWebsiteId(website.id);
 
     try {
-      // Get WP admin URL
-      const wpAdminUrl = `${website.siteUrl}/wp-admin`;
+      // Call the new WordPress autologin API endpoint
+      const response = await fetch("/api/tenweb/autologin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          domainId: website.domainId,
+          siteUrl: website.siteUrl,
+          email: user?.email || userData?.email,
+        }),
+      });
 
-      // Get autologin token
-      const token = await tenWebHook.getWPAutologinToken(
-        website.domainId,
-        wpAdminUrl
-      );
-
-      if (!token) {
-        throw new Error("Failed to get WordPress autologin token");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || "Failed to get WordPress autologin URL"
+        );
       }
 
-      // Construct the autologin URL as described in the 10Web API docs
-      const email = user?.email || "";
-      const autologinUrl = `${wpAdminUrl}/?twb_wp_login_token=${token}&email=${encodeURIComponent(
-        email
-      )}`;
+      const data = await response.json();
+
+      if (!data.url) {
+        throw new Error("No autologin URL received from server");
+      }
 
       // Open the WordPress admin in a new tab
-      window.open(autologinUrl, "_blank");
+      window.open(data.url, "_blank");
     } catch (error: any) {
       console.error("Error accessing WordPress dashboard:", error);
       toast({
@@ -1107,10 +1130,7 @@ export default function DashboardPage() {
         <div
           className={cn(
             "fixed top-10 bottom-0 left-0 z-50 w-64 bg-white border-r border-gray-100 transition-all duration-300 ease-in-out",
-            sidebarCollapsed
-              ? "-translate-x-full md:translate-x-0 md:w-20"
-              : "",
-            selectedWebsite ? "-translate-x-full md:translate-x-0" : ""
+            sidebarCollapsed ? "-translate-x-full md:translate-x-0 md:w-20" : ""
           )}
         >
           {/* Sidebar Header */}
@@ -1121,7 +1141,13 @@ export default function DashboardPage() {
                 alt="WebDash Logo"
                 width={40}
                 height={40}
+                className="rounded-lg"
               />
+              {!sidebarCollapsed && (
+                <div>
+                  <h1 className="font-medium text-xl">WebDash</h1>
+                </div>
+              )}
             </div>
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -1140,35 +1166,22 @@ export default function DashboardPage() {
             <div className="p-4 border-b border-gray-100">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-normal text-gray-400 uppercase tracking-wider">
-                  WORKSPACE
+                  Workspace
                 </span>
                 <button
-                  onClick={() => setShowWorkspaceManager(!showWorkspaceManager)}
+                  onClick={() => setShowWorkspaceManager(true)}
                   className="text-gray-400 hover:text-gray-600 cursor-pointer"
                 >
                   <Settings className="h-4 w-4" />
                 </button>
               </div>
 
-              {activeWorkspace && (
-                <div className="flex items-center space-x-2 p-2 rounded-md bg-gray-50">
-                  <div className="h-6 w-6 rounded bg-gray-200 flex items-center justify-center text-xs font-medium">
-                    {activeWorkspace.name.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">
-                      {activeWorkspace.name}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {safeGetUserRole(activeWorkspace)} •{" "}
-                      {activeWorkspace?.collaborators?.length || 0} member
-                      {(activeWorkspace?.collaborators?.length || 0) !== 1
-                        ? "s"
-                        : ""}
-                    </div>
-                  </div>
-                </div>
-              )}
+              <WorkspaceSwitcher
+                workspaces={workspaces}
+                activeWorkspace={activeWorkspace}
+                onWorkspaceChange={handleWorkspaceChange}
+                isLoading={workspacesLoading}
+              />
 
               {/* Quick Workspace Info */}
               <div className="mt-4 text-xs text-gray-500">
@@ -1181,135 +1194,42 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Sidebar Navigation */}
-          <div className="p-2 overflow-y-auto h-[calc(100vh-8rem)]">
-            {/* Workspaces List */}
-            {!sidebarCollapsed && (
-              <div className="mb-6">
-                <div className="flex items-center justify-between px-3 mb-2">
-                  <p className="text-xs font-normal text-gray-400 uppercase tracking-wider">
-                    WORKSPACES
-                  </p>
-                  <button
-                    onClick={() => setShowWorkspaceManager(true)}
-                    className="text-gray-400 hover:text-gray-600 cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {/* Show loading state while workspaces load */}
-                {workspacesLoading ? (
-                  <div className="px-3 py-2">
-                    <div className="animate-pulse space-y-2">
-                      <div className="h-8 bg-gray-200 rounded"></div>
-                      <div className="h-8 bg-gray-200 rounded"></div>
-                    </div>
-                  </div>
-                ) : (
-                  <ul className="space-y-1">
-                    {workspaces.map((workspace) => (
-                      <li key={workspace.id}>
-                        <button
-                          onClick={() => handleWorkspaceChange(workspace)}
-                          className={cn(
-                            "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left cursor-pointer",
-                            activeWorkspace?.id === workspace.id
-                              ? "bg-gray-100"
-                              : ""
-                          )}
-                        >
-                          <div className="h-6 w-6 rounded-md bg-gray-200 flex items-center justify-center text-xs font-normal">
-                            {workspace.name.charAt(0)}
-                            {workspace.name.split(" ")[1]?.charAt(0) || ""}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2">
-                              <span className="truncate">{workspace.name}</span>
-                              {safeGetUserRole(workspace) === "owner" && (
-                                <Crown className="h-3 w-3 text-yellow-500 flex-shrink-0" />
-                              )}
-                            </div>
-                            <span className="text-xs text-gray-500">
-                              {safeGetUserRole(workspace)} •{" "}
-                              {workspace.collaborators?.length || 0} members
-                            </span>
-                          </div>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-
-            {/* Collapsed state - show current workspace or cycle through */}
-            {sidebarCollapsed && !workspacesLoading && (
-              <div className="mb-4">
-                {workspaces.length > 1 ? (
-                  <div className="space-y-2">
-                    {workspaces.map((workspace) => (
-                      <div
-                        key={workspace.id}
-                        className={cn(
-                          "h-8 w-8 rounded-md flex items-center justify-center text-xs font-normal mx-auto cursor-pointer transition-colors",
-                          activeWorkspace?.id === workspace.id
-                            ? "bg-gray-300 ring-2 ring-blue-500"
-                            : "bg-gray-200 hover:bg-gray-300"
-                        )}
-                        onClick={() => handleWorkspaceChange(workspace)}
-                        title={`${workspace.name} (${safeGetUserRole(
-                          workspace
-                        )})`}
-                      >
-                        {workspace.name.charAt(0)}
-                      </div>
-                    ))}
-                  </div>
-                ) : activeWorkspace ? (
-                  <div
-                    className="h-8 w-8 rounded-md bg-gray-200 flex items-center justify-center text-xs font-normal mx-auto cursor-pointer hover:bg-gray-300 transition-colors"
-                    onClick={() => setSidebarCollapsed(false)}
-                    title={activeWorkspace.name}
-                  >
-                    {activeWorkspace.name.charAt(0)}
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
-
           {/* Discord Card */}
           {!sidebarCollapsed && (
-            <div className="absolute bottom-20 left-0 right-0 p-4">
+            <div className="p-4">
               <div className="bg-[#5865F2] rounded-lg p-4 text-white">
                 <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
                     <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 71 55"
+                      fill="none"
                       xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 127.14 96.36"
-                      className="h-5 w-5"
                     >
-                      <path
-                        fill="#5865F2"
-                        d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"
-                      />
+                      <g clipPath="url(#clip0)">
+                        <path
+                          d="M60.1045 4.8978C55.5792 2.8214 50.7265 1.2916 45.6527 0.41542C45.5603 0.39851 45.468 0.440769 45.4204 0.525289C44.7963 1.6353 44.105 3.0834 43.6209 4.2216C38.1637 3.4046 32.7345 3.4046 27.3892 4.2216C26.905 3.0581 26.1886 1.6353 25.5617 0.525289C25.5141 0.443589 25.4218 0.40133 25.3294 0.41542C20.2584 1.2888 15.4057 2.8186 10.8776 4.8978C10.8384 4.9147 10.8048 4.9429 10.7825 4.9795C1.57795 18.7309 -0.943561 32.1443 0.293408 45.3914C0.299005 45.4562 0.335386 45.5182 0.385761 45.5576C6.45866 50.0174 12.3413 52.7249 18.1147 54.5195C18.2071 54.5477 18.305 54.5139 18.3638 54.4378C19.7295 52.5728 20.9469 50.6063 21.9907 48.5383C22.0523 48.4172 21.9935 48.2735 21.8676 48.2256C19.9366 47.4931 18.0979 46.6 16.3292 45.5858C16.1893 45.5041 16.1781 45.304 16.3068 45.2082C16.679 44.9293 17.0513 44.6391 17.4067 44.3461C17.471 44.2926 17.5606 44.2813 17.6362 44.3151C29.2558 49.6202 41.8354 49.6202 53.3179 44.3151C53.3935 44.2785 53.4831 44.2898 53.5502 44.3433C53.9057 44.6363 54.2779 44.9293 54.6529 45.2082C54.7816 45.304 54.7732 45.5041 54.6333 45.5858C52.8646 46.6197 51.0259 47.4931 49.0921 48.2228C48.9662 48.2707 48.9102 48.4172 48.9718 48.5383C50.038 50.6034 51.2554 52.5699 52.5959 54.435C52.6519 54.5139 52.7526 54.5477 52.845 54.5195C58.6464 52.7249 64.529 50.0174 70.6019 45.5576C70.6551 45.5182 70.6887 45.459 70.6943 45.3942C72.1747 30.0791 68.2147 16.7757 60.1968 4.9823C60.1772 4.9429 60.1437 4.9147 60.1045 4.8978ZM23.7259 37.3253C20.2276 37.3253 17.3451 34.1136 17.3451 30.1693C17.3451 26.225 20.1717 23.0133 23.7259 23.0133C27.308 23.0133 30.1626 26.2532 30.1066 30.1693C30.1066 34.1136 27.28 37.3253 23.7259 37.3253ZM47.3178 37.3253C43.8196 37.3253 40.9371 34.1136 40.9371 30.1693C40.9371 26.225 43.7636 23.0133 47.3178 23.0133C50.9 23.0133 53.7545 26.2532 53.6986 30.1693C53.6986 34.1136 50.9 37.3253 47.3178 37.3253Z"
+                          fill="#5865F2"
+                        />
+                      </g>
+                      <defs>
+                        <clipPath id="clip0">
+                          <rect width="71" height="55" fill="white" />
+                        </clipPath>
+                      </defs>
                     </svg>
                   </div>
                   <div>
-                    <div className="text-sm font-medium">Join our Discord</div>
-                    <div className="text-xs text-blue-100">
-                      Get help & updates
-                    </div>
+                    <h3 className="font-normal text-sm">Join our Discord</h3>
+                    <p className="text-xs text-blue-100">Get help & updates</p>
                   </div>
                 </div>
                 <a
                   href="https://discord.gg/wGAC9EZRXz"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block w-full bg-white text-[#5865F2] text-center py-2 px-3 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors cursor-pointer"
+                  className="block w-full bg-white text-[#5865F2] text-center py-2 rounded-md font-normal text-sm hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   Join Discord
                 </a>
@@ -1320,11 +1240,8 @@ export default function DashboardPage() {
           {/* Sidebar Footer */}
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100 bg-white">
             <button
-              onClick={handleSignOut}
-              className={cn(
-                "flex items-center space-x-3 w-full px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors cursor-pointer",
-                sidebarCollapsed ? "justify-center" : ""
-              )}
+              onClick={signOut}
+              className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <LogOut className="h-5 w-5" />
               {!sidebarCollapsed && <span>Sign Out</span>}
@@ -1332,95 +1249,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Website Detail Sidebar - Only visible when a website is selected */}
-        {selectedWebsite && (
-          <div className="fixed top-10 bottom-0 left-0 z-40 w-64 bg-white border-r border-gray-100 transition-all duration-300 ease-in-out md:left-20">
-            {/* Website Sidebar Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
-              <button
-                onClick={handleBackToWebsites}
-                className="flex items-center space-x-2 text-gray-700 hover:text-[#f58327] transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="font-normal">Back</span>
-              </button>
-            </div>
-
-            {/* Website Info */}
-            <div className="p-4 border-b border-gray-100">
-              <h2 className="font-medium text-lg truncate">
-                {selectedWebsite.title}
-              </h2>
-              <div className="flex items-center mt-1">
-                <span className="inline-block h-2 w-2 rounded-full bg-green-500 mr-2"></span>
-                <span className="text-sm text-gray-500 capitalize">
-                  {selectedWebsite.status || "active"}
-                </span>
-              </div>
-            </div>
-
-            {/* Website Navigation */}
-            <div className="p-2">
-              <p className="text-xs font-normal text-gray-400 px-3 mb-2">
-                WEBSITE
-              </p>
-              <ul className="space-y-1">
-                <li>
-                  <button
-                    onClick={() => setActiveTab("main")}
-                    className={cn(
-                      "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
-                      activeTab === "main" ? "bg-gray-100 text-[#f58327]" : ""
-                    )}
-                  >
-                    <Home className="h-5 w-5" />
-                    <span>Main</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => setActiveTab("analytics")}
-                    className={cn(
-                      "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
-                      activeTab === "analytics"
-                        ? "bg-gray-100 text-[#f58327]"
-                        : ""
-                    )}
-                  >
-                    <BarChart3 className="h-5 w-5" />
-                    <span>Analytics</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => setActiveTab("domain")}
-                    className={cn(
-                      "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left",
-                      activeTab === "domain" ? "bg-gray-100 text-[#f58327]" : ""
-                    )}
-                  >
-                    <Globe className="h-5 w-5" />
-                    <span>Domain</span>
-                  </button>
-                </li>
-                <li>
-                  <button className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-gray-700 font-normal hover:bg-gray-100 transition-colors text-left">
-                    <ShoppingCart className="h-5 w-5" />
-                    <span>Ecommerce</span>
-                    <ExternalLink className="h-3 w-3 ml-auto" />
-                  </button>
-                </li>
-              </ul>
-            </div>
-          </div>
-        )}
-
         {/* Main Content */}
         <div
           className={cn(
             "flex-1 overflow-auto transition-all duration-300 ease-in-out",
-            sidebarCollapsed ? "md:ml-20" : "md:ml-64",
-            selectedWebsite ? "md:ml-[336px]" : ""
+            sidebarCollapsed ? "md:ml-20" : "md:ml-64"
           )}
         >
           {/* Header */}
@@ -1443,10 +1276,7 @@ export default function DashboardPage() {
                       <HelpCircle className="h-5 w-5 cursor-pointer" />
                     </Link>
                   </button>
-                  <button className="text-gray-500 hover:text-gray-700 relative cursor-pointer">
-                    <Bell className="h-5 w-5" />
-                    <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
-                  </button>
+                  <NotificationsDropdown />
 
                   <div className="relative group">
                     <button className="flex items-center space-x-2 cursor-pointer">
@@ -1469,7 +1299,7 @@ export default function DashboardPage() {
                           Dashboard
                         </button>
                         <button
-                          onClick={() => router.push("/dashboard/settings")}
+                          onClick={() => setShowSettings(true)}
                           className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
                         >
                           Settings
@@ -1503,44 +1333,18 @@ export default function DashboardPage() {
               {/* Mobile Menu */}
               {isMobileMenuOpen && (
                 <div className="md:hidden mt-4 pb-4 space-y-4">
-                  <Link
-                    href="/dashboard"
-                    className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
-                  <Link
-                    href="/dashboard/settings"
-                    className="block py-2 text-gray-600 hover:text-[#f58327] text-sm font-normal transition-colors"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                  <button
+                    onClick={() => setShowSettings(true)}
+                    className="w-full text-left text-gray-700 hover:text-gray-900 cursor-pointer"
                   >
                     Settings
-                  </Link>
-                  <div className="pt-2 border-t border-gray-200">
-                    <div className="flex items-center pb-2">
-                      <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-                        <span className="text-sm font-normal">
-                          {userInitials}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-normal">{userFullName}</p>
-                        <p className="text-xs text-gray-500 truncate">
-                          {user?.email}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      className="w-full text-left py-2 text-gray-600 hover:text-[#f58327] cursor-pointer"
-                      onClick={() => {
-                        handleSignOut();
-                        setIsMobileMenuOpen(false);
-                      }}
-                    >
-                      Sign out
-                    </button>
-                  </div>
+                  </button>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full text-left text-gray-700 hover:text-gray-900 cursor-pointer"
+                  >
+                    Sign out
+                  </button>
                 </div>
               )}
             </div>
@@ -1622,7 +1426,6 @@ export default function DashboardPage() {
                   {filteredWebsites.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {filteredWebsites.map((website) => {
-                        // ✅ Get individual screenshot data for this website
                         const screenshotData = websiteScreenshots[website.id];
                         const isLoadingScreenshot =
                           screenshotData?.loading ?? true;
@@ -1631,61 +1434,20 @@ export default function DashboardPage() {
                         return (
                           <div
                             key={website.id}
-                            className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
-                            onClick={() => handleWebsiteClick(website)}
+                            onClick={() => setSelectedWebsite(website)}
+                            className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
                           >
-                            {/* Card Header */}
-                            <div className="p-4 border-b border-gray-100 flex justify-between items-start">
-                              <div>
-                                <h3 className="font-medium text-lg truncate">
-                                  {website.title || "My Website"}
-                                </h3>
-                                <div className="flex items-center mt-1">
-                                  <span className="inline-block h-2 w-2 rounded-full bg-green-500 mr-2"></span>
-                                  <span className="text-sm text-gray-500 capitalize">
-                                    {website.status || "active"}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="relative">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    // Add dropdown functionality
-                                  }}
-                                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
-                                >
-                                  <MoreVertical className="h-5 w-5" />
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Website Preview - ✅ UPDATED to use individual screenshots */}
-                            <div className="relative w-full max-w-md h-32 overflow-hidden rounded-lg">
-                              <div className="w-full h-full bg-gray-100 flex items-center justify-center relative">
-                                {isLoadingScreenshot ? (
-                                  <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#f58327]"></div>
-                                  </div>
-                                ) : screenshotUrl ? (
-                                  <div className="relative w-full h-full">
-                                    <img
-                                      src={screenshotUrl}
-                                      alt={`Preview of ${website.title}`}
-                                      className="w-full h-full object-cover object-top rounded-sm"
-                                      onLoad={() =>
-                                        handleScreenshotLoad(website.id)
-                                      }
-                                      onError={(e) => {
-                                        console.error(
-                                          "Error loading screenshot for",
-                                          website.id,
-                                          e
-                                        );
-                                        handleScreenshotLoad(website.id);
-                                      }}
-                                    />
-                                    {/* ✅ ADD: Refresh screenshot button */}
+                            <div className="aspect-video bg-gray-50 relative">
+                              {screenshotUrl && !isLoadingScreenshot ? (
+                                <div className="relative group">
+                                  <img
+                                    src={screenshotUrl}
+                                    alt={`${website.title} screenshot`}
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                  />
+                                  <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -1694,68 +1456,74 @@ export default function DashboardPage() {
                                           website.siteUrl
                                         );
                                       }}
-                                      className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                      className="bg-white rounded-full p-1 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                                       title="Refresh screenshot"
                                     >
                                       <RefreshCw className="h-3 w-3" />
                                     </button>
                                   </div>
-                                ) : (
-                                  // Fallback when no URL is available
-                                  <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-xs text-center p-3 rounded-lg">
-                                    <div>
-                                      <p className="mb-2">Website preview</p>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          refreshWebsiteScreenshot(
-                                            website.id,
-                                            website.siteUrl
-                                          );
-                                        }}
-                                        className="text-[#f58327] hover:underline cursor-pointer"
-                                      >
-                                        Generate screenshot
-                                      </button>
-                                    </div>
+                                </div>
+                              ) : (
+                                // Fallback when no URL is available
+                                <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-xs text-center p-3 rounded-lg">
+                                  <div>
+                                    <p className="mb-2">Website preview</p>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        refreshWebsiteScreenshot(
+                                          website.id,
+                                          website.siteUrl
+                                        );
+                                      }}
+                                      className="text-[#f58327] hover:underline cursor-pointer"
+                                    >
+                                      Generate screenshot
+                                    </button>
                                   </div>
-                                )}
-                              </div>
-
-                              {/* Hover Overlay */}
-                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center rounded-lg">
-                                <div className="flex space-x-2">
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-4">
+                              <div className="flex items-start justify-between mb-2">
+                                <h3 className="font-normal truncate pr-2">
+                                  {website.title}
+                                </h3>
+                                <div className="flex items-center space-x-1">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       window.open(website.siteUrl, "_blank");
                                     }}
-                                    className="bg-white text-gray-800 hover:bg-white/90 px-2 py-1 rounded text-xs font-normal flex items-center space-x-1 cursor-pointer transition-colors duration-200"
+                                    className="text-gray-400 hover:text-gray-600 cursor-pointer"
                                   >
-                                    <ExternalLink className="h-3 w-3" />
-                                    <span>Visit</span>
+                                    <ExternalLink className="h-4 w-4" />
+                                  </button>
+                                  <button className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                                    <MoreVertical className="h-4 w-4" />
                                   </button>
                                 </div>
                               </div>
-                            </div>
-
-                            {/* Website Info */}
-                            <div className="p-4 space-y-3">
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">URL</span>
-                                <a
-                                  href={website.siteUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[#f58327] hover:underline truncate max-w-[200px] flex items-center"
-                                  onClick={(e) => e.stopPropagation()}
+                              <p className="text-sm text-gray-500 mb-3">
+                                {website.subdomain}.webdash.site
+                              </p>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-400">
+                                  {website.createdAt
+                                    ? new Date(
+                                        website.createdAt
+                                      ).toLocaleDateString()
+                                    : "N/A"}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenWPDashboard(website);
+                                  }}
+                                  className="text-xs text-[#f58327] hover:underline cursor-pointer"
                                 >
-                                  {website.siteUrl?.replace(
-                                    /^https?:\/\//,
-                                    ""
-                                  ) || "website.webdash.site"}
-                                  <ExternalLink className="h-3 w-3 ml-1" />
-                                </a>
+                                  Manage →
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -1792,420 +1560,15 @@ export default function DashboardPage() {
               </div>
             </main>
           ) : (
-            <main className="p-6">
-              {/* Website Details Content */}
-              <div className="max-w-7xl mx-auto">
-                {/* Website Actions */}
-                <div className="flex items-center justify-between mb-6">
-                  <div className="md:hidden">
-                    <button
-                      onClick={handleBackToWebsites}
-                      className="flex items-center space-x-2 text-gray-700 hover:text-[#f58327] transition-colors cursor-pointer"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      <span className="font-normal">Back</span>
-                    </button>
-                  </div>
-                  <div className="flex items-center space-x-2 ml-auto">
-                    <button
-                      className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
-                      onClick={() =>
-                        window.open(selectedWebsite.siteUrl, "_blank")
-                      }
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      <span>Visit Site</span>
-                    </button>
-                    <button
-                      className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-normal flex items-center space-x-1 cursor-pointer"
-                      onClick={() => router.push("/editor")}
-                    >
-                      <Edit className="h-4 w-4" />
-                      <span>Edit Site</span>
-                    </button>
-                    <PrimaryButton
-                      onClick={() => handleOpenWPDashboard(selectedWebsite)}
-                      disabled={isWpDashboardLoading}
-                    >
-                      {isWpDashboardLoading ? (
-                        <span className="flex items-center">
-                          <svg
-                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          Opening...
-                        </span>
-                      ) : (
-                        <>
-                          <Settings className="h-4 w-4" />
-                          <span>WP Dashboard</span>
-                        </>
-                      )}
-                    </PrimaryButton>
-                  </div>
-                </div>
-
-                {/* Main Tab Content */}
-                {activeTab === "main" && (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="bg-white rounded-lg border border-gray-200 p-4">
-                        <h3 className="text-sm font-normal text-gray-500 mb-2">
-                          Website URL
-                        </h3>
-                        <div className="flex items-center justify-between">
-                          <a
-                            href={selectedWebsite.siteUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[#f58327] hover:underline flex items-center"
-                          >
-                            {selectedWebsite.siteUrl}
-                          </a>
-                          <button className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                            <Copy className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="bg-white rounded-lg border border-gray-200 p-4">
-                        <h3 className="text-sm font-normal text-gray-500 mb-2">
-                          Created
-                        </h3>
-                        <div className="flex items-center">
-                          <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                          <span>
-                            {selectedWebsite.createdAt
-                              ? new Date(
-                                  selectedWebsite.createdAt
-                                ).toLocaleDateString("en-US", {
-                                  year: "numeric",
-                                  month: "long",
-                                  day: "numeric",
-                                })
-                              : "N/A"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="bg-white rounded-lg border border-gray-200 p-4">
-                        <h3 className="text-sm font-normal text-gray-500 mb-2">
-                          Last Modified
-                        </h3>
-                        <div className="flex items-center">
-                          <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                          <span>
-                            {selectedWebsite.lastModified
-                              ? new Date(
-                                  selectedWebsite.lastModified
-                                ).toLocaleDateString("en-US", {
-                                  year: "numeric",
-                                  month: "long",
-                                  day: "numeric",
-                                })
-                              : "N/A"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                        <div className="p-4 border-b border-gray-100">
-                          <h3 className="font-normal flex items-center">
-                            <BarChart3 className="h-5 w-5 mr-2 text-gray-500" />
-                            Analytics Overview
-                          </h3>
-                        </div>
-                        <div className="p-4">
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-1">
-                                <p className="text-sm text-gray-500">
-                                  Page Views
-                                </p>
-                                <p className="text-2xl font-medium">
-                                  {mockAnalytics.pageViews}
-                                </p>
-                              </div>
-                              <div className="space-y-1">
-                                <p className="text-sm text-gray-500">
-                                  Unique Visitors
-                                </p>
-                                <p className="text-2xl font-medium">
-                                  {mockAnalytics.uniqueVisitors}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                        <div className="p-4 border-b border-gray-100">
-                          <h3 className="font-normal flex items-center">
-                            <HardDrive className="h-5 w-5 mr-2 text-gray-500" />
-                            Storage Usage
-                          </h3>
-                        </div>
-                        <div className="p-4">
-                          <div className="space-y-4">
-                            <div className="flex justify-between items-end">
-                              <div className="space-y-1">
-                                <p className="text-sm text-gray-500">
-                                  Total Storage
-                                </p>
-                                <p className="text-2xl font-medium">
-                                  {(
-                                    mockAnalytics.storageUsed.total / 1024
-                                  ).toFixed(2)}{" "}
-                                  MB
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-xs text-gray-500">
-                                  {(
-                                    (mockAnalytics.storageUsed.total /
-                                      (1024 * 1024)) *
-                                    100
-                                  ).toFixed(2)}
-                                  % of 1GB used
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-blue-500 h-2 rounded-full"
-                                style={{
-                                  width: `${
-                                    (mockAnalytics.storageUsed.total /
-                                      (1024 * 1024)) *
-                                    100
-                                  }%`,
-                                }}
-                              ></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                      <div className="p-4 border-b border-gray-100">
-                        <h3 className="font-normal flex items-center">
-                          <FileText className="h-5 w-5 mr-2 text-gray-500" />
-                          Website Information
-                        </h3>
-                      </div>
-                      <div className="p-4">
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-3">
-                              <div>
-                                <p className="text-sm text-gray-500 mb-1">
-                                  Title
-                                </p>
-                                <p className="font-normal">
-                                  {selectedWebsite.title}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500 mb-1">
-                                  Description
-                                </p>
-                                <p>
-                                  {selectedWebsite.description ||
-                                    "No description available"}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="space-y-3">
-                              <div>
-                                <p className="text-sm text-gray-500 mb-1">
-                                  Subdomain
-                                </p>
-                                <p className="font-normal">
-                                  {selectedWebsite.subdomain}.webdash.site
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500 mb-1">
-                                  Status
-                                </p>
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-green-100 text-green-800">
-                                  Active
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Analytics Tab Content */}
-                {activeTab === "analytics" && (
-                  <div className="space-y-6">
-                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                      <div className="p-4 border-b border-gray-100">
-                        <h3 className="font-normal">Website Analytics</h3>
-                      </div>
-                      <div className="p-6">
-                        <VisitorStatistics
-                          domainId={selectedWebsite.domainId}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Domain Tab Content */}
-                {activeTab === "domain" && (
-                  <div className="space-y-6">
-                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                      <div className="p-4 border-b border-gray-100">
-                        <h3 className="font-normal flex items-center">
-                          <Globe className="h-5 w-5 mr-2 text-gray-500" />
-                          Domain Settings
-                        </h3>
-                      </div>
-                      <div className="p-4">
-                        <div className="space-y-6">
-                          <div>
-                            <h3 className="text-lg font-normal mb-2">
-                              Current Domain
-                            </h3>
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border">
-                              <div>
-                                <p className="font-normal">
-                                  {selectedWebsite.subdomain}.webdash.site
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  Default subdomain
-                                </p>
-                              </div>
-                              <button className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded text-sm font-normal cursor-pointer">
-                                Edit Subdomain
-                              </button>
-                            </div>
-                          </div>
-
-                          <div>
-                            <h3 className="text-lg font-normal mb-2">
-                              Custom Domain
-                            </h3>
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-dashed">
-                              <div>
-                                <p className="font-normal">
-                                  No custom domain connected
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  Connect your own domain to this website
-                                </p>
-                              </div>
-                              <button className="bg-[#f58327] hover:bg-[#f58327]/90 text-white px-3 py-1.5 rounded text-sm font-normal cursor-pointer">
-                                Connect Domain
-                              </button>
-                            </div>
-                          </div>
-
-                          <div>
-                            <h3 className="text-lg font-normal mb-4">
-                              DNS Records
-                            </h3>
-                            <div className="border rounded-md overflow-hidden overflow-x-auto">
-                              <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                  <tr>
-                                    <th
-                                      scope="col"
-                                      className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
-                                    >
-                                      Type
-                                    </th>
-                                    <th
-                                      scope="col"
-                                      className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
-                                    >
-                                      Name
-                                    </th>
-                                    <th
-                                      scope="col"
-                                      className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
-                                    >
-                                      Value
-                                    </th>
-                                    <th
-                                      scope="col"
-                                      className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
-                                    >
-                                      TTL
-                                    </th>
-                                    {mockDnsRecords.some(
-                                      (record) => record.priority
-                                    ) && (
-                                      <th
-                                        scope="col"
-                                        className="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider"
-                                      >
-                                        Priority
-                                      </th>
-                                    )}
-                                  </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                  {mockDnsRecords.map((record, index) => (
-                                    <tr key={index}>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-normal text-gray-900">
-                                        {record.type}
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {record.name}
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
-                                        {record.value}
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {record.ttl}
-                                      </td>
-                                      {mockDnsRecords.some(
-                                        (record) => record.priority
-                                      ) && (
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                          {record.priority || "-"}
-                                        </td>
-                                      )}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </main>
+            <WebsiteDetails
+              website={selectedWebsite}
+              onBack={handleBackToWebsites}
+              onOpenWPDashboard={() => handleOpenWPDashboard(selectedWebsite)}
+              onOpenElementorEditor={() => router.push("/editor")}
+              isLoading={isWpDashboardLoading}
+              activeTab={activeTab}
+              onActiveTabChange={setActiveTab}
+            />
           )}
         </div>
 
@@ -2248,60 +1611,11 @@ export default function DashboardPage() {
           </button>
         )}
 
-        {process.env.NODE_ENV === "development" && (
-          <div className="fixed bottom-20 right-4 bg-yellow-500 text-black p-4 rounded-lg z-50">
-            <h4 className="font-bold mb-2">🔧 Fix Website Limit</h4>
-            <p className="text-sm mb-2">
-              Your limit should be{" "}
-              {currentPlan === "agency"
-                ? "4"
-                : currentPlan === "enterprise"
-                ? "6"
-                : "2"}
-              but is {websiteLimit}
-            </p>
-            <button
-              onClick={async () => {
-                try {
-                  const response = await fetch("/api/fix-website-limit", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      userId: user?.uid,
-                    }),
-                  });
-
-                  const result = await response.json();
-
-                  if (result.success) {
-                    toast({
-                      title: "Website limit fixed!",
-                      description: `Your limit has been updated from ${result.oldLimit} to ${result.newLimit}`,
-                    });
-
-                    // Reload the page to see the changes
-                    setTimeout(() => {
-                      window.location.reload();
-                    }, 1500);
-                  } else {
-                    throw new Error(result.error);
-                  }
-                } catch (error: any) {
-                  toast({
-                    title: "Error fixing limit",
-                    description: error.message || "Failed to fix website limit",
-                    variant: "destructive",
-                  });
-                }
-              }}
-              className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 cursor-pointer"
-            >
-              Fix My Website Limit
-            </button>
-          </div>
-        )}
+        {/* Settings Modal */}
+        <SettingsModal
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+        />
       </div>
     </div>
   );
